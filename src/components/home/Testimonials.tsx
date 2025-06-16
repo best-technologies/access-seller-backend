@@ -8,7 +8,7 @@ const testimonials = [
   {
     name: "Sarah Johnson",
     role: "Book Enthusiast",
-    avatar: "/avatar1.jpg",
+    avatar: "",
     rating: 5,
     text: "I've discovered so many amazing books through this platform. The referral program is fantastic - I've earned enough to fund my entire reading habit!",
     location: "New York, USA"
@@ -16,7 +16,7 @@ const testimonials = [
   {
     name: "Michael Chen",
     role: "Content Creator",
-    avatar: "/avatar2.jpg",
+    avatar: "",
     rating: 5,
     text: "As a book reviewer, I love recommending books to my audience. The referral system makes it even better - I can earn while sharing my passion.",
     location: "London, UK"
@@ -24,7 +24,7 @@ const testimonials = [
   {
     name: "Emma Rodriguez",
     role: "Student",
-    avatar: "/avatar3.jpg",
+    avatar: "",
     rating: 4.5,
     text: "Perfect for students! I've found all my textbooks here and earned back some of my expenses through referrals. The selection is incredible.",
     location: "Toronto, Canada"
