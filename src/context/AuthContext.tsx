@@ -2,7 +2,7 @@
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { api, tokenManager } from '@/services/api';
-import type { User, LoginResponse, RegisterResponse, ProfileResponse } from '@/services/api';
+import type { User } from '@/services/api';
 
 interface RegistrationData {
   email: string;
