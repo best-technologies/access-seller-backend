@@ -8,26 +8,34 @@ const testimonials = [
   {
     name: "Sarah Johnson",
     role: "Book Enthusiast",
-    avatar: "",
+    avatar: "/images/book-images/TBm-300x300.png",
     rating: 5,
     text: "I've discovered so many amazing books through this platform. The referral program is fantastic - I've earned enough to fund my entire reading habit!",
     location: "New York, USA"
   },
   {
     name: "Michael Chen",
-    role: "Content Creator",
-    avatar: "",
+    role: "Avid Reader",
+    avatar: "/images/book-images/profit-first.png",
     rating: 5,
-    text: "As a book reviewer, I love recommending books to my audience. The referral system makes it even better - I can earn while sharing my passion.",
+    text: "The selection of books is incredible, and the referral rewards make it even better. I've recommended this to all my book-loving friends!",
+    location: "San Francisco, USA"
+  },
+  {
+    name: "Emma Thompson",
+    role: "Book Club Organizer",
+    avatar: "/images/book-images/Launch-Jeff-Walker-2.png",
+    rating: 4,
+    text: "As someone who runs a book club, this platform has been a game-changer. The referral system helps us discover new titles and earn rewards together.",
     location: "London, UK"
   },
   {
-    name: "Emma Rodriguez",
-    role: "Student",
-    avatar: "",
-    rating: 4.5,
-    text: "Perfect for students! I've found all my textbooks here and earned back some of my expenses through referrals. The selection is incredible.",
-    location: "Toronto, Canada"
+    name: "David Rodriguez",
+    role: "Literature Student",
+    avatar: "/images/book-images/ecommerce-book-cover.png",
+    rating: 5,
+    text: "The quality of books and the referral program are outstanding. I've been able to expand my personal library while earning rewards.",
+    location: "Madrid, Spain"
   }
 ];
 

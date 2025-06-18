@@ -15,18 +15,30 @@ import {
   Settings,
   LogOut,
   Search,
-  Heart
+  Heart,
+  UserPlus
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import { useAuth } from "@/context/AuthContext";
 
 export default function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const { isAuthenticated, user, logout } = useAuth();
 
   const handleBackdropClick = (e: React.MouseEvent) => {
     if (e.target === e.currentTarget) {
       setIsMenuOpen(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      setIsUserMenuOpen(false);
+    } catch (error) {
+      console.error('Logout failed:', error);
     }
   };
 
@@ -105,36 +117,56 @@ export default function Navbar() {
                     <div className="w-8 h-8 bg-gradient-to-r from-indigo-500 to-blue-500 rounded-full flex items-center justify-center">
                       <User className="w-4 h-4 text-white" />
                     </div>
-                    <span className="text-sm font-medium">Account</span>
+                    <span className="text-sm font-medium">{user?.first_name || 'Account'}</span>
                     <ChevronDown className="w-4 h-4" />
                   </button>
                   {isUserMenuOpen && (
                     <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-100 py-2">
-                      <div className="px-4 py-2 border-b border-gray-100">
-                        <p className="font-medium text-gray-900">John Doe</p>
-                        <p className="text-sm text-gray-500">john@example.com</p>
-                      </div>
-                      <Link href="/profile" className="flex items-center space-x-3 px-4 py-2 text-gray-700 hover:bg-gray-50">
-                        <User className="w-4 h-4" />
-                        <span className="text-sm">Profile</span>
-                      </Link>
-                      <Link href="/admin/dashboard" className="flex items-center space-x-3 px-4 py-2 text-gray-700 hover:bg-gray-50">
-                        <User className="w-4 h-4" />
-                        <span className="text-sm">Admin Panel</span>
-                      </Link>
-                      <Link href="/orders" className="flex items-center space-x-3 px-4 py-2 text-gray-700 hover:bg-gray-50">
-                        <Package className="w-4 h-4" />
-                        <span className="text-sm">Orders</span>
-                      </Link>
-                      <Link href="/settings" className="flex items-center space-x-3 px-4 py-2 text-gray-700 hover:bg-gray-50">
-                        <Settings className="w-4 h-4" />
-                        <span className="text-sm">Settings</span>
-                      </Link>
-                      <div className="border-t border-gray-100 my-2"></div>
-                      <button className="w-full flex items-center space-x-3 px-4 py-2 text-red-600 hover:bg-gray-50">
-                        <LogOut className="w-4 h-4" />
-                        <span className="text-sm">Sign Out</span>
-                      </button>
+                      {isAuthenticated ? (
+                        <>
+                          <div className="px-4 py-2 border-b border-gray-100">
+                            <p className="font-medium text-gray-900">{user?.first_name}</p>
+                            <p className="text-sm text-gray-500">{user?.email}</p>
+                          </div>
+                          <Link href="/profile" className="flex items-center space-x-3 px-4 py-2 text-gray-700 hover:bg-gray-50">
+                            <User className="w-4 h-4" />
+                            <span className="text-sm">Profile</span>
+                          </Link>
+                          {(user?.role === 'admin' || user?.role === 'super_admin') && (
+                            <Link href="/admin/dashboard" className="flex items-center space-x-3 px-4 py-2 text-gray-700 hover:bg-gray-50">
+                              <User className="w-4 h-4" />
+                              <span className="text-sm">Admin Panel</span>
+                            </Link>
+                          )}
+                          <Link href="/orders" className="flex items-center space-x-3 px-4 py-2 text-gray-700 hover:bg-gray-50">
+                            <Package className="w-4 h-4" />
+                            <span className="text-sm">Orders</span>
+                          </Link>
+                          <Link href="/settings" className="flex items-center space-x-3 px-4 py-2 text-gray-700 hover:bg-gray-50">
+                            <Settings className="w-4 h-4" />
+                            <span className="text-sm">Settings</span>
+                          </Link>
+                          <div className="border-t border-gray-100 my-2"></div>
+                          <button 
+                            onClick={handleLogout}
+                            className="w-full flex items-center space-x-3 px-4 py-2 text-red-600 hover:bg-gray-50"
+                          >
+                            <LogOut className="w-4 h-4" />
+                            <span className="text-sm">Sign Out</span>
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <Link href="/auth/login" className="flex items-center space-x-3 px-4 py-2 text-gray-700 hover:bg-gray-50">
+                            <LogIn className="w-4 h-4" />
+                            <span className="text-sm">Sign In</span>
+                          </Link>
+                          <Link href="/auth/register" className="flex items-center space-x-3 px-4 py-2 text-gray-700 hover:bg-gray-50">
+                            <UserPlus className="w-4 h-4" />
+                            <span className="text-sm">Register</span>
+                          </Link>
+                        </>
+                      )}
                     </div>
                   )}
                 </div>
@@ -198,39 +230,60 @@ export default function Navbar() {
                     <Tag className="w-5 h-5 text-indigo-600" />
                     <span className="text-sm font-medium">Deals</span>
                   </Link>
-                  <div className="border-t border-gray-200 my-2"></div>
-                  <Link href="/profile" className="flex items-center space-x-3 px-3 py-2 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors">
-                    <User className="w-5 h-5 text-indigo-600" />
-                    <span className="text-sm font-medium">Profile</span>
-                  </Link>
-                  <Link href="/admin/dashboard" className="flex items-center space-x-3 px-3 py-2 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors">
-                    <User className="w-5 h-5 text-indigo-600" />
-                    <span className="text-sm font-medium">Admin Panel</span>
-                  </Link>
-                  <Link href="/orders" className="flex items-center space-x-3 px-3 py-2 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors">
-                    <Package className="w-5 h-5 text-indigo-600" />
-                    <span className="text-sm font-medium">Orders</span>
-                  </Link>
-                  <Link href="/settings" className="flex items-center space-x-3 px-3 py-2 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors">
-                    <Settings className="w-5 h-5 text-indigo-600" />
-                    <span className="text-sm font-medium">Settings</span>
-                  </Link>
                   
+                  {/* User-specific menu items - only show when authenticated */}
+                  {isAuthenticated && (
+                    <>
+                      <div className="border-t border-gray-200 my-2"></div>
+                      <Link href="/profile" className="flex items-center space-x-3 px-3 py-2 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors">
+                        <User className="w-5 h-5 text-indigo-600" />
+                        <span className="text-sm font-medium">Profile</span>
+                      </Link>
+                      {(user?.role === 'admin' || user?.role === 'super_admin') && (
+                        <Link href="/admin/dashboard" className="flex items-center space-x-3 px-3 py-2 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors">
+                          <User className="w-5 h-5 text-indigo-600" />
+                          <span className="text-sm font-medium">Admin Panel</span>
+                        </Link>
+                      )}
+                      <Link href="/orders" className="flex items-center space-x-3 px-3 py-2 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors">
+                        <Package className="w-5 h-5 text-indigo-600" />
+                        <span className="text-sm font-medium">Orders</span>
+                      </Link>
+                      <Link href="/settings" className="flex items-center space-x-3 px-3 py-2 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors">
+                        <Settings className="w-5 h-5 text-indigo-600" />
+                        <span className="text-sm font-medium">Settings</span>
+                      </Link>
+                    </>
+                  )}
                 </nav>
               </div>
 
               {/* Footer */}
               <div className="p-4 border-t border-gray-100 space-y-2">
-                <Link href="/login">
-                  <Button className="w-full bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg py-2 flex items-center justify-center space-x-2">
-                    <LogIn className="w-4 h-4" />
-                    <span className="text-sm font-medium">Sign In</span>
-                  </Button>
-                </Link>
-                <button className="w-full flex items-center space-x-2 px-3 py-2 text-red-600 hover:bg-gray-50 rounded-lg transition-colors">
-                  <LogOut className="w-5 h-5" />
-                  <span className="text-sm font-medium">Sign Out</span>
-                </button>
+                {!isAuthenticated ? (
+                  <>
+                    <Link href="/auth/login">
+                      <Button className="w-full bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg py-2 flex items-center justify-center space-x-2">
+                        <LogIn className="w-4 h-4" />
+                        <span className="text-sm font-medium">Sign In</span>
+                      </Button>
+                    </Link>
+                    <Link href="/auth/register">
+                      <Button variant="outline" className="w-full rounded-lg py-2 flex items-center justify-center space-x-2">
+                        <UserPlus className="w-4 h-4" />
+                        <span className="text-sm font-medium">Register</span>
+                      </Button>
+                    </Link>
+                  </>
+                ) : (
+                  <button 
+                    onClick={handleLogout}
+                    className="w-full flex items-center space-x-2 px-3 py-2 text-red-600 hover:bg-gray-50 rounded-lg transition-colors"
+                  >
+                    <LogOut className="w-5 h-5" />
+                    <span className="text-sm font-medium">Sign Out</span>
+                  </button>
+                )}
               </div>
             </div>
           </div>

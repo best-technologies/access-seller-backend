@@ -1,4 +1,4 @@
-import { apiFetch } from "./auth.api";
+import { apiFetch } from "./api";
 
 export interface DashboardResponse {
   success: boolean;

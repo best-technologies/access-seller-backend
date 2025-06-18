@@ -1,14 +1,8 @@
-import { createContext, useContext, useEffect, useState } from 'react';
+// authContext.tsx - Pure state management and UI logic
+import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import Cookies from 'js-cookie';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:1000/api/v1';
-
-interface User {
-  id: string;
-  email: string;
-  name: string;
-}
+import { api, tokenManager } from '@/services/api';
+import type { User, LoginResponse, RegisterResponse, ProfileResponse } from '@/services/api';
 
 interface RegistrationData {
   email: string;
@@ -16,10 +10,10 @@ interface RegistrationData {
   firstName: string;
   lastName: string;
   middleName?: string;
-  phone_number?: string;
+  phone?: string;
   gender?: string;
   country?: string;
-  referral?: string;
+  referralCode?: string;
   updatesOptIn?: boolean;
   agreeToTerms: boolean;
 }
@@ -27,13 +21,24 @@ interface RegistrationData {
 interface AuthContextType {
   isAuthenticated: boolean;
   user: User | null;
+  isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (data: RegistrationData) => Promise<void>;
   logout: () => Promise<void>;
   checkAuth: () => Promise<boolean>;
+  refreshAuth: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
+
+// List of protected routes that require authentication
+const PROTECTED_ROUTES = [
+  '/profile',
+  '/orders',
+  '/settings',
+  '/admin',
+  '/dashboard'
+];
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -42,105 +47,134 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
 
-  // Check for existing token on startup
-  useEffect(() => {
-    const checkToken = async () => {
-      try {
-        const token = Cookies.get('access_token');
-        if (token) {
-          setIsAuthenticated(true);
-          // Optionally fetch user data here
-        }
-      } catch (error) {
-        console.error('Error checking token:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    checkToken();
+  // Handle auth state changes and redirects
+  const handleAuthStateChange = useCallback((authenticated: boolean, userData: User | null = null) => {
+    setIsAuthenticated(authenticated);
+    setUser(userData);
+    
+    if (!authenticated) {
+      tokenManager.remove();
+    }
   }, []);
+
+  // Handle API errors (including 401 unauthorized)
+  const handleApiError = useCallback((error: Error) => {
+    if (error.message === 'UNAUTHORIZED') {
+      handleAuthStateChange(false);
+      router.replace('/auth/login');
+    }
+  }, [handleAuthStateChange, router]);
+
+  // Check for existing token and validate it
+  const checkAuth = useCallback(async (): Promise<boolean> => {
+    try {
+      console.log('Checking authentication...');
+      const token = tokenManager.get();
+      console.log('Token found:', !!token);
+      
+      if (!token) {
+        console.log('No token found, setting auth state to false');
+        handleAuthStateChange(false);
+        return false;
+      }
+
+      console.log('Token found, validating with server...');
+      // Validate token by fetching user profile
+      const profile = await api.user.getProfile();
+      console.log('Profile validation result:', profile);
+      console.log('Profile success:', profile.success);
+      console.log('Profile data:', profile.data);
+      
+      if (profile.success && profile.data) {
+        console.log('Profile validation successful, setting auth state to true');
+        handleAuthStateChange(true, profile.data);
+        return true;
+      } else {
+        console.log('Profile validation failed, setting auth state to false');
+        console.log('Success check:', profile.success);
+        console.log('Data check:', !!profile.data);
+        handleAuthStateChange(false);
+        return false;
+      }
+    } catch (error) {
+      console.error('Error checking authentication:', error);
+      handleApiError(error as Error);
+      return false;
+    }
+  }, [handleAuthStateChange, handleApiError]);
+
+  // Refresh auth state (useful for token refresh scenarios)
+  const refreshAuth = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      await checkAuth();
+    } finally {
+      setIsLoading(false);
+    }
+  }, [checkAuth]);
+
+  // Initial auth check on mount
+  useEffect(() => {
+    const initAuth = async () => {
+      await checkAuth();
+      setIsLoading(false);
+    };
+    initAuth();
+  }, [checkAuth]);
 
   // Handle navigation based on auth state
   useEffect(() => {
     if (isLoading) return;
 
-    const handleRouting = async () => {
-      const isAuthPage = pathname?.startsWith('/auth');
-      const isOnboarding = pathname?.startsWith('/onboarding');
+    const isAuthPage = pathname?.startsWith('/auth');
+    const isProtectedRoute = PROTECTED_ROUTES.some(route => pathname?.startsWith(route));
 
-      if (!isAuthenticated && !isAuthPage && !isOnboarding) {
-        router.replace('/auth/login');
-      } else if (isAuthenticated && isAuthPage) {
-        router.replace('/dashboard');
-      }
-    };
-
-    handleRouting();
-  }, [isAuthenticated, pathname, isLoading, router]);
-
-  const checkAuth = async () => {
-    try {
-      const token = Cookies.get('access_token');
-      const isAuth = !!token;
-      setIsAuthenticated(isAuth);
-      return isAuth;
-    } catch (error) {
-      console.error('Error checking authentication:', error);
-      setIsAuthenticated(false);
-      return false;
+    // Redirect unauthenticated users from protected routes
+    if (!isAuthenticated && isProtectedRoute) {
+      router.replace('/auth/login');
+    } 
+    // Redirect authenticated users away from auth pages
+    else if (isAuthenticated && isAuthPage) {
+      router.replace('/');
     }
-  };
+  }, [isAuthenticated, pathname, isLoading, router]);
 
   const login = async (email: string, password: string) => {
     try {
-      const res = await fetch(`${API_URL}/auth/signin`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok || !data.success) {
-        throw new Error(data.message || 'Login failed');
+      const response = await api.auth.login(email, password);
+      
+      if (!response.success) {
+        throw new Error(response.message || 'Login failed');
       }
 
-      // Set cookie with token
-      Cookies.set('access_token', data.data.access_token, { 
-        expires: 7, // 7 days
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict'
-      });
+      // Store token
+      tokenManager.set(response.data.access_token);
 
-      setUser(data.data.user);
-      setIsAuthenticated(true);
-      router.replace('/dashboard');
+      // Fetch user details after successful login
+      const userProfile = await api.user.getProfile();
+
+      console.log("User profile: ", userProfile)
+      
+      if (!userProfile.success) {
+        throw new Error(userProfile.message || 'Failed to fetch user details');
+      }
+
+      // Update auth state with user details
+      handleAuthStateChange(true, userProfile.data);
+      router.replace('/');
     } catch (error) {
       console.error('Login error:', error);
+      handleApiError(error as Error);
       throw error;
     }
   };
 
   const register = async (data: RegistrationData) => {
     try {
-      const res = await fetch(`${API_URL}/auth/signup`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          ...data,
-          agreeToTerms: data.agreeToTerms || false
-        }),
-      });
-
-      const responseData = await res.json();
-
-      if (!res.ok || !responseData.success) {
-        throw new Error(responseData.message || 'Registration failed');
+      const response = await api.auth.register(data);
+      
+      if (!response.success) {
+        throw new Error(response.message || 'Registration failed');
       }
 
       router.replace(`/auth/otp-verification?email=${encodeURIComponent(data.email)}`);
@@ -152,25 +186,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     try {
-      await fetch(`${API_URL}/auth/logout`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${Cookies.get('access_token')}`,
-        },
-      });
+      await api.auth.logout();
     } catch (error) {
       console.error('Logout API error:', error);
     } finally {
-      // Clear auth state regardless of API success
-      Cookies.remove('access_token');
-      setUser(null);
-      setIsAuthenticated(false);
-      router.replace('/auth/login');
+      handleAuthStateChange(false);
+      router.replace('/');
     }
   };
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, user, login, register, logout, checkAuth }}>
+    <AuthContext.Provider value={{ 
+      isAuthenticated, 
+      user, 
+      isLoading,
+      login, 
+      register, 
+      logout, 
+      checkAuth,
+      refreshAuth 
+    }}>
       {children}
     </AuthContext.Provider>
   );

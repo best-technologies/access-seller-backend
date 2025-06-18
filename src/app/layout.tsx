@@ -1,6 +1,7 @@
 'use client';
 
 import Footer from "@/components/home/Footer";
+import { AuthProvider } from "@/context/AuthContext";
 import "./globals.css";
 
 export default function RootLayout({
@@ -11,13 +12,15 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className="min-h-screen bg-white">
-        {/* Main Content */}
-        <main>
-          {children}
-        </main>
+        <AuthProvider>
+          {/* Main Content */}
+          <main>
+            {children}
+          </main>
 
-        {/* Footer */}
-        <Footer />
+          {/* Footer */}
+          <Footer />
+        </AuthProvider>
       </body>
     </html>
   );

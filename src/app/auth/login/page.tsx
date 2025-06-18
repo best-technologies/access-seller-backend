@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { signIn } from "next-auth/react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,7 +17,9 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Card, CardContent } from "@/components/ui/card";
-import { BookOpen, Lock, Mail } from "lucide-react";
+import { BookOpen, Lock, Mail, Eye, EyeOff } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
+import { ButtonLoader } from "@/components/ui/loader";
 
 const formSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
@@ -27,14 +28,16 @@ const formSchema = z.object({
 
 export default function LoginPage() {
   const router = useRouter();
+  const { login } = useAuth();
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      email: "",
-      password: "",
+      email: "bernardmayowaa@gmail.com",
+      password: "acc/sm/4787",
     },
   });
 
@@ -43,19 +46,17 @@ export default function LoginPage() {
       setIsLoading(true);
       setError(null);
       
-      const result = await signIn("credentials", {
-        email: values.email,
-        password: values.password,
-        redirect: false,
-      });
+      // Log the request data (for debugging)
+      console.log('Login attempt for:', values.email);
 
-      if (result?.error) {
-        setError("Invalid email or password");
-        return;
-      }
-
-      router.push("/dashboard");
+      // Single API call through auth context
+      // The context handles: API call, token storage, state management, and routing
+      await login(values.email, values.password);
+      
+      // No need for manual router.push - auth context handles this
+      
     } catch (error) {
+      console.error('Login Error:', error);
       setError(error instanceof Error ? error.message : "Something went wrong. Please try again.");
     } finally {
       setIsLoading(false);
@@ -114,11 +115,22 @@ export default function LoginPage() {
                           <div className="relative">
                             <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                             <Input
-                              type="password"
+                              type={showPassword ? "text" : "password"}
                               placeholder="Enter your password"
                               className="pl-10 bg-gray-50 border-gray-200 focus:border-indigo-500 focus:ring-indigo-500"
                               {...field}
                             />
+                            <button
+                              type="button"
+                              onClick={() => setShowPassword(!showPassword)}
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                            >
+                              {showPassword ? (
+                                <EyeOff className="h-4 w-4" />
+                              ) : (
+                                <Eye className="h-4 w-4" />
+                              )}
+                            </button>
                           </div>
                         </FormControl>
                         <FormMessage />
@@ -135,19 +147,12 @@ export default function LoginPage() {
                     className="w-full bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg py-2.5 text-sm font-medium transition-colors"
                     disabled={isLoading}
                   >
-                    {isLoading ? (
-                      <div className="flex items-center justify-center gap-2">
-                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                        Signing in...
-                      </div>
-                    ) : (
-                      "Sign in"
-                    )}
+                    {isLoading ? <ButtonLoader /> : "Sign in"}
                   </Button>
                   <div className="text-sm text-center space-y-3">
                     <div>
                       <Link
-                        href="/forgot-password"
+                        href="/auth/forgot-password"
                         className="text-indigo-600 hover:text-indigo-700 font-medium hover:underline"
                       >
                         Forgot your password?
@@ -156,7 +161,7 @@ export default function LoginPage() {
                     <div className="text-gray-600">
                       Don&apos;t have an account?{" "}
                       <Link
-                        href="/register"
+                        href="/auth/register"
                         className="text-indigo-600 hover:text-indigo-700 font-medium hover:underline"
                       >
                         Sign up
@@ -201,4 +206,4 @@ export default function LoginPage() {
       </div>
     </div>
   );
-} 
+}
