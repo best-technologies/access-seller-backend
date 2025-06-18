@@ -19,6 +19,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { BookOpen, Lock, Mail, Eye, EyeOff } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { ButtonLoader } from "@/components/ui/loader";
+import toast from "react-hot-toast";
 
 const formSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
@@ -49,13 +50,16 @@ export default function LoginPage() {
 
       // Single API call through auth context
       // The context handles: API call, token storage, state management, and routing
-      await login(values.email, values.password);
+      const successMessage = await login(values.email, values.password);
       
-      // No need for manual router.push - auth context handles this
+      // Show success message from backend
+      toast.success(successMessage);
       
     } catch (error) {
       console.error('Login Error:', error);
-      setError(error instanceof Error ? error.message : "Something went wrong. Please try again.");
+      const errorMessage = error instanceof Error ? error.message : "Something went wrong. Please try again.";
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }

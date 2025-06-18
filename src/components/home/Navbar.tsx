@@ -21,6 +21,7 @@ import {
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
+import toast from "react-hot-toast";
 
 export default function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -35,10 +36,12 @@ export default function Navbar() {
 
   const handleLogout = async () => {
     try {
-      await logout();
+      const successMessage = await logout();
       setIsUserMenuOpen(false);
+      toast.success(successMessage);
     } catch (error) {
       console.error('Logout failed:', error);
+      toast.error('Logout failed. Please try again.');
     }
   };
 

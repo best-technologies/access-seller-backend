@@ -22,9 +22,9 @@ interface AuthContextType {
   isAuthenticated: boolean;
   user: User | null;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<string>;
   register: (data: RegistrationData) => Promise<void>;
-  logout: () => Promise<void>;
+  logout: () => Promise<string>;
   checkAuth: () => Promise<boolean>;
   refreshAuth: () => Promise<void>;
 }
@@ -139,7 +139,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [isAuthenticated, pathname, isLoading, router]);
 
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string): Promise<string> => {
     try {
       const response = await api.auth.login(email, password);
       
@@ -162,6 +162,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Update auth state with user details
       handleAuthStateChange(true, userProfile.data);
       router.replace('/');
+
+      return response.message || 'Login successful';
     } catch (error) {
       console.error('Login error:', error);
       handleApiError(error as Error);
@@ -184,14 +186,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const logout = async () => {
+  const logout = async (): Promise<string> => {
     try {
       await api.auth.logout();
-    } catch (error) {
-      console.error('Logout API error:', error);
-    } finally {
       handleAuthStateChange(false);
       router.replace('/');
+      return 'Successfully signed out';
+    } catch (error) {
+      console.error('Logout API error:', error);
+      // Even if API call fails, we still want to logout locally
+      handleAuthStateChange(false);
+      router.replace('/');
+      return 'Successfully signed out';
     }
   };
 
