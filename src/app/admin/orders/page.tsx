@@ -34,12 +34,16 @@ interface Order {
   date: string;
   items: OrderItem[];
   total: number;
-  status: string;
+  amountPaid: number;
+  balance: number;
+  percentagePaid: number;
+  shipmentStatus: string;
   paymentStatus: string;
   paymentMethod: string;
   shippingAddress: string;
   trackingNumber?: string;
   estimatedDelivery?: string;
+  isRecurringCustomer: boolean;
 }
 
 // Mock data - replace with actual data from your backend
@@ -67,12 +71,16 @@ const orders: Order[] = [
       }
     ],
     total: 45000.00,
-    status: "Delivered",
-    paymentStatus: "Paid",
+    amountPaid: 45000.00,
+    balance: 0.00,
+    percentagePaid: 100,
+    shipmentStatus: "Delivered",
+    paymentStatus: "Cleared",
     paymentMethod: "Card",
     shippingAddress: "123 Main St, Lagos, Nigeria",
     trackingNumber: "TRK123456789",
-    estimatedDelivery: "2024-03-18"
+    estimatedDelivery: "2024-03-18",
+    isRecurringCustomer: true
   },
   {
     id: "ORD002",
@@ -97,10 +105,14 @@ const orders: Order[] = [
       }
     ],
     total: 25000.00,
-    status: "Processing",
-    paymentStatus: "Paid",
+    amountPaid: 15000.00,
+    balance: 10000.00,
+    percentagePaid: 60,
+    shipmentStatus: "Processing",
+    paymentStatus: "Partial",
     paymentMethod: "Transfer",
-    shippingAddress: "456 Park Ave, Abuja, Nigeria"
+    shippingAddress: "456 Park Ave, Abuja, Nigeria",
+    isRecurringCustomer: true
   },
   {
     id: "ORD003",
@@ -119,10 +131,14 @@ const orders: Order[] = [
       }
     ],
     total: 15000.00,
-    status: "Shipped",
+    amountPaid: 0.00,
+    balance: 15000.00,
+    percentagePaid: 0,
+    shipmentStatus: "Shipped",
     paymentStatus: "Pending",
     paymentMethod: "Card",
-    shippingAddress: "789 Oak St, Port Harcourt, Nigeria"
+    shippingAddress: "789 Oak St, Port Harcourt, Nigeria",
+    isRecurringCustomer: false
   },
   {
     id: "ORD004",
@@ -147,10 +163,14 @@ const orders: Order[] = [
       }
     ],
     total: 75000.00,
-    status: "Cancelled",
+    amountPaid: 75000.00,
+    balance: 0.00,
+    percentagePaid: 100,
+    shipmentStatus: "Cancelled",
     paymentStatus: "Refunded",
     paymentMethod: "Transfer",
-    shippingAddress: "321 Pine Rd, Benin, Nigeria"
+    shippingAddress: "321 Pine Rd, Benin, Nigeria",
+    isRecurringCustomer: false
   }
 ];
 
@@ -172,7 +192,7 @@ export default function OrdersPage() {
         order.customer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         order.customer.email.toLowerCase().includes(searchQuery.toLowerCase());
       
-      const matchesStatus = selectedStatus === "All" || order.status === selectedStatus;
+      const matchesStatus = selectedStatus === "All" || order.shipmentStatus === selectedStatus;
       const matchesPaymentStatus = !selectedPaymentStatus || order.paymentStatus === selectedPaymentStatus;
       
       const matchesDateRange = (!dateRange.start || order.date >= dateRange.start) &&
@@ -244,15 +264,23 @@ export default function OrdersPage() {
 
   const getPaymentStatusColor = (status: string) => {
     switch (status) {
-      case "Paid":
+      case "Cleared":
         return "bg-green-100 text-green-800";
-      case "Pending":
+      case "Partial":
         return "bg-yellow-100 text-yellow-800";
+      case "Pending":
+        return "bg-orange-100 text-orange-800";
       case "Refunded":
         return "bg-red-100 text-red-800";
       default:
         return "bg-gray-100 text-gray-800";
     }
+  };
+
+  const getPercentageColor = (percentage: number) => {
+    if (percentage === 100) return "text-green-600";
+    if (percentage >= 50) return "text-yellow-600";
+    return "text-red-600";
   };
 
   return (
@@ -284,7 +312,7 @@ export default function OrdersPage() {
             <div>
               <p className="text-sm text-gray-500">Processing</p>
               <p className="text-2xl font-semibold text-gray-900">
-                {orders.filter(o => o.status === "Processing").length}
+                {orders.filter(o => o.shipmentStatus === "Processing").length}
               </p>
             </div>
             <div className="p-3 bg-yellow-50 rounded-lg">
@@ -298,7 +326,7 @@ export default function OrdersPage() {
             <div>
               <p className="text-sm text-gray-500">Shipped</p>
               <p className="text-2xl font-semibold text-gray-900">
-                {orders.filter(o => o.status === "Shipped").length}
+                {orders.filter(o => o.shipmentStatus === "Shipped").length}
               </p>
             </div>
             <div className="p-3 bg-purple-50 rounded-lg">
@@ -312,7 +340,7 @@ export default function OrdersPage() {
             <div>
               <p className="text-sm text-gray-500">Delivered</p>
               <p className="text-2xl font-semibold text-gray-900">
-                {orders.filter(o => o.status === "Delivered").length}
+                {orders.filter(o => o.shipmentStatus === "Delivered").length}
               </p>
             </div>
             <div className="p-3 bg-green-50 rounded-lg">
@@ -367,8 +395,8 @@ export default function OrdersPage() {
                 className="w-full pl-4 pr-10 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors appearance-none bg-white"
               >
                 <option value="">All Payment Status</option>
-                <option value="Paid">Paid</option>
-                <option value="Pending">Pending</option>
+                <option value="Cleared">Cleared</option>
+                <option value="Partial">Partial</option>
                 <option value="Refunded">Refunded</option>
               </select>
               <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
@@ -543,10 +571,19 @@ export default function OrdersPage() {
                   </div>
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
+                  Amount Paid
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Payment
+                  Balance
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  % Paid
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Shipment Status
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Payment Status
                 </th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Actions
@@ -564,6 +601,9 @@ export default function OrdersPage() {
                       <div className="ml-4">
                         <div className="text-sm font-medium text-gray-900">{order.id}</div>
                         <div className="text-sm text-gray-500">{order.items.length} items</div>
+                        {order.isRecurringCustomer && (
+                          <div className="text-xs text-indigo-600 font-medium">Recurring Customer</div>
+                        )}
                       </div>
                     </div>
                   </td>
@@ -575,12 +615,25 @@ export default function OrdersPage() {
                     <div className="text-sm text-gray-900">{order.date}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">#{order.total}</div>
+                    <div className="text-sm font-medium text-gray-900">₦{order.total.toLocaleString()}</div>
                     <div className="text-xs text-gray-500">{order.paymentMethod}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(order.status)}`}>
-                      {order.status}
+                    <div className="text-sm font-medium text-gray-900">₦{order.amountPaid.toLocaleString()}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className={`text-sm font-medium ${order.balance > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                      ₦{order.balance.toLocaleString()}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className={`text-sm font-medium ${getPercentageColor(order.percentagePaid)}`}>
+                      {order.percentagePaid}%
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(order.shipmentStatus)}`}>
+                      {order.shipmentStatus}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">

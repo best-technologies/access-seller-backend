@@ -7,49 +7,64 @@ import {
   MoreVertical,
   Edit,
   Trash2,
-  Package,
+  BookOpen,
   Tag,
   DollarSign,
   ShoppingBag,
   ChevronDown,
-  X
+  X,
+  Upload,
+  FileText
 } from "lucide-react";
 import AddBookModal from "@/components/modals/AddBookModal";
+import AddBookOptionsModal from "@/components/modals/AddBookOptionsModal";
 import SuccessModal from "@/components/modals/SuccessModal";
 
 // Mock data - replace with actual data from your backend
-const products = [
+const books = [
   {
-    id: "PRD001",
-    name: "Premium Headphones",
-    category: "Electronics",
-    price: 25000.00,
+    id: "BOOK001",
+    name: "The Great Gatsby",
+    category: "Fiction & Literature",
+    price: 2500.00,
     stock: 45,
-    status: "In Stock"
+    status: "In Stock",
+    isbn: "978-0743273565",
+    publisher: "Scribner",
+    format: "Paperback"
   },
   {
-    id: "PRD002",
-    name: "Wireless Mouse",
-    category: "Electronics",
+    id: "BOOK002",
+    name: "Introduction to Computer Science",
+    category: "Academic & Textbooks",
     price: 5000.00,
     stock: 120,
-    status: "In Stock"
+    status: "In Stock",
+    isbn: "978-0134685991",
+    publisher: "Pearson",
+    format: "Hardcover"
   },
   {
-    id: "PRD003",
-    name: "Mechanical Keyboard",
-    category: "Electronics",
-    price: 15000.00,
+    id: "BOOK003",
+    name: "Atomic Habits",
+    category: "Self-Help & Personal Development",
+    price: 3500.00,
     stock: 0,
-    status: "Out of Stock"
+    status: "Out of Stock",
+    isbn: "978-0735211292",
+    publisher: "Avery",
+    format: "Paperback"
   },
   {
-    id: "PRD004",
-    name: "Gaming Monitor",
-    category: "Electronics",
-    price: 75000.00,
+    id: "BOOK004",
+    name: "Rich Dad Poor Dad",
+    category: "Business & Economics",
+    price: 2800.00,
     stock: 15,
-    status: "Low Stock"
+    status: "Low Stock",
+    isbn: "978-1612680194",
+    publisher: "Plata Publishing",
+    format: "Paperback"
   }
 ];
 
@@ -71,14 +86,17 @@ interface Book {
 
 export default function ProductsPage() {
   const [searchQuery, setSearchQuery] = useState("");
+  const [isAddBookOptionsModalOpen, setIsAddBookOptionsModalOpen] = useState(false);
   const [isAddBookModalOpen, setIsAddBookModalOpen] = useState(false);
   const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [addedBooks, setAddedBooks] = useState<Book[]>([]);
 
-  const filteredProducts = products.filter(product =>
-    product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    product.category.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredBooks = books.filter(book =>
+    book.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    book.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    book.isbn.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    book.publisher.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const handleAddBook = (book: Book) => {
@@ -99,23 +117,32 @@ export default function ProductsPage() {
     setIsSuccessModalOpen(false);
   };
 
+  const handleFileUpload = async (file: File) => {
+    setIsLoading(true);
+    // Simulate file processing
+    await new Promise(resolve => setTimeout(resolve, 3000));
+    setIsLoading(false);
+    setIsAddBookOptionsModalOpen(false);
+    setIsSuccessModalOpen(true);
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Products</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Books</h1>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500">Total Products</p>
-              <p className="text-2xl font-semibold text-gray-900">{products.length}</p>
+              <p className="text-sm text-gray-500">Total Books</p>
+              <p className="text-2xl font-semibold text-gray-900">{books.length}</p>
             </div>
             <div className="p-3 bg-blue-50 rounded-lg">
-              <Package className="h-6 w-6 text-blue-600" />
+              <BookOpen className="h-6 w-6 text-blue-600" />
             </div>
           </div>
         </div>
@@ -135,8 +162,20 @@ export default function ProductsPage() {
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <div className="flex items-center justify-between">
             <div>
+              <p className="text-sm text-gray-500">In Stock</p>
+              <p className="text-2xl font-semibold text-gray-900">{books.filter(book => book.status === "In Stock").length}</p>
+            </div>
+            <div className="p-3 bg-green-50 rounded-lg">
+              <ShoppingBag className="h-6 w-6 text-green-600" />
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <div className="flex items-center justify-between">
+            <div>
               <p className="text-sm text-gray-500">Total Value</p>
-              <p className="text-2xl font-semibold text-gray-900">#120,000</p>
+              <p className="text-2xl font-semibold text-gray-900">₦{(books.reduce((sum, book) => sum + (book.price * book.stock), 0) / 1000).toFixed(0)}K</p>
             </div>
             <div className="p-3 bg-green-50 rounded-lg">
               <DollarSign className="h-6 w-6 text-green-600" />
@@ -151,11 +190,11 @@ export default function ProductsPage() {
           {/* Header */}
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-lg font-semibold text-gray-900">Products</h2>
-              <p className="text-sm text-gray-500">Search and filter your product catalog</p>
+              <h2 className="text-lg font-semibold text-gray-900">Books</h2>
+              <p className="text-sm text-gray-500">Search and filter your book catalog</p>
             </div>
             <button
-              onClick={() => setIsAddBookModalOpen(true)}
+              onClick={() => setIsAddBookOptionsModalOpen(true)}
               className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
             >
               <Plus className="h-5 w-5" />
@@ -185,14 +224,11 @@ export default function ProductsPage() {
                 className="w-full pl-4 pr-10 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors appearance-none bg-white"
               >
                 <option value="">All Categories</option>
-                <option value="fiction">Fiction</option>
-                <option value="non-fiction">Non-Fiction</option>
-                <option value="science-fiction">Science Fiction</option>
-                <option value="romance">Romance</option>
-                <option value="mystery">Mystery & Thriller</option>
-                <option value="biography">Biography</option>
-                <option value="history">History</option>
-                <option value="self-help">Self-Help</option>
+                <option value="fiction">Fiction & Literature</option>
+                <option value="academic">Academic & Textbooks</option>
+                <option value="self-help">Self-Help & Personal Development</option>
+                <option value="business">Business & Economics</option>
+                <option value="children">Children & Young Adult</option>
               </select>
               <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
                 <ChevronDown className="h-5 w-5 text-gray-400" />
@@ -220,7 +256,7 @@ export default function ProductsPage() {
             <span className="text-sm text-gray-500">Active filters:</span>
             <div className="flex items-center gap-2">
               <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm bg-indigo-50 text-indigo-700">
-                Fiction
+                Fiction & Literature
                 <button className="ml-1 hover:text-indigo-900">
                   <X className="h-4 w-4" />
                 </button>
@@ -236,17 +272,20 @@ export default function ProductsPage() {
         </div>
       </div>
 
-      {/* Products Table */}
+      {/* Books Table */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200">
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Product
+                  Book
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Category
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  ISBN
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Price
@@ -263,37 +302,40 @@ export default function ProductsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {filteredProducts.map((product) => (
-                <tr key={product.id} className="hover:bg-gray-50">
+              {filteredBooks.map((book) => (
+                <tr key={book.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
                       <div className="h-10 w-10 flex-shrink-0 bg-gray-100 rounded-lg flex items-center justify-center">
-                        <ShoppingBag className="h-6 w-6 text-gray-400" />
+                        <BookOpen className="h-6 w-6 text-gray-400" />
                       </div>
                       <div className="ml-4">
-                        <div className="text-sm font-medium text-gray-900">{product.name}</div>
-                        <div className="text-sm text-gray-500">{product.id}</div>
+                        <div className="text-sm font-medium text-gray-900">{book.name}</div>
+                        <div className="text-sm text-gray-500">{book.publisher} • {book.format}</div>
                       </div>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{product.category}</div>
+                    <div className="text-sm text-gray-900">{book.category}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">#{product.price}</div>
+                    <div className="text-sm text-gray-900">{book.isbn}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{product.stock}</div>
+                    <div className="text-sm text-gray-900">₦{book.price.toLocaleString()}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-900">{book.stock}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                      product.status === 'In Stock'
+                      book.status === 'In Stock'
                         ? 'bg-green-100 text-green-800'
-                        : product.status === 'Low Stock'
+                        : book.status === 'Low Stock'
                         ? 'bg-yellow-100 text-yellow-800'
                         : 'bg-red-100 text-red-800'
                     }`}>
-                      {product.status}
+                      {book.status}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
@@ -317,6 +359,17 @@ export default function ProductsPage() {
       </div>
 
       {/* Modals */}
+      <AddBookOptionsModal
+        isOpen={isAddBookOptionsModalOpen}
+        onClose={() => setIsAddBookOptionsModalOpen(false)}
+        onManualEntry={() => {
+          setIsAddBookOptionsModalOpen(false);
+          setIsAddBookModalOpen(true);
+        }}
+        onFileUpload={handleFileUpload}
+        isLoading={isLoading}
+      />
+
       <AddBookModal
         isOpen={isAddBookModalOpen}
         onClose={() => setIsAddBookModalOpen(false)}

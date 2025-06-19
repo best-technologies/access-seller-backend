@@ -27,7 +27,10 @@ interface Customer {
   address: string;
   joinDate: string;
   totalOrders: number;
-  totalSpent: number;
+  totalValue: number;
+  totalOwed: number;
+  level: "Bronze" | "Silver" | "Gold" | "Platinum" | "VIP";
+  paymentPercentage: number;
   lastOrderDate?: string;
   status: "Active" | "Inactive";
 }
@@ -42,7 +45,10 @@ const customers: Customer[] = [
     address: "123 Main St, Lagos, Nigeria",
     joinDate: "2024-01-15",
     totalOrders: 5,
-    totalSpent: 150000.00,
+    totalValue: 150000.00,
+    totalOwed: 25000.00,
+    level: "Gold",
+    paymentPercentage: 75,
     lastOrderDate: "2024-03-15",
     status: "Active"
   },
@@ -54,7 +60,10 @@ const customers: Customer[] = [
     address: "456 Park Ave, Abuja, Nigeria",
     joinDate: "2024-02-01",
     totalOrders: 3,
-    totalSpent: 75000.00,
+    totalValue: 75000.00,
+    totalOwed: 0.00,
+    level: "Silver",
+    paymentPercentage: 50,
     lastOrderDate: "2024-03-10",
     status: "Active"
   },
@@ -66,7 +75,10 @@ const customers: Customer[] = [
     address: "789 Oak St, Port Harcourt, Nigeria",
     joinDate: "2023-12-20",
     totalOrders: 8,
-    totalSpent: 225000.00,
+    totalValue: 225000.00,
+    totalOwed: 45000.00,
+    level: "Platinum",
+    paymentPercentage: 100,
     lastOrderDate: "2024-03-05",
     status: "Active"
   },
@@ -78,9 +90,27 @@ const customers: Customer[] = [
     address: "321 Pine Rd, Benin, Nigeria",
     joinDate: "2023-11-15",
     totalOrders: 2,
-    totalSpent: 45000.00,
+    totalValue: 45000.00,
+    totalOwed: 15000.00,
+    level: "Bronze",
+    paymentPercentage: 25,
     lastOrderDate: "2024-02-20",
     status: "Inactive"
+  },
+  {
+    id: "CUST005",
+    name: "David Brown",
+    email: "david@example.com",
+    phone: "+234 333 444 5555",
+    address: "654 Elm St, Kano, Nigeria",
+    joinDate: "2022-08-10",
+    totalOrders: 15,
+    totalValue: 500000.00,
+    totalOwed: 0.00,
+    level: "VIP",
+    paymentPercentage: 100,
+    lastOrderDate: "2024-03-18",
+    status: "Active"
   }
 ];
 
@@ -106,8 +136,8 @@ export default function CustomersPage() {
       const matchesDateRange = (!dateRange.start || customer.joinDate >= dateRange.start) &&
                              (!dateRange.end || customer.joinDate <= dateRange.end);
       
-      const matchesSpendRange = (!spendRange.min || customer.totalSpent >= parseFloat(spendRange.min)) &&
-                              (!spendRange.max || customer.totalSpent <= parseFloat(spendRange.max));
+      const matchesSpendRange = (!spendRange.min || customer.totalValue >= parseFloat(spendRange.min)) &&
+                              (!spendRange.max || customer.totalValue <= parseFloat(spendRange.max));
 
       return matchesSearch && matchesStatus && matchesDateRange && matchesSpendRange;
     })
@@ -117,8 +147,8 @@ export default function CustomersPage() {
         case "joinDate":
           comparison = new Date(a.joinDate).getTime() - new Date(b.joinDate).getTime();
           break;
-        case "totalSpent":
-          comparison = a.totalSpent - b.totalSpent;
+        case "totalValue":
+          comparison = a.totalValue - b.totalValue;
           break;
         case "totalOrders":
           comparison = a.totalOrders - b.totalOrders;
@@ -136,6 +166,56 @@ export default function CustomersPage() {
       setSortBy(column);
       setSortOrder("asc");
     }
+  };
+
+  const getLevelColor = (level: string) => {
+    switch (level) {
+      case "VIP":
+        return "bg-purple-100 text-purple-800";
+      case "Platinum":
+        return "bg-gray-100 text-gray-800";
+      case "Gold":
+        return "bg-yellow-100 text-yellow-800";
+      case "Silver":
+        return "bg-gray-100 text-gray-600";
+      case "Bronze":
+        return "bg-orange-100 text-orange-800";
+      default:
+        return "bg-gray-100 text-gray-800";
+    }
+  };
+
+  const getLevelIcon = (level: string) => {
+    switch (level) {
+      case "VIP":
+        return "👑";
+      case "Platinum":
+        return "💎";
+      case "Gold":
+        return "🥇";
+      case "Silver":
+        return "🥈";
+      case "Bronze":
+        return "🥉";
+      default:
+        return "👤";
+    }
+  };
+
+  const getPaymentPercentageColor = (percentage: number) => {
+    if (percentage === 100) return "text-green-600";
+    if (percentage >= 75) return "text-blue-600";
+    if (percentage >= 50) return "text-yellow-600";
+    if (percentage >= 25) return "text-orange-600";
+    return "text-red-600";
+  };
+
+  const getPaymentPercentageBg = (percentage: number) => {
+    if (percentage === 100) return "bg-green-50";
+    if (percentage >= 75) return "bg-blue-50";
+    if (percentage >= 50) return "bg-yellow-50";
+    if (percentage >= 25) return "bg-orange-50";
+    return "bg-red-50";
   };
 
   // const getStatusColor = (status: string) => {
@@ -170,7 +250,7 @@ export default function CustomersPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
         <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl shadow-sm border border-blue-100 p-6">
           <div className="flex items-center justify-between">
             <div>
@@ -214,13 +294,27 @@ export default function CustomersPage() {
         <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl shadow-sm border border-amber-100 p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-amber-600 font-medium">Total Revenue</p>
+              <p className="text-sm text-amber-600 font-medium">Total Value</p>
               <p className="text-2xl font-semibold text-gray-900">
-                #{customers.reduce((sum, c) => sum + c.totalSpent, 0).toLocaleString()}
+                ₦{customers.reduce((sum, c) => sum + c.totalValue, 0).toLocaleString()}
               </p>
             </div>
             <div className="p-3 bg-amber-100 rounded-lg">
               <DollarSign className="h-6 w-6 text-amber-600" />
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-gradient-to-br from-red-50 to-rose-50 rounded-xl shadow-sm border border-red-100 p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-red-600 font-medium">Total Owed</p>
+              <p className="text-2xl font-semibold text-gray-900">
+                ₦{customers.reduce((sum, c) => sum + c.totalOwed, 0).toLocaleString()}
+              </p>
+            </div>
+            <div className="p-3 bg-red-100 rounded-lg">
+              <DollarSign className="h-6 w-6 text-red-600" />
             </div>
           </div>
         </div>
@@ -423,7 +517,7 @@ export default function CustomersPage() {
                   onClick={() => handleSort("joinDate")}
                 >
                   <div className="flex items-center gap-1">
-                    Join Date
+                    Joined
                     <ArrowUpDown className="h-4 w-4" />
                   </div>
                 </th>
@@ -438,12 +532,21 @@ export default function CustomersPage() {
                 </th>
                 <th 
                   className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-gray-700"
-                  onClick={() => handleSort("totalSpent")}
+                  onClick={() => handleSort("totalValue")}
                 >
                   <div className="flex items-center gap-1">
-                    Total Spent
+                    Total
                     <ArrowUpDown className="h-4 w-4" />
                   </div>
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Owed
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Level
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Allowed %
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Status
@@ -493,7 +596,31 @@ export default function CustomersPage() {
                     )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">#{customer.totalSpent.toLocaleString()}</div>
+                    <div className="text-sm font-medium text-gray-900">₦{customer.totalValue.toLocaleString()}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className={`text-sm font-medium ${customer.totalOwed > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                      ₦{customer.totalOwed.toLocaleString()}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">{getLevelIcon(customer.level)}</span>
+                      <span className={`px-3 py-1 rounded-full text-sm font-medium ${getLevelColor(customer.level)}`}>
+                        {customer.level}
+                      </span>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className={`px-3 py-1 rounded-full text-sm font-medium ${getPaymentPercentageBg(customer.paymentPercentage)} ${getPaymentPercentageColor(customer.paymentPercentage)}`}>
+                      {customer.paymentPercentage}%
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1">
+                      {customer.paymentPercentage === 100 ? "Full payment" : 
+                       customer.paymentPercentage >= 75 ? "High partial" :
+                       customer.paymentPercentage >= 50 ? "Medium partial" :
+                       customer.paymentPercentage >= 25 ? "Low partial" : "Minimal payment"}
+                    </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-3 py-1 rounded-full text-sm font-medium ${

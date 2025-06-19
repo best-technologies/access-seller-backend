@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard,
   Package,
@@ -67,6 +67,11 @@ export default function AdminLayout({
 }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const pathname = usePathname();
+  const router = useRouter();
+
+  const handleNavigation = (href: string) => {
+    router.push(href);
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -91,9 +96,12 @@ export default function AdminLayout({
         <div className="flex flex-col h-full">
           {/* Logo */}
           <div className="flex items-center justify-center h-16 border-b border-gray-200">
-            <Link href="/" className="text-xl font-bold text-indigo-600 hover:text-indigo-700 transition-colors">
+            <button 
+              onClick={() => handleNavigation("/")}
+              className="text-xl font-bold text-indigo-600 hover:text-indigo-700 transition-colors"
+            >
               Admin Panel
-            </Link>
+            </button>
           </div>
 
           {/* Navigation */}
@@ -101,10 +109,10 @@ export default function AdminLayout({
             {sidebarItems.map((item) => {
               const isActive = pathname === item.href;
               return (
-                <Link
+                <button
                   key={item.href}
-                  href={item.href}
-                  className={`flex items-center gap-3 px-4 py-2 rounded-lg transition-colors ${
+                  onClick={() => handleNavigation(item.href)}
+                  className={`flex items-center gap-3 w-full px-4 py-2 rounded-lg transition-colors text-left ${
                     isActive
                       ? "bg-indigo-50 text-indigo-600"
                       : "text-gray-600 hover:bg-gray-50"
@@ -112,7 +120,7 @@ export default function AdminLayout({
                 >
                   <item.icon className="h-5 w-5" />
                   <span>{item.title}</span>
-                </Link>
+                </button>
               );
             })}
           </nav>

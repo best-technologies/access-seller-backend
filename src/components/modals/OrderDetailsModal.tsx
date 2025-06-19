@@ -20,12 +20,16 @@ interface Order {
   date: string;
   items: OrderItem[];
   total: number;
-  status: string;
+  amountPaid: number;
+  balance: number;
+  percentagePaid: number;
+  shipmentStatus: string;
   paymentStatus: string;
   paymentMethod: string;
   shippingAddress: string;
   trackingNumber?: string;
   estimatedDelivery?: string;
+  isRecurringCustomer: boolean;
 }
 
 interface OrderDetailsModalProps {
@@ -54,15 +58,23 @@ export default function OrderDetailsModal({ isOpen, onClose, order }: OrderDetai
 
   const getPaymentStatusColor = (status: string) => {
     switch (status) {
-      case "Paid":
+      case "Cleared":
         return "bg-green-100 text-green-800";
-      case "Pending":
+      case "Partial":
         return "bg-yellow-100 text-yellow-800";
+      case "Pending":
+        return "bg-orange-100 text-orange-800";
       case "Refunded":
         return "bg-red-100 text-red-800";
       default:
         return "bg-gray-100 text-gray-800";
     }
+  };
+
+  const getPercentageColor = (percentage: number) => {
+    if (percentage === 100) return "text-green-600";
+    if (percentage >= 50) return "text-yellow-600";
+    return "text-red-600";
   };
 
   return (
@@ -92,9 +104,9 @@ export default function OrderDetailsModal({ isOpen, onClose, order }: OrderDetai
                 <h3 className="text-lg font-medium text-gray-900 mb-4">Order Status</h3>
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-500">Status</span>
-                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(order.status)}`}>
-                      {order.status}
+                    <span className="text-sm text-gray-500">Shipment Status</span>
+                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(order.shipmentStatus)}`}>
+                      {order.shipmentStatus}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
@@ -111,6 +123,14 @@ export default function OrderDetailsModal({ isOpen, onClose, order }: OrderDetai
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-gray-500">Estimated Delivery</span>
                       <span className="text-sm text-gray-900">{order.estimatedDelivery}</span>
+                    </div>
+                  )}
+                  {order.isRecurringCustomer && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-500">Customer Type</span>
+                      <span className="px-3 py-1 rounded-full text-sm font-medium bg-indigo-100 text-indigo-800">
+                        Recurring Customer
+                      </span>
                     </div>
                   )}
                 </div>
@@ -155,8 +175,8 @@ export default function OrderDetailsModal({ isOpen, onClose, order }: OrderDetai
                         <p className="text-sm text-gray-500">Quantity: {item.quantity}</p>
                       </div>
                       <div className="text-right">
-                        <p className="text-sm font-medium text-gray-900">#{item.price}</p>
-                        <p className="text-sm text-gray-500">Total: #{item.price * item.quantity}</p>
+                        <p className="text-sm font-medium text-gray-900">₦{item.price.toLocaleString()}</p>
+                        <p className="text-sm text-gray-500">Total: ₦{(item.price * item.quantity).toLocaleString()}</p>
                       </div>
                     </div>
                   ))}
@@ -164,7 +184,7 @@ export default function OrderDetailsModal({ isOpen, onClose, order }: OrderDetai
                 <div className="mt-4 pt-4 border-t border-gray-200">
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium text-gray-900">Total Amount</span>
-                    <span className="text-lg font-semibold text-gray-900">#{order.total}</span>
+                    <span className="text-lg font-semibold text-gray-900">₦{order.total.toLocaleString()}</span>
                   </div>
                 </div>
               </div>
@@ -179,6 +199,22 @@ export default function OrderDetailsModal({ isOpen, onClose, order }: OrderDetai
                       <CreditCard className="h-4 w-4 text-gray-400" />
                       <span className="text-sm text-gray-900">{order.paymentMethod}</span>
                     </div>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-500">Amount Paid</span>
+                    <span className="text-sm font-medium text-gray-900">₦{order.amountPaid.toLocaleString()}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-500">Balance</span>
+                    <span className={`text-sm font-medium ${order.balance > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                      ₦{order.balance.toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-500">Percentage Paid</span>
+                    <span className={`text-sm font-medium ${getPercentageColor(order.percentagePaid)}`}>
+                      {order.percentagePaid}%
+                    </span>
                   </div>
                   {order.trackingNumber && (
                     <div className="flex items-center justify-between">

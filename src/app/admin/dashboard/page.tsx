@@ -1,162 +1,135 @@
 "use client";
 
-import {
-  DollarSign,
-  Users,
-  ShoppingCart,
-  TrendingUp,
-  Package,
-  BarChart3
-} from "lucide-react";
-
-// Mock data - replace with actual data from your backend
-const stats = {
-  totalRevenue: 245000.50,
-  totalOrders: 1234,
-  totalCustomers: 567,
-  totalProducts: 89,
-  revenueChange: 12.5,
-  ordersChange: 8.2,
-  customersChange: 15.7,
-  productsChange: 5.3
-};
-
-const recentOrders = [
-  {
-    id: "ORD001",
-    customer: "Mike Taiwo",
-    amount: 25000.00,
-    status: "Completed",
-    date: "2024-03-15"
-  },
-  {
-    id: "ORD002",
-    customer: "Blessing Emma",
-    amount: 20000.00,
-    status: "Processing",
-    date: "2024-03-14"
-  },
-  {
-    id: "ORD003",
-    customer: "Aanuoluwapo Segun",
-    amount: 15000.00,
-    status: "Completed",
-    date: "2024-03-13"
-  }
-];
+import { useState } from "react";
+import KPICards from "@/components/admin/dashboard/KPICards";
+import ChartsSection from "@/components/admin/dashboard/ChartsSection";
+import RecentOrders from "@/components/admin/dashboard/RecentOrders";
+import TopProducts from "@/components/admin/dashboard/TopProducts";
+import Notifications from "@/components/admin/dashboard/Notifications";
+import { Download, RefreshCw, Calendar } from "lucide-react";
 
 export default function AdminDashboard() {
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleRefresh = () => {
+    setIsRefreshing(true);
+    // Simulate refresh
+    setTimeout(() => setIsRefreshing(false), 1000);
+  };
+
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Dashboard Overview</h1>
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-gray-500">Last updated: Just now</span>
-          <button className="p-2 text-gray-500 hover:text-gray-700">
-            <BarChart3 className="h-5 w-5" />
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+          <p className="text-sm text-gray-500 mt-1">Welcome back! Here's what's happening with your store today.</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 rounded-lg">
+            <Calendar className="h-4 w-4 text-gray-400" />
+            <span className="text-sm text-gray-600">Today</span>
+          </div>
+          <button
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all duration-200 disabled:opacity-50"
+          >
+            <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+            Refresh
+          </button>
+          <button className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all duration-200">
+            <Download className="h-4 w-4" />
+            Export Report
           </button>
         </div>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">Total Revenue</p>
-              <p className="text-2xl font-semibold text-gray-900">#{stats.totalRevenue}</p>
-            </div>
-            <div className="p-3 bg-green-50 rounded-lg">
-              <DollarSign className="h-6 w-6 text-green-600" />
-            </div>
-          </div>
-          <div className="mt-4 flex items-center text-sm text-green-600">
-            <TrendingUp className="h-4 w-4 mr-1" />
-            <span>+{stats.revenueChange}% from last month</span>
-          </div>
+      {/* KPI Cards */}
+      <KPICards />
+
+      {/* Charts Section */}
+      <ChartsSection />
+
+      {/* Main Content Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Recent Orders */}
+        <div className="lg:col-span-2">
+          <RecentOrders />
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">Total Orders</p>
-              <p className="text-2xl font-semibold text-gray-900">{stats.totalOrders}</p>
-            </div>
-            <div className="p-3 bg-blue-50 rounded-lg">
-              <ShoppingCart className="h-6 w-6 text-blue-600" />
-            </div>
-          </div>
-          <div className="mt-4 flex items-center text-sm text-green-600">
-            <TrendingUp className="h-4 w-4 mr-1" />
-            <span>+{stats.ordersChange}% from last month</span>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">Total Customers</p>
-              <p className="text-2xl font-semibold text-gray-900">{stats.totalCustomers}</p>
-            </div>
-            <div className="p-3 bg-purple-50 rounded-lg">
-              <Users className="h-6 w-6 text-purple-600" />
-            </div>
-          </div>
-          <div className="mt-4 flex items-center text-sm text-green-600">
-            <TrendingUp className="h-4 w-4 mr-1" />
-            <span>+{stats.customersChange}% from last month</span>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">Total Products</p>
-              <p className="text-2xl font-semibold text-gray-900">{stats.totalProducts}</p>
-            </div>
-            <div className="p-3 bg-orange-50 rounded-lg">
-              <Package className="h-6 w-6 text-orange-600" />
-            </div>
-          </div>
-          <div className="mt-4 flex items-center text-sm text-green-600">
-            <TrendingUp className="h-4 w-4 mr-1" />
-            <span>+{stats.productsChange}% from last month</span>
-          </div>
+        {/* Sidebar */}
+        <div className="space-y-6">
+          {/* Notifications */}
+          <Notifications />
         </div>
       </div>
 
-      {/* Recent Orders */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-lg font-semibold text-gray-900">Recent Orders</h2>
-          <button className="text-sm text-indigo-600 hover:text-indigo-700">
-            View all orders
-          </button>
-        </div>
-        <div className="space-y-4">
-          {recentOrders.map((order) => (
-            <div
-              key={order.id}
-              className="flex items-center justify-between p-4 border border-gray-200 rounded-lg"
-            >
-              <div>
-                <p className="font-medium text-gray-900">{order.id}</p>
-                <p className="text-sm text-gray-500">{order.customer}</p>
+      {/* Bottom Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Top Products */}
+        <TopProducts />
+
+        {/* Quick Actions */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
+          <div className="grid grid-cols-2 gap-4">
+            <button className="p-4 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition-colors duration-200 text-left">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-indigo-100 rounded-lg">
+                  <svg className="h-5 w-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-900">Add Product</p>
+                  <p className="text-xs text-gray-500">Create new product</p>
+                </div>
               </div>
-              <div className="flex items-center gap-4">
-                <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                  order.status === 'Completed'
-                    ? 'bg-green-100 text-green-800'
-                    : 'bg-yellow-100 text-yellow-800'
-                }`}>
-                  {order.status}
-                </span>
-                <span className="text-lg font-semibold text-gray-900">
-                  #{order.amount}
-                </span>
+            </button>
+
+            <button className="p-4 bg-green-50 rounded-lg hover:bg-green-100 transition-colors duration-200 text-left">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-green-100 rounded-lg">
+                  <svg className="h-5 w-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-900">Add Customer</p>
+                  <p className="text-xs text-gray-500">Register new customer</p>
+                </div>
               </div>
-            </div>
-          ))}
+            </button>
+
+            <button className="p-4 bg-yellow-50 rounded-lg hover:bg-yellow-100 transition-colors duration-200 text-left">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-yellow-100 rounded-lg">
+                  <svg className="h-5 w-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-900">Create Order</p>
+                  <p className="text-xs text-gray-500">Manual order entry</p>
+                </div>
+              </div>
+            </button>
+
+            <button className="p-4 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors duration-200 text-left">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-purple-100 rounded-lg">
+                  <svg className="h-5 w-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-900">View Reports</p>
+                  <p className="text-xs text-gray-500">Analytics & insights</p>
+                </div>
+              </div>
+            </button>
+          </div>
         </div>
       </div>
     </div>
