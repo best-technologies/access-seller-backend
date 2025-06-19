@@ -1,4 +1,4 @@
-import { BarChart3, Crown, Wallet, Activity, PieChart } from "lucide-react";
+import { Crown, Wallet, Activity, PieChart } from "lucide-react";
 
 interface NavigationTabsProps {
   activeTab: string;

@@ -12,9 +12,7 @@ import {
   DollarSign,
   ShoppingBag,
   ChevronDown,
-  X,
-  Upload,
-  FileText
+  X
 } from "lucide-react";
 import AddBookModal from "@/components/modals/AddBookModal";
 import AddBookOptionsModal from "@/components/modals/AddBookOptionsModal";
@@ -117,7 +115,7 @@ export default function ProductsPage() {
     setIsSuccessModalOpen(false);
   };
 
-  const handleFileUpload = async (file: File) => {
+  const handleFileUpload = async () => {
     setIsLoading(true);
     // Simulate file processing
     await new Promise(resolve => setTimeout(resolve, 3000));

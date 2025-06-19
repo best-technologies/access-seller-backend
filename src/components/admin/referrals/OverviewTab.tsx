@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { BarChart3, User, Eye, MoreVertical } from "lucide-react";
 import { referralAnalytics, sourceBreakdown } from "@/data/admin/referrals/mockData";
 

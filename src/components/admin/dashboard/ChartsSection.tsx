@@ -1,4 +1,4 @@
-import { BarChart3, PieChart, TrendingUp } from "lucide-react";
+import { BarChart3, PieChart } from "lucide-react";
 import { salesData, revenueBreakdown } from "@/data/admin/dashboard/mockData";
 
 export default function ChartsSection() {

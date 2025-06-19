@@ -99,7 +99,7 @@ export default function AddBookOptionsModal({
             <div>
               <h2 className="text-2xl font-semibold text-gray-900">Add New Books</h2>
               <p className="text-sm text-gray-500 mt-1">
-                Choose how you'd like to add books to your catalog
+                Choose how you&apos;d like to add books to your catalog
               </p>
             </div>
             <button
