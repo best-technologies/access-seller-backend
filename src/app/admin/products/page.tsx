@@ -12,13 +12,12 @@ import {
   DollarSign,
   ShoppingBag,
   ChevronDown,
-  X
 } from "lucide-react";
 import AddBookModal from "@/components/modals/AddBookModal";
 import AddBookOptionsModal from "@/components/modals/AddBookOptionsModal";
 import SuccessModal from "@/components/modals/SuccessModal";
 import { api } from "@/services/api";
-import type { ProductsResponse, Product } from "@/types/admin/products/products";
+import type { ProductsResponse } from "@/types/admin/products/products";
 
 const PRODUCTS_CACHE_KEY = "admin_products_cache";
 const PRODUCTS_CACHE_TIME = 60 * 60 * 1000; // 1 hour in ms
@@ -89,8 +88,8 @@ export default function ProductsPage() {
       if (!response.success) throw new Error(response.message || "Failed to fetch products");
       setProductsData(response.data);
       setCachedProducts(response.data);
-    } catch (err: any) {
-      setError(err.message || "Failed to fetch products");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to fetch products");
     } finally {
       setIsLoading(false);
     }

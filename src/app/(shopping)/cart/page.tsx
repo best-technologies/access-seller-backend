@@ -4,89 +4,23 @@ import { useState, useEffect } from "react";
 import { 
   Trash2, 
   ShoppingBag, 
-  ArrowLeft, 
   Plus, 
   Minus, 
   Package, 
   Truck, 
   Shield,
-  Heart,
-  Star,
   Info,
   CheckCircle
 } from "lucide-react";
 import Image from "next/image";
 import PageHeader from "@/components/ui/PageHeader";
 import { useCart } from "@/hooks/useCart";
-import { api } from "@/services/api";
-
-// Add interface for cart item
-interface CartItem {
-  id: number;
-  title: string;
-  author: string;
-  price: number;
-  originalPrice: number;
-  image: string;
-  quantity: number;
-  isbn: string;
-  rating: number;
-  reviews: number;
-  inStock: boolean;
-  format: string;
-}
-
-// Enhanced mock data with more professional details
-const cartItems: CartItem[] = [
-  {
-    id: 1,
-    title: "The Great Gatsby",
-    author: "F. Scott Fitzgerald",
-    price: 24.99,
-    originalPrice: 29.99,
-    image: "https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=200&h=280&fit=crop&crop=center",
-    quantity: 1,
-    isbn: "978-0-7432-7356-5",
-    rating: 4.2,
-    reviews: 1247,
-    inStock: true,
-    format: "Hardcover"
-  },
-  {
-    id: 2,
-    title: "To Kill a Mockingbird",
-    author: "Harper Lee",
-    price: 18.99,
-    originalPrice: 22.99,
-    image: "https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=200&h=280&fit=crop&crop=center",
-    quantity: 2,
-    isbn: "978-0-06-112008-4",
-    rating: 4.5,
-    reviews: 2156,
-    inStock: true,
-    format: "Paperback"
-  },
-  {
-    id: 3,
-    title: "1984",
-    author: "George Orwell",
-    price: 16.99,
-    originalPrice: 19.99,
-    image: "https://images.unsplash.com/photo-1512820790803-83ca734da794?w=200&h=280&fit=crop&crop=center",
-    quantity: 1,
-    isbn: "978-0-452-28423-4",
-    rating: 4.8,
-    reviews: 3421,
-    inStock: true,
-    format: "Paperback"
-  }
-];
+import Link from "next/link";
 
 export default function ProfessionalCartPage() {
   const { cart, updateQuantity, removeFromCart, clearCart } = useCart();
   const [promoCode, setPromoCode] = useState("");
   const [promoApplied, setPromoApplied] = useState(false);
-  const [savedItems, setSavedItems] = useState<any[]>([]); // You can enhance this later
   const [selected, setSelected] = useState<string[]>(cart.map(item => item.productId));
   const [isLoading, setIsLoading] = useState(false);
   const [checkoutMessage, setCheckoutMessage] = useState<string | null>(null);
@@ -146,9 +80,9 @@ export default function ProfessionalCartPage() {
       const response = { success: true, message: "Order placed successfully!" };
       console.log("Checkout API response:", response);
       setCheckoutMessage(response.message);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Checkout error:", error);
-      setCheckoutMessage(error.message || "Checkout failed");
+      setCheckoutMessage(error instanceof Error ? error.message : "Checkout failed");
     } finally {
       setIsLoading(false);
     }
@@ -185,9 +119,7 @@ export default function ProfessionalCartPage() {
                   <p className="text-gray-600 mb-8 max-w-md mx-auto">
                     Discover our curated collection of books and add your favorites to get started.
                   </p>
-                  <a href="/products" className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-3 rounded-lg font-medium transition-colors">
-                    Explore Books
-                  </a>
+                  <Link href="/products" className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-3 rounded-lg font-medium transition-colors">Explore Books</Link>
                 </div>
               ) : (
                 <div className="divide-y divide-gray-100">

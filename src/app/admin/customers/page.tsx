@@ -92,8 +92,8 @@ export default function CustomersPage() {
       if (!response.success) throw new Error(response.message || "Failed to fetch customers");
       setCustomersData(response.data);
       setCachedCustomers(response.data);
-    } catch (err: any) {
-      setError(err.message || "Failed to fetch customers");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to fetch customers");
     } finally {
       setIsLoading(false);
     }

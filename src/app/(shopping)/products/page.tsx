@@ -244,7 +244,7 @@ export default function ProfessionalProductsPage() {
   const [showFilters, setShowFilters] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [wishlist, setWishlist] = useState<Set<number>>(new Set());
-  const { cart, addToCart, updateQuantity, removeFromCart } = useCart();
+  const { cart, addToCart, removeFromCart } = useCart();
 
   const toggleWishlist = (productId: number) => {
     const newWishlist = new Set(wishlist);

@@ -18,10 +18,10 @@ export interface DashboardResponse {
         revenue: number[];
         orders: number[];
       };
-      revenueBreakdown: any[];
-      recentOrders: any[];
-      topBooks: any[];
-      notifications: any[];
+      revenueBreakdown: unknown[];
+      recentOrders: unknown[];
+      topBooks: unknown[];
+      notifications: unknown[];
       recentCustomers: {
         id: string;
         name: string;
@@ -40,4 +40,35 @@ export interface DashboardResponse {
       currencySymbol: string;
     };
   };
+}
+
+export interface DashboardOrder {
+  id: string;
+  orderNumber: string;
+  items: number;
+  customerName: string;
+  customerEmail: string;
+  amount: number;
+  status: string;
+  date: string;
+}
+
+export interface DashboardNotification {
+  id: string;
+  type: string;
+  priority: string;
+  title: string;
+  message: string;
+  time: string;
+  read: boolean;
+}
+
+export interface DashboardProduct {
+  id: string;
+  name: string;
+  category: string;
+  rating: number;
+  sales: number;
+  revenue: number;
+  stock: number;
 }

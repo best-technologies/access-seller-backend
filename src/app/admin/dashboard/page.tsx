@@ -9,6 +9,7 @@ import Notifications from "@/components/admin/dashboard/Notifications";
 import { Download, RefreshCw, Calendar } from "lucide-react";
 import { api } from "@/services/api";
 import type { DashboardResponse } from "@/types/admin/dashboard/dashboard";
+import type { DashboardOrder, DashboardNotification, DashboardProduct } from "@/types/admin/dashboard/dashboard";
 
 const DASHBOARD_CACHE_KEY = "admin_dashboard_cache";
 const DASHBOARD_CACHE_TIME = 60 * 60 * 1000; // 1 hour in ms
@@ -28,7 +29,7 @@ function getCachedDashboard() {
   }
 }
 
-function setCachedDashboard(data: any) {
+function setCachedDashboard(data: unknown) {
   if (typeof window === "undefined") return;
   localStorage.setItem(
     DASHBOARD_CACHE_KEY,
@@ -61,8 +62,8 @@ export default function AdminDashboard() {
       if (!response.success) throw new Error(response.message || "Failed to fetch dashboard");
       setDashboardData(response.data);
       setCachedDashboard(response.data); // Cache the new data
-    } catch (err: any) {
-      setError(err.message || "Failed to fetch dashboard");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to fetch dashboard");
     } finally {
       setLoading(false);
     }
@@ -146,20 +147,20 @@ export default function AdminDashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Recent Orders */}
         <div className="lg:col-span-2">
-          <RecentOrders orders={dashboardData?.dashboard.recentOrders || []} />
+          <RecentOrders orders={dashboardData?.dashboard.recentOrders as DashboardOrder[] || []} />
         </div>
 
         {/* Sidebar */}
         <div className="space-y-6">
           {/* Notifications */}
-          <Notifications notifications={dashboardData?.dashboard.notifications || []} />
+          <Notifications notifications={dashboardData?.dashboard.notifications as DashboardNotification[] || []} />
         </div>
       </div>
 
       {/* Bottom Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Top Products */}
-        <TopProducts products={dashboardData?.dashboard.topBooks || []} />
+        <TopProducts products={dashboardData?.dashboard.topBooks as DashboardProduct[] || []} />
 
         {/* Quick Actions */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">

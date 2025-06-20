@@ -81,6 +81,9 @@ export default function ProductDetailPage() {
   const productId = slug ? parseInt(slug.split('-')[0]) : null;
   const product = productId ? products.find(p => p.id === productId) : null;
 
+  const { cart, addToCart, updateQuantity, removeFromCart } = useCart();
+  const cartItem = cart.find(item => item.productId === String(product?.id));
+
   if (!product) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -96,9 +99,6 @@ export default function ProductDetailPage() {
       </div>
     );
   }
-
-  const { cart, addToCart, updateQuantity, removeFromCart } = useCart();
-  const cartItem = cart.find(item => item.productId === String(product.id));
 
   return (
     <>

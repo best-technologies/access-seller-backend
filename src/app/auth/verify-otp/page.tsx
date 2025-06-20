@@ -1,7 +1,7 @@
 "use client";
 
 import { useSearchParams, useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import toast from "react-hot-toast";
@@ -11,8 +11,8 @@ import { ShieldCheck, Mail } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { tokenManager } from "@/services/api";
 
-export default function VerifyOtpPage() {
-    const { login, handleAuthStateChange } = useAuth();
+function VerifyOtpPageInner() {
+    const { handleAuthStateChange } = useAuth();
   const searchParams = useSearchParams();
   const router = useRouter();
   const email = searchParams.get("email") || "";
@@ -58,9 +58,9 @@ export default function VerifyOtpPage() {
       router.replace("/");
 
       toast.success("OTP verified! You are now logged in.");
-    } catch (error: any) {
-      setError(error?.message || "Failed to verify OTP");
-      toast.error(error?.message || "Failed to verify OTP");
+    } catch (error: unknown) {
+      setError(error instanceof Error ? error.message : "Failed to verify OTP");
+      toast.error(error instanceof Error ? error.message : "Failed to verify OTP");
     } finally {
       setIsLoading(false);
     }
@@ -72,8 +72,8 @@ export default function VerifyOtpPage() {
       await api.auth.resendLoginOtp(email);
       toast.success("OTP resent to your email.");
       setResendTimer(30);
-    } catch (error: any) {
-      toast.error(error?.message || "Failed to resend OTP");
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : "Failed to resend OTP");
     } finally {
       setResending(false);
     }
@@ -142,7 +142,7 @@ export default function VerifyOtpPage() {
                   )}
                 </Button>
                 <div className="text-center mt-4">
-                  <span className="text-sm text-gray-600">Didn't get the OTP?</span>
+                  <span className="text-sm text-gray-600">Didn&apos;t get the OTP?</span>
                   <Button
                     type="button"
                     variant="link"
@@ -193,5 +193,13 @@ export default function VerifyOtpPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function VerifyOtpPage() {
+  return (
+    <Suspense>
+      <VerifyOtpPageInner />
+    </Suspense>
   );
 } 
