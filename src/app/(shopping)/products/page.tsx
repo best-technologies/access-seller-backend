@@ -24,6 +24,7 @@ import {
   Calendar
 } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
+import { useCart } from "@/hooks/useCart";
 
 // Enhanced mock data for books
 const products = [
@@ -243,7 +244,7 @@ export default function ProfessionalProductsPage() {
   const [showFilters, setShowFilters] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [wishlist, setWishlist] = useState<Set<number>>(new Set());
-  const [cart, setCart] = useState<Set<number>>(new Set());
+  const { cart, addToCart, updateQuantity, removeFromCart } = useCart();
 
   const toggleWishlist = (productId: number) => {
     const newWishlist = new Set(wishlist);
@@ -255,11 +256,7 @@ export default function ProfessionalProductsPage() {
     setWishlist(newWishlist);
   };
 
-  const addToCart = (productId: number) => {
-    const newCart = new Set(cart);
-    newCart.add(productId);
-    setCart(newCart);
-  };
+  const isInCart = (productId: number) => cart.some(item => item.productId === String(productId));
 
   const filteredProducts = products.filter(product => {
     if (selectedCategory !== "all" && product.category.toLowerCase() !== selectedCategory) {
@@ -569,14 +566,25 @@ export default function ProfessionalProductsPage() {
 
                       <div className="px-6 pb-6">
                         <button
-                          onClick={() => addToCart(product.id)}
+                          onClick={() => isInCart(product.id)
+                            ? removeFromCart(String(product.id))
+                            : addToCart({
+                                productId: String(product.id),
+                                quantity: 1,
+                                price: product.price,
+                                product: {
+                                  name: product.title,
+                                  image: product.image,
+                                  category: product.category
+                                }
+                              })}
                           className={`w-full py-3 px-4 rounded-xl font-medium transition-all ${
-                            cart.has(product.id)
+                            isInCart(product.id)
                               ? 'bg-green-500 text-white'
                               : 'bg-indigo-600 hover:bg-indigo-700 text-white hover:shadow-lg'
                           }`}
                         >
-                          {cart.has(product.id) ? (
+                          {isInCart(product.id) ? (
                             <div className="flex items-center justify-center gap-2">
                               <Check className="h-4 w-4" />
                               Added to Cart
@@ -697,14 +705,25 @@ export default function ProfessionalProductsPage() {
                                   <Heart className="h-5 w-5" />
                                 </button>
                                 <button
-                                  onClick={() => addToCart(product.id)}
+                                  onClick={() => isInCart(product.id)
+                                    ? removeFromCart(String(product.id))
+                                    : addToCart({
+                                        productId: String(product.id),
+                                        quantity: 1,
+                                        price: product.price,
+                                        product: {
+                                          name: product.title,
+                                          image: product.image,
+                                          category: product.category
+                                        }
+                                      })}
                                   className={`px-4 py-2 rounded-lg font-medium transition-all ${
-                                    cart.has(product.id)
+                                    isInCart(product.id)
                                       ? 'bg-green-500 text-white'
                                       : 'bg-indigo-600 hover:bg-indigo-700 text-white'
                                   }`}
                                 >
-                                  {cart.has(product.id) ? (
+                                  {isInCart(product.id) ? (
                                     <div className="flex items-center gap-2">
                                       <Check className="h-4 w-4" />
                                       Added

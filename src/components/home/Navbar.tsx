@@ -98,9 +98,9 @@ export default function Navbar() {
                 <Link href="/categories" className="text-sm font-medium text-gray-700 hover:text-indigo-600 transition-colors">
                   Categories
                 </Link>
-                <Link href="/deals" className="text-sm font-medium text-gray-700 hover:text-indigo-600 transition-colors">
+                {/* <Link href="/deals" className="text-sm font-medium text-gray-700 hover:text-indigo-600 transition-colors">
                   Deals
-                </Link>
+                </Link> */}
               </div>
 
               {/* User Actions */}
@@ -229,10 +229,10 @@ export default function Navbar() {
                     <Tag className="w-5 h-5 text-indigo-600" />
                     <span className="text-sm font-medium">Categories</span>
                   </Link>
-                  <Link href="/deals" className="flex items-center space-x-3 px-3 py-2 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors">
+                  {/* <Link href="/deals" className="flex items-center space-x-3 px-3 py-2 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors">
                     <Tag className="w-5 h-5 text-indigo-600" />
                     <span className="text-sm font-medium">Deals</span>
-                  </Link>
+                  </Link> */}
                   
                   {/* User-specific menu items - only show when authenticated */}
                   {isAuthenticated && (

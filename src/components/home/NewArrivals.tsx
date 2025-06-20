@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowRight, Clock, ChevronLeft, ChevronRight } from "lucide-react";
 import { useRef } from "react";
 import Image from "next/image";
+import { useCart } from "@/hooks/useCart";
 
 const newBooks = [
   {
@@ -65,6 +66,7 @@ const newBooks = [
 
 export default function NewArrivals() {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const { addToCart } = useCart();
 
   const scroll = (direction: 'left' | 'right') => {
     if (scrollContainerRef.current) {
@@ -133,11 +135,22 @@ export default function NewArrivals() {
                       <p className="text-[8px] sm:text-[10px] text-gray-600 line-clamp-2 mb-1">{book.desc}</p>
                     </div>
                     <div className="flex-shrink-0">
-                      <span className="text-xs sm:text-sm font-bold text-indigo-600">${book.price}</span>
+                      <span className="text-xs sm:text-sm font-bold text-indigo-600">₦{Number(book.price).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}</span>
                     </div>
                   </div>
                   
-                  <Button className="w-full bg-indigo-600 hover:bg-indigo-700 text-white rounded-full py-0.5 h-5 sm:h-6 text-[8px] sm:text-[10px]">
+                  <Button className="w-full bg-indigo-600 hover:bg-indigo-700 text-white rounded-full py-0.5 h-5 sm:h-6 text-[8px] sm:text-[10px]"
+                    onClick={() => addToCart({
+                      productId: String(book.id),
+                      quantity: 1,
+                      price: Number(book.price),
+                      product: {
+                        name: book.title,
+                        image: book.image,
+                        category: undefined // No category in newBooks, can be added if available
+                      }
+                    })}
+                  >
                     Add to Cart
                   </Button>
                 </CardContent>

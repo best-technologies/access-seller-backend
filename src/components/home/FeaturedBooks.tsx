@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { Star, ShoppingCart, Heart, ChevronLeft, ChevronRight, TrendingUp, Award, BookOpen } from "lucide-react";
+import { useCart } from "@/hooks/useCart";
 
 interface Book {
   id: number;
@@ -127,6 +128,7 @@ export default function FeaturedBooks() {
   const [selectedCategory, setSelectedCategory] = useState<Category>("All");
   const [isVisible, setIsVisible] = useState(false);
   const [favorites, setFavorites] = useState<Set<number>>(new Set());
+  const { addToCart } = useCart();
 
   useEffect(() => {
     setIsVisible(true);
@@ -332,12 +334,24 @@ export default function FeaturedBooks() {
                     {/* Enhanced Price & Action */}
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-1 sm:gap-2">
-                        <span className="text-sm sm:text-lg font-bold text-indigo-600">${book.price}</span>
+                        <span className="text-sm sm:text-lg font-bold text-indigo-600">₦{Number(book.price).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}</span>
                         {book.originalPrice && (
-                          <span className="text-[10px] sm:text-xs text-gray-400 line-through">${book.originalPrice}</span>
+                          <span className="text-[10px] sm:text-xs text-gray-400 line-through">₦{Number(book.originalPrice).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}</span>
                         )}
                       </div>
-                      <button className="group/btn bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white px-2 sm:px-3 py-1 sm:py-2 rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-medium transition-all duration-300 hover:scale-105 shadow-lg hover:shadow-xl flex items-center gap-0.5 sm:gap-1">
+                      <button
+                        className="group/btn bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white px-2 sm:px-3 py-1 sm:py-2 rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-medium transition-all duration-300 hover:scale-105 shadow-lg hover:shadow-xl flex items-center gap-0.5 sm:gap-1"
+                        onClick={() => addToCart({
+                          productId: String(book.id),
+                          quantity: 1,
+                          price: Number(book.price),
+                          product: {
+                            name: book.title,
+                            image: book.image,
+                            category: book.category
+                          }
+                        })}
+                      >
                         <ShoppingCart className="w-2.5 h-2.5 sm:w-3 sm:h-3 group-hover/btn:scale-110 transition-transform" />
                         <span>Add</span>
                       </button>

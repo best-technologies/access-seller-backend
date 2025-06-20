@@ -29,7 +29,7 @@ interface AuthContextType {
   refreshAuth: () => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextType | null>(null);
+const AuthContext = createContext<AuthContextType & { handleAuthStateChange: (authenticated: boolean, userData?: User | null) => void } | null>(null);
 
 // List of protected routes that require authentication
 const PROTECTED_ROUTES = [
@@ -139,6 +139,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [isAuthenticated, pathname, isLoading, router]);
 
+  ////////////////////////////////////////////////////////////////////////////////    login
   const login = async (email: string, password: string): Promise<string> => {
     try {
       const response = await api.auth.login(email, password);
@@ -147,23 +148,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         throw new Error(response.message || 'Login failed');
       }
 
-      // Store token
-      tokenManager.set(response.data.access_token);
+      const role = response.data?.role;
+      const accessToken = response.data?.access_token;
 
-      // Fetch user details after successful login
-      const userProfile = await api.user.getProfile();
+      console.log("Login response: ", response.data)
 
-      console.log("User profile: ", userProfile)
-      
-      if (!userProfile.success) {
-        throw new Error(userProfile.message || 'Failed to fetch user details');
+      if (role !== "user") {
+        // Privileged user: redirect to OTP page and exit
+        router.replace(`/auth/verify-otp?email=${encodeURIComponent(email)}`);
+        return response.message || 'OTP sent to email. Please verify to continue.';
       }
 
-      // Update auth state with user details
-      handleAuthStateChange(true, userProfile.data);
-      router.replace('/');
+      if (accessToken) {
+        // Normal user: proceed with login
+        tokenManager.set(accessToken);
 
-      return response.message || 'Login successful';
+        // Fetch user details after successful login
+        const userProfile = await api.user.getProfile();
+
+        if (!userProfile.success) {
+          throw new Error(userProfile.message || 'Failed to fetch user details');
+        }
+
+        handleAuthStateChange(true, userProfile.data);
+        router.replace('/');
+        return response.message || 'Login successful';
+      }
+
+      throw new Error('Unexpected login response. Please try again.');
     } catch (error) {
       console.error('Login error:', error);
       handleApiError(error as Error);
@@ -171,6 +183,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  ////////////////////////////////////////////////////////////////////////////////    register
   const register = async (data: RegistrationData) => {
     try {
       const response = await api.auth.register(data);
@@ -210,7 +223,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       register, 
       logout, 
       checkAuth,
-      refreshAuth 
+      refreshAuth,
+      handleAuthStateChange,
     }}>
       {children}
     </AuthContext.Provider>

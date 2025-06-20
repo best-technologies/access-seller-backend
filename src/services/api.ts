@@ -60,7 +60,8 @@ export interface LoginResponse {
   success: boolean;
   message: string;
   data: {
-    access_token: string;
+    access_token?: string; // optional, only for normal users
+    role?: string;         // optional, for privileged users
   };
 }
 
@@ -122,7 +123,7 @@ export const api = {
       }),
 
     verifyOTP: (otp: string, email: string) =>
-      axiosInstance.post('/auth/verify-email-otp', { otp, email }),
+      axiosInstance.post('/auth/admin-verify-login-otp', { otp, email }),
 
     logout: () =>
       axiosInstance.post('/auth/logout'),
@@ -132,6 +133,9 @@ export const api = {
       
     sendOtpToEmail: (email: string) =>
       axiosInstance.post('/auth/request-password-reset-email', { email }),
+
+    resendLoginOtp: (email: string) =>
+      axiosInstance.post('/auth/resend-login-otp', { email }),
 
     updatePassword: (email: string, otp: string, newPassword: string) =>
       axiosInstance.post('/auth/reset-password', { 

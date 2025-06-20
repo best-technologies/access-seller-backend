@@ -4,6 +4,7 @@ import Footer from "@/components/home/Footer";
 import { AuthProvider } from "@/context/AuthContext";
 import { Toaster } from "react-hot-toast";
 import "./globals.css";
+import { CartProvider } from "@/context/CartContext";
 
 export default function RootLayout({
   children,
@@ -14,39 +15,41 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className="min-h-screen bg-white">
         <AuthProvider>
-          {/* Main Content */}
-          <main>
-            {children}
-          </main>
+          <CartProvider>
+            {/* Main Content */}
+            <main>
+              {children}
+            </main>
 
-          {/* Footer */}
-          <Footer />
-          
-          {/* Toaster for notifications */}
-          <Toaster
-            position="top-right"
-            toastOptions={{
-              duration: 4000,
-              style: {
-                background: '#363636',
-                color: '#fff',
-              },
-              success: {
+            {/* Footer */}
+            <Footer />
+            
+            {/* Toaster for notifications */}
+            <Toaster
+              position="top-right"
+              toastOptions={{
                 duration: 4000,
                 style: {
-                  background: '#10b981',
+                  background: '#363636',
                   color: '#fff',
                 },
-              },
-              error: {
-                duration: 4000,
-                style: {
-                  background: '#ef4444',
-                  color: '#fff',
+                success: {
+                  duration: 4000,
+                  style: {
+                    background: '#10b981',
+                    color: '#fff',
+                  },
                 },
-              },
-            }}
-          />
+                error: {
+                  duration: 4000,
+                  style: {
+                    background: '#ef4444',
+                    color: '#fff',
+                  },
+                },
+              }}
+            />
+          </CartProvider>
         </AuthProvider>
       </body>
     </html>

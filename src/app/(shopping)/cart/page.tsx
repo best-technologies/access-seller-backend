@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { 
   Trash2, 
   ShoppingBag, 
@@ -17,6 +17,8 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import PageHeader from "@/components/ui/PageHeader";
+import { useCart } from "@/hooks/useCart";
+import { api } from "@/services/api";
 
 // Add interface for cart item
 interface CartItem {
@@ -81,44 +83,76 @@ const cartItems: CartItem[] = [
 ];
 
 export default function ProfessionalCartPage() {
-  const [items, setItems] = useState<CartItem[]>(cartItems);
+  const { cart, updateQuantity, removeFromCart, clearCart } = useCart();
   const [promoCode, setPromoCode] = useState("");
   const [promoApplied, setPromoApplied] = useState(false);
-  const [savedItems, setSavedItems] = useState<CartItem[]>([]);
+  const [savedItems, setSavedItems] = useState<any[]>([]); // You can enhance this later
+  const [selected, setSelected] = useState<string[]>(cart.map(item => item.productId));
+  const [isLoading, setIsLoading] = useState(false);
+  const [checkoutMessage, setCheckoutMessage] = useState<string | null>(null);
 
-  const updateQuantity = (id: number, newQuantity: number) => {
-    if (newQuantity < 1) return;
-    setItems(items.map(item => 
-      item.id === id ? { ...item, quantity: newQuantity } : item
-    ));
+  // Update selected when cart changes
+  useEffect(() => {
+    setSelected(cart.map(item => item.productId));
+  }, [cart]);
+
+  const allSelected = selected.length === cart.length && cart.length > 0;
+  const toggleSelectAll = () => {
+    setSelected(allSelected ? [] : cart.map(item => item.productId));
+  };
+  const toggleSelect = (id: string) => {
+    setSelected(prev => prev.includes(id) ? prev.filter(pid => pid !== id) : [...prev, id]);
+  };
+  const deleteSelected = () => {
+    selected.forEach(pid => removeFromCart(pid));
   };
 
-  const removeItem = (id: number) => {
-    setItems(items.filter(item => item.id !== id));
-  };
-
-  const saveForLater = (id: number) => {
-    const item = items.find(item => item.id === id);
-    if (item) {
-      setSavedItems([...savedItems, item]);
-      removeItem(id);
-    }
-  };
-
-  const applyPromoCode = () => {
-    if (promoCode.toLowerCase() === 'save10') {
-      setPromoApplied(true);
-    }
-  };
-
-  const subtotal = items.reduce((total, item) => total + (item.price * item.quantity), 0);
-  const savings = items.reduce((total, item) => 
-    total + ((item.originalPrice - item.price) * item.quantity), 0
-  );
+  // Only selected items for checkout
+  const selectedItems = cart.filter(item => selected.includes(item.productId));
+  const subtotal = selectedItems.reduce((total, item) => total + (item.price * item.quantity), 0);
+  const savings = 0; // You can enhance this if you store originalPrice
   const shipping = subtotal > 50 ? 0 : 7.99;
   const promoDiscount = promoApplied ? subtotal * 0.1 : 0;
   const tax = (subtotal - promoDiscount) * 0.08;
   const total = subtotal + shipping + tax - promoDiscount;
+
+  // Mock: allowed part payment percentage from user profile
+  const allowedPartPayment = 50; // Replace with real value from user profile
+  const [paymentPercent, setPaymentPercent] = useState(100);
+  const payNow = (total * paymentPercent) / 100;
+  const payLater = total - payNow;
+
+  // Handle checkout
+  const handleCheckout = async () => {
+    setIsLoading(true);
+    setCheckoutMessage(null);
+    try {
+      // Prepare order data
+      const orderData = {
+        items: selectedItems.map(item => ({
+          productId: item.productId,
+          quantity: item.quantity,
+          price: item.price
+        })),
+        paymentPercent,
+        payNow,
+        payLater,
+        total,
+      };
+      console.log("Checkout order data:", orderData);
+      // Call the API (mock endpoint, replace with real one)
+      // const response = await api.orders.createOrder(orderData);
+      // For now, just mock a response
+      const response = { success: true, message: "Order placed successfully!" };
+      console.log("Checkout API response:", response);
+      setCheckoutMessage(response.message);
+    } catch (error: any) {
+      console.error("Checkout error:", error);
+      setCheckoutMessage(error.message || "Checkout failed");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-gray-100">
@@ -126,25 +160,21 @@ export default function ProfessionalCartPage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Cart Summary */}
         <div className="mb-8">
-          <p className="text-gray-600">
-            {items.length} {items.length === 1 ? 'item' : 'items'} in your cart
-          </p>
-          
-          {savings > 0 && (
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-center gap-3 mt-4">
-              <CheckCircle className="h-5 w-5 text-green-600" />
-              <span className="text-green-800 font-medium">
-                You&apos;re saving ${savings.toFixed(2)} on this order!
-              </span>
-            </div>
-          )}
+          <div className="flex items-center gap-4">
+            <input type="checkbox" checked={allSelected} onChange={toggleSelectAll} />
+            <span className="text-gray-600">
+              Select All ({cart.length})
+            </span>
+            <button onClick={deleteSelected} disabled={selected.length === 0} className="text-red-600 hover:underline disabled:text-gray-400">Delete Selected</button>
+            <button onClick={clearCart} disabled={cart.length === 0} className="text-red-600 hover:underline disabled:text-gray-400">Clear Cart</button>
+          </div>
         </div>
 
         <div className="grid lg:grid-cols-3 gap-8">
           {/* Cart Items - Takes up 2 columns */}
           <div className="lg:col-span-2">
             <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-              {items.length === 0 ? (
+              {cart.length === 0 ? (
                 <div className="p-12 text-center">
                   <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
                     <ShoppingBag className="h-12 w-12 text-gray-400" />
@@ -155,113 +185,74 @@ export default function ProfessionalCartPage() {
                   <p className="text-gray-600 mb-8 max-w-md mx-auto">
                     Discover our curated collection of books and add your favorites to get started.
                   </p>
-                  <button className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-3 rounded-lg font-medium transition-colors">
+                  <a href="/products" className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-3 rounded-lg font-medium transition-colors">
                     Explore Books
-                  </button>
+                  </a>
                 </div>
               ) : (
                 <div className="divide-y divide-gray-100">
-                  {items.map((item) => (
-                    <div key={item.id} className="p-6 hover:bg-gray-50/50 transition-colors">
-                      <div className="flex gap-6">
+                  {cart.map((item) => (
+                    <div key={item.productId} className="p-6 hover:bg-gray-50/50 transition-colors flex items-center gap-4">
+                      <input type="checkbox" checked={selected.includes(item.productId)} onChange={() => toggleSelect(item.productId)} />
+                      <div className="flex gap-6 flex-1">
                         {/* Book Image */}
                         <div className="relative">
                           <div className="w-28 h-36 rounded-xl overflow-hidden bg-gray-100 shadow-sm">
-                            <Image
-                              src={item.image}
-                              alt={item.title}
-                              width={112}
-                              height={144}
-                              className="w-full h-full object-cover"
-                            />
+                            {item.product?.image && (
+                              <Image
+                                src={item.product.image}
+                                alt={item.product.name}
+                                width={112}
+                                height={144}
+                                className="w-full h-full object-cover"
+                              />
+                            )}
                           </div>
-                          {item.originalPrice > item.price && (
-                            <div className="absolute -top-2 -right-2 bg-red-500 text-white text-xs px-2 py-1 rounded-full font-medium">
-                              ${(item.originalPrice - item.price).toFixed(2)} off
-                            </div>
-                          )}
                         </div>
-
                         {/* Book Details */}
                         <div className="flex-1 min-w-0">
                           <div className="flex justify-between items-start mb-3">
                             <div className="flex-1 min-w-0">
                               <h3 className="font-semibold text-gray-900 text-lg leading-tight">
-                                {item.title}
+                                {item.product?.name || item.productId}
                               </h3>
-                              <p className="text-gray-600 mt-1">{item.author}</p>
                               <div className="flex items-center gap-4 mt-2 text-sm text-gray-500">
-                                <span>{item.format}</span>
-                                <span>ISBN: {item.isbn}</span>
-                                <div className="flex items-center gap-1">
-                                  <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                                  <span>{item.rating}</span>
-                                  <span>({item.reviews.toLocaleString()})</span>
-                                </div>
+                                <span>{item.product?.category}</span>
                               </div>
                             </div>
-                            
-                            {/* Action Buttons */}
-                            <div className="flex items-center gap-2 ml-4">
-                              <button
-                                onClick={() => saveForLater(item.id)}
-                                className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                                title="Save for later"
-                              >
-                                <Heart className="h-5 w-5" />
-                              </button>
-                              <button
-                                onClick={() => removeItem(item.id)}
-                                className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                                title="Remove item"
-                              >
-                                <Trash2 className="h-5 w-5" />
-                              </button>
-                            </div>
+                            <button
+                              onClick={() => removeFromCart(item.productId)}
+                              className="p-2 text-red-500 hover:bg-red-50 rounded-lg"
+                              title="Remove"
+                            >
+                              <Trash2 className="h-5 w-5" />
+                            </button>
                           </div>
-
-                          {/* Quantity and Price */}
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              <div className="flex items-center border border-gray-300 rounded-lg">
-                                <button
-                                  onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                                  className="p-2 hover:bg-gray-50 rounded-l-lg transition-colors"
-                                  disabled={item.quantity <= 1}
-                                >
-                                  <Minus className="h-4 w-4" />
-                                </button>
-                                <input
-                                  type="number"
-                                  min="1"
-                                  value={item.quantity}
-                                  onChange={(e) => updateQuantity(item.id, parseInt(e.target.value) || 1)}
-                                  className="w-12 text-center border-0 focus:ring-0 bg-transparent"
-                                />
-                                <button
-                                  onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                                  className="p-2 hover:bg-gray-50 rounded-r-lg transition-colors"
-                                >
-                                  <Plus className="h-4 w-4" />
-                                </button>
-                              </div>
-                              {item.inStock ? (
-                                <span className="text-green-600 text-sm font-medium">In Stock</span>
-                              ) : (
-                                <span className="text-red-600 text-sm font-medium">Out of Stock</span>
-                              )}
+                          <div className="flex items-center gap-4 mt-4">
+                            <div className="flex items-center border border-gray-300 rounded-lg">
+                              <button
+                                onClick={() => updateQuantity(item.productId, Math.max(1, item.quantity - 1))}
+                                className="p-2 hover:bg-gray-50 rounded-l-lg"
+                              >
+                                <Minus className="h-4 w-4" />
+                              </button>
+                              <input
+                                type="number"
+                                min="1"
+                                value={item.quantity}
+                                onChange={(e) => updateQuantity(item.productId, Math.max(1, parseInt(e.target.value) || 1))}
+                                className="w-16 text-center border-0 focus:ring-0"
+                              />
+                              <button
+                                onClick={() => updateQuantity(item.productId, item.quantity + 1)}
+                                className="p-2 hover:bg-gray-50 rounded-r-lg"
+                              >
+                                <Plus className="h-4 w-4" />
+                              </button>
                             </div>
-                            
-                            <div className="text-right">
-                              {item.originalPrice > item.price && (
-                                <div className="text-sm text-gray-500 line-through">
-                                  ${(item.originalPrice * item.quantity).toFixed(2)}
-                                </div>
-                              )}
-                              <div className="text-xl font-bold text-gray-900">
-                                ${(item.price * item.quantity).toFixed(2)}
-                              </div>
-                            </div>
+                            <span className="text-sm text-gray-500">
+                              Price: ₦{item.price.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}
+                            </span>
                           </div>
                         </div>
                       </div>
@@ -269,14 +260,6 @@ export default function ProfessionalCartPage() {
                   ))}
                 </div>
               )}
-            </div>
-
-            {/* Continue Shopping */}
-            <div className="mt-6">
-              <button className="inline-flex items-center text-indigo-600 hover:text-indigo-700 font-medium transition-colors">
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Continue Shopping
-              </button>
             </div>
           </div>
 
@@ -301,7 +284,11 @@ export default function ProfessionalCartPage() {
                         className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                       />
                       <button
-                        onClick={applyPromoCode}
+                        onClick={() => {
+                          if (promoCode.toLowerCase() === 'save10') {
+                            setPromoApplied(true);
+                          }
+                        }}
                         className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors"
                       >
                         Apply
@@ -318,14 +305,14 @@ export default function ProfessionalCartPage() {
                   {/* Price Breakdown */}
                   <div className="space-y-3 pt-4 border-t border-gray-100">
                     <div className="flex justify-between text-gray-600">
-                      <span>Subtotal ({items.length} items)</span>
-                      <span>${subtotal.toFixed(2)}</span>
+                      <span>Subtotal ({selectedItems.length} items)</span>
+                      <span>₦{subtotal.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}</span>
                     </div>
                     
                     {savings > 0 && (
                       <div className="flex justify-between text-green-600">
                         <span>Savings</span>
-                        <span>-${savings.toFixed(2)}</span>
+                        <span>-₦{savings.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}</span>
                       </div>
                     )}
                     
@@ -334,35 +321,79 @@ export default function ProfessionalCartPage() {
                         <span>Shipping</span>
                         <Info className="h-4 w-4" />
                       </div>
-                      <span>{shipping === 0 ? 'FREE' : `$${shipping.toFixed(2)}`}</span>
+                      <span>{shipping === 0 ? 'FREE' : `₦${shipping.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}`}</span>
                     </div>
                     
                     {promoApplied && (
                       <div className="flex justify-between text-green-600">
                         <span>Promo discount (10%)</span>
-                        <span>-${promoDiscount.toFixed(2)}</span>
+                        <span>-₦{promoDiscount.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}</span>
                       </div>
                     )}
                     
                     <div className="flex justify-between text-gray-600">
                       <span>Tax</span>
-                      <span>${tax.toFixed(2)}</span>
+                      <span>₦{tax.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}</span>
                     </div>
+                  </div>
+
+                  {/* Payment Percentage Section */}
+                  <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 mb-4">
+                    <h3 className="text-base font-semibold text-gray-900 mb-2">Choose Payment Percentage</h3>
+                    <div className="flex items-center gap-4 mb-2">
+                      <input
+                        type="range"
+                        min={allowedPartPayment}
+                        max={100}
+                        value={paymentPercent}
+                        onChange={e => setPaymentPercent(Number(e.target.value))}
+                        className="w-40 accent-indigo-600"
+                      />
+                      <input
+                        type="number"
+                        min={allowedPartPayment}
+                        max={100}
+                        value={paymentPercent}
+                        onChange={e => setPaymentPercent(Number(e.target.value))}
+                        className="w-20 border border-gray-300 rounded-lg px-2 py-1 text-center"
+                      />
+                      <span className="text-gray-700 font-medium">% of total</span>
+                    </div>
+                    <p className="text-xs text-gray-500 mb-2">
+                      You can pay between <span className="font-semibold">{allowedPartPayment}%</span> and <span className="font-semibold">100%</span> of your order now. The balance can be paid later.
+                    </p>
+                    <div className="flex flex-col gap-1 text-sm">
+                      <div className="flex justify-between">
+                        <span>Pay now ({paymentPercent}%):</span>
+                        <span className="font-semibold text-indigo-600">₦{payNow.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Balance to pay later:</span>
+                        <span className="font-semibold text-gray-700">₦{payLater.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}</span>
+                      </div>
+                    </div>
+                    {(paymentPercent < allowedPartPayment || paymentPercent > 100) && (
+                      <div className="text-red-600 text-xs mt-2">Please enter a value between {allowedPartPayment}% and 100%.</div>
+                    )}
                   </div>
 
                   <div className="pt-4 border-t border-gray-200">
                     <div className="flex justify-between items-center">
                       <span className="text-lg font-semibold text-gray-900">Total</span>
-                      <span className="text-2xl font-bold text-gray-900">${total.toFixed(2)}</span>
+                      <span className="text-2xl font-bold text-gray-900">₦{total.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}</span>
                     </div>
                   </div>
 
                   <button
                     className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white py-4 rounded-xl font-semibold text-lg transition-colors mt-6"
-                    disabled={items.length === 0}
+                    disabled={selectedItems.length === 0 || paymentPercent < allowedPartPayment || paymentPercent > 100 || isLoading}
+                    onClick={handleCheckout}
                   >
-                    Proceed to Checkout
+                    {isLoading ? "Processing..." : `Proceed to Checkout (${selectedItems.length} selected)`}
                   </button>
+                  {checkoutMessage && (
+                    <div className="mt-4 text-center text-sm text-green-600">{checkoutMessage}</div>
+                  )}
 
                   {/* Trust Badges */}
                   <div className="mt-8 pt-6 border-t border-gray-100 space-y-4">

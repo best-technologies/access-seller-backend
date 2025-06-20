@@ -19,6 +19,7 @@ import {
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import PageHeader from "@/components/ui/PageHeader";
+import { useCart } from "@/hooks/useCart";
 
 // Mock data - In a real app, this would come from an API
 const products = [
@@ -95,6 +96,9 @@ export default function ProductDetailPage() {
       </div>
     );
   }
+
+  const { cart, addToCart, updateQuantity, removeFromCart } = useCart();
+  const cartItem = cart.find(item => item.productId === String(product.id));
 
   return (
     <>
@@ -260,10 +264,31 @@ export default function ProductDetailPage() {
                   </div>
 
                   <div className="flex gap-4">
-                    <Button className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white">
-                      <ShoppingCart className="h-5 w-5 mr-2" />
-                      Add to Cart
-                    </Button>
+                    {cartItem ? (
+                      <Button className="flex-1 bg-green-600 hover:bg-green-700 text-white" onClick={() => updateQuantity(String(product.id), quantity)}>
+                        <Check className="h-5 w-5 mr-2" />
+                        Update Cart
+                      </Button>
+                    ) : (
+                      <Button className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white" onClick={() => addToCart({
+                        productId: String(product.id),
+                        quantity,
+                        price: product.price,
+                        product: {
+                          name: product.title,
+                          image: product.images[0],
+                          category: product.category
+                        }
+                      })}>
+                        <ShoppingCart className="h-5 w-5 mr-2" />
+                        Add to Cart
+                      </Button>
+                    )}
+                    {cartItem && (
+                      <Button variant="outline" className="flex-1" onClick={() => removeFromCart(String(product.id))}>
+                        Remove
+                      </Button>
+                    )}
                     <Button variant="outline" className="flex-1">
                       <Heart className="h-5 w-5 mr-2" />
                       Add to Wishlist
