@@ -74,7 +74,7 @@ export default function AdminLayout({
     if (!isLoading) {
       // Not logged in? Redirect to login
       if (!isAuthenticated) {
-        router.replace("/auth/login");
+        router.replace("/");
       }
       // Not an admin? Redirect to home
       else if (user?.role !== "admin" && user?.role !== "super_admin") {

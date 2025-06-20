@@ -1,7 +1,17 @@
 import { Bell, Package, User, Settings, AlertTriangle, Clock } from "lucide-react";
-import { notifications } from "@/data/admin/dashboard/mockData";
+// import { notifications } from "@/data/admin/dashboard/mockData";
 
-export default function Notifications() {
+interface Notification {
+  id: string;
+  type: string;
+  priority: string;
+  title: string;
+  message: string;
+  time: string;
+  read: boolean;
+}
+
+export default function Notifications({ notifications }: { notifications: Notification[] }) {
   const getNotificationIcon = (type: string) => {
     switch (type) {
       case "order":
@@ -90,13 +100,13 @@ export default function Notifications() {
               </div>
             ))}
           </div>
-        ) : (
+        ) :
           <div className="p-6 text-center">
             <Bell className="h-12 w-12 text-gray-400 mx-auto mb-2" />
             <p className="text-gray-500">No notifications</p>
             <p className="text-sm text-gray-400">You&apos;re all caught up!</p>
           </div>
-        )}
+        }
       </div>
     </div>
   );

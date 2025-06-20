@@ -1,29 +1,120 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import KPICards from "@/components/admin/dashboard/KPICards";
 import ChartsSection from "@/components/admin/dashboard/ChartsSection";
 import RecentOrders from "@/components/admin/dashboard/RecentOrders";
 import TopProducts from "@/components/admin/dashboard/TopProducts";
 import Notifications from "@/components/admin/dashboard/Notifications";
 import { Download, RefreshCw, Calendar } from "lucide-react";
+import { api } from "@/services/api";
+import type { DashboardResponse } from "@/types/admin/dashboard/dashboard";
+
+const DASHBOARD_CACHE_KEY = "admin_dashboard_cache";
+const DASHBOARD_CACHE_TIME = 60 * 60 * 1000; // 1 hour in ms
+
+function getCachedDashboard() {
+  if (typeof window === "undefined") return null;
+  const cached = localStorage.getItem(DASHBOARD_CACHE_KEY);
+  if (!cached) return null;
+  try {
+    const { data, timestamp } = JSON.parse(cached);
+    if (Date.now() - timestamp < DASHBOARD_CACHE_TIME) {
+      return data;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function setCachedDashboard(data: any) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(
+    DASHBOARD_CACHE_KEY,
+    JSON.stringify({ data, timestamp: Date.now() })
+  );
+}
 
 export default function AdminDashboard() {
+  const [dashboardData, setDashboardData] = useState<DashboardResponse["data"] | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchDashboard = async (forceRefresh = false) => {
+    setLoading(true);
+    setError(null);
+
+    // Check cache unless forceRefresh is true
+    if (!forceRefresh) {
+      const cachedData = getCachedDashboard();
+      if (cachedData) {
+        setDashboardData(cachedData);
+        setLoading(false);
+        return;
+      }
+    }
+
+    try {
+      const response = await api.admin.dashboard();
+      if (!response.success) throw new Error(response.message || "Failed to fetch dashboard");
+      setDashboardData(response.data);
+      setCachedDashboard(response.data); // Cache the new data
+    } catch (err: any) {
+      setError(err.message || "Failed to fetch dashboard");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchDashboard();
+  }, []);
 
   const handleRefresh = () => {
     setIsRefreshing(true);
-    // Simulate refresh
-    setTimeout(() => setIsRefreshing(false), 1000);
+    fetchDashboard(true).finally(() => setIsRefreshing(false));
   };
 
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent" />
+          <span className="text-gray-600 text-lg font-medium">Loading dashboard...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-red-600 mb-2">Error</h1>
+          <p className="text-gray-600">{error}</p>
+          <button
+            onClick={() => fetchDashboard(true)}
+            className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-lg"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Pass dashboardData to your components as needed
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-          <p className="text-sm text-gray-500 mt-1">Welcome back! Here&apos;s what&apos;s happening with your store today.</p>
+          <p className="text-sm text-gray-500 mt-1">
+            Welcome back! Here&apos;s what&apos;s happening with your store today.
+          </p>
         </div>
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 rounded-lg">
@@ -46,29 +137,29 @@ export default function AdminDashboard() {
       </div>
 
       {/* KPI Cards */}
-      <KPICards />
+      <KPICards kpis={dashboardData?.dashboard.kpis || []} />
 
       {/* Charts Section */}
-      <ChartsSection />
+      <ChartsSection salesData={dashboardData?.dashboard.salesData || { labels: [], sales: [], revenue: [], orders: [] }} />
 
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Recent Orders */}
         <div className="lg:col-span-2">
-          <RecentOrders />
+          <RecentOrders orders={dashboardData?.dashboard.recentOrders || []} />
         </div>
 
         {/* Sidebar */}
         <div className="space-y-6">
           {/* Notifications */}
-          <Notifications />
+          <Notifications notifications={dashboardData?.dashboard.notifications || []} />
         </div>
       </div>
 
       {/* Bottom Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Top Products */}
-        <TopProducts />
+        <TopProducts products={dashboardData?.dashboard.topBooks || []} />
 
         {/* Quick Actions */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">

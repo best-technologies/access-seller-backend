@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Search,
   Plus,
@@ -17,54 +17,34 @@ import {
 import AddBookModal from "@/components/modals/AddBookModal";
 import AddBookOptionsModal from "@/components/modals/AddBookOptionsModal";
 import SuccessModal from "@/components/modals/SuccessModal";
+import { api } from "@/services/api";
+import type { ProductsResponse, Product } from "@/types/admin/products/products";
 
-// Mock data - replace with actual data from your backend
-const books = [
-  {
-    id: "BOOK001",
-    name: "The Great Gatsby",
-    category: "Fiction & Literature",
-    price: 2500.00,
-    stock: 45,
-    status: "In Stock",
-    isbn: "978-0743273565",
-    publisher: "Scribner",
-    format: "Paperback"
-  },
-  {
-    id: "BOOK002",
-    name: "Introduction to Computer Science",
-    category: "Academic & Textbooks",
-    price: 5000.00,
-    stock: 120,
-    status: "In Stock",
-    isbn: "978-0134685991",
-    publisher: "Pearson",
-    format: "Hardcover"
-  },
-  {
-    id: "BOOK003",
-    name: "Atomic Habits",
-    category: "Self-Help & Personal Development",
-    price: 3500.00,
-    stock: 0,
-    status: "Out of Stock",
-    isbn: "978-0735211292",
-    publisher: "Avery",
-    format: "Paperback"
-  },
-  {
-    id: "BOOK004",
-    name: "Rich Dad Poor Dad",
-    category: "Business & Economics",
-    price: 2800.00,
-    stock: 15,
-    status: "Low Stock",
-    isbn: "978-1612680194",
-    publisher: "Plata Publishing",
-    format: "Paperback"
+const PRODUCTS_CACHE_KEY = "admin_products_cache";
+const PRODUCTS_CACHE_TIME = 60 * 60 * 1000; // 1 hour in ms
+
+function getCachedProducts() {
+  if (typeof window === "undefined") return null;
+  const cached = localStorage.getItem(PRODUCTS_CACHE_KEY);
+  if (!cached) return null;
+  try {
+    const { data, timestamp } = JSON.parse(cached);
+    if (Date.now() - timestamp < PRODUCTS_CACHE_TIME) {
+      return data;
+    }
+    return null;
+  } catch {
+    return null;
   }
-];
+}
+
+function setCachedProducts(data: ProductsResponse["data"]) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(
+    PRODUCTS_CACHE_KEY,
+    JSON.stringify({ data, timestamp: Date.now() })
+  );
+}
 
 interface Book {
   name: string;
@@ -87,8 +67,45 @@ export default function ProductsPage() {
   const [isAddBookOptionsModalOpen, setIsAddBookOptionsModalOpen] = useState(false);
   const [isAddBookModalOpen, setIsAddBookModalOpen] = useState(false);
   const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [addedBooks, setAddedBooks] = useState<Book[]>([]);
+  const [productsData, setProductsData] = useState<ProductsResponse["data"] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const fetchProducts = async (forceRefresh = false) => {
+    setIsLoading(true);
+    setError(null);
+    if (!forceRefresh) {
+      const cached = getCachedProducts();
+      if (cached) {
+        setProductsData(cached);
+        setIsLoading(false);
+        return;
+      }
+    }
+    try {
+      const response = await api.admin.products();
+      if (!response.success) throw new Error(response.message || "Failed to fetch products");
+      setProductsData(response.data);
+      setCachedProducts(response.data);
+    } catch (err: any) {
+      setError(err.message || "Failed to fetch products");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchProducts();
+  }, []);
+
+  const handleRefresh = () => {
+    setIsRefreshing(true);
+    fetchProducts(true).finally(() => setIsRefreshing(false));
+  };
+
+  const books = productsData?.productsTable.products || [];
 
   const filteredBooks = books.filter(book =>
     book.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -124,11 +141,49 @@ export default function ProductsPage() {
     setIsSuccessModalOpen(true);
   };
 
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent" />
+          <span className="text-gray-600 text-lg font-medium">Loading products...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-red-600 mb-2">Error</h1>
+          <p className="text-gray-600">{error}</p>
+          <button
+            onClick={() => fetchProducts(true)}
+            className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-lg"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">Books</h1>
+        <button
+          onClick={handleRefresh}
+          disabled={isRefreshing}
+          className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all duration-200 disabled:opacity-50"
+        >
+          {isRefreshing ? (
+            <span className="animate-spin mr-2 h-4 w-4 border-2 border-indigo-600 border-t-transparent rounded-full inline-block" />
+          ) : null}
+          Refresh
+        </button>
       </div>
 
       {/* Stats */}
@@ -137,7 +192,7 @@ export default function ProductsPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500">Total Books</p>
-              <p className="text-2xl font-semibold text-gray-900">{books.length}</p>
+              <p className="text-2xl font-semibold text-gray-900">{productsData?.dashboardCards.totalBooks ?? 0}</p>
             </div>
             <div className="p-3 bg-blue-50 rounded-lg">
               <BookOpen className="h-6 w-6 text-blue-600" />
@@ -149,7 +204,7 @@ export default function ProductsPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500">Categories</p>
-              <p className="text-2xl font-semibold text-gray-900">4</p>
+              <p className="text-2xl font-semibold text-gray-900">{productsData?.dashboardCards.totalCategories ?? 0}</p>
             </div>
             <div className="p-3 bg-purple-50 rounded-lg">
               <Tag className="h-6 w-6 text-purple-600" />
@@ -161,7 +216,7 @@ export default function ProductsPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500">In Stock</p>
-              <p className="text-2xl font-semibold text-gray-900">{books.filter(book => book.status === "In Stock").length}</p>
+              <p className="text-2xl font-semibold text-gray-900">{productsData?.dashboardCards.inStock ?? 0}</p>
             </div>
             <div className="p-3 bg-green-50 rounded-lg">
               <ShoppingBag className="h-6 w-6 text-green-600" />
@@ -173,7 +228,7 @@ export default function ProductsPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500">Total Value</p>
-              <p className="text-2xl font-semibold text-gray-900">₦{(books.reduce((sum, book) => sum + (book.price * book.stock), 0) / 1000).toFixed(0)}K</p>
+              <p className="text-2xl font-semibold text-gray-900">₦{((productsData?.dashboardCards.totalProductValue ?? 0) / 1000).toFixed(0)}K</p>
             </div>
             <div className="p-3 bg-green-50 rounded-lg">
               <DollarSign className="h-6 w-6 text-green-600" />
@@ -249,24 +304,7 @@ export default function ProductsPage() {
             </div>
           </div>
 
-          {/* Active Filters */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-sm text-gray-500">Active filters:</span>
-            <div className="flex items-center gap-2">
-              <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm bg-indigo-50 text-indigo-700">
-                Fiction & Literature
-                <button className="ml-1 hover:text-indigo-900">
-                  <X className="h-4 w-4" />
-                </button>
-              </span>
-              <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm bg-indigo-50 text-indigo-700">
-                In Stock
-                <button className="ml-1 hover:text-indigo-900">
-                  <X className="h-4 w-4" />
-                </button>
-              </span>
-            </div>
-          </div>
+          {/* Active Filters (none by default) */}
         </div>
       </div>
 

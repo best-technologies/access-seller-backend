@@ -1,7 +1,17 @@
 import { Star, TrendingUp, BookOpen } from "lucide-react";
-import { topProducts } from "@/data/admin/dashboard/mockData";
+// import { topProducts } from "@/data/admin/dashboard/mockData";
 
-export default function TopProducts() {
+interface Product {
+  id: string;
+  name: string;
+  category: string;
+  rating: number;
+  sales: number;
+  revenue: number;
+  stock: number;
+}
+
+export default function TopProducts({ products }: { products: Product[] }) {
   const formatCurrency = (amount: number) => {
     return `₦${(amount / 1000).toFixed(0)}K`;
   };
@@ -20,7 +30,7 @@ export default function TopProducts() {
         </div>
       </div>
       <div className="divide-y divide-gray-200">
-        {topProducts.map((product, index) => (
+        {products.map((product, index) => (
           <div key={product.id} className="p-6 hover:bg-gray-50 transition-colors duration-200">
             <div className="flex items-center gap-4">
               {/* Rank */}

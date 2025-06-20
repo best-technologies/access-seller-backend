@@ -1,4 +1,7 @@
 // api.ts - Pure API communication layer
+import { DashboardResponse } from '@/types/admin/dashboard/dashboard';
+import type { ProductsResponse } from '@/types/admin/products/products';
+import type { CustomersResponse } from '@/types/admin/customers/customers';
 import axios, { AxiosError, AxiosInstance } from 'axios';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
@@ -152,6 +155,24 @@ export const api = {
       const data = await axiosInstance.get('/auth/fetch-user-details');
       console.log('Profile fetch response:', data);
       return data as unknown as ProfileResponse;
+    }
+  },
+
+  admin: {
+    dashboard: async (): Promise<DashboardResponse> => {
+      console.log("Fetching admin dashboard");
+      const response = await axiosInstance.get("admin/dashboard/stats")
+      return response as unknown as DashboardResponse
+    },
+    products: async (): Promise<ProductsResponse> => {
+      console.log("Fetching admin products");
+      const response = await axiosInstance.get("admin/products/dashboard");
+      return response as unknown as ProductsResponse;
+    },
+    customers: async (): Promise<CustomersResponse> => {
+      console.log("Fetching admin customers");
+      const response = await axiosInstance.get("admin/customers/dashboard");
+      return response as unknown as CustomersResponse;
     }
   }
 }

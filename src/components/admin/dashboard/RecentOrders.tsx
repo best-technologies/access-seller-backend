@@ -1,7 +1,18 @@
 import { Eye, Package, Clock, Truck, CheckCircle, XCircle } from "lucide-react";
-import { recentOrders } from "@/data/admin/dashboard/mockData";
+// import { recentOrders } from "@/data/admin/dashboard/mockData";
 
-export default function RecentOrders() {
+interface Order {
+  id: string;
+  orderNumber: string;
+  items: number;
+  customerName: string;
+  customerEmail: string;
+  amount: number;
+  status: string;
+  date: string;
+}
+
+export default function RecentOrders({ orders }: { orders: Order[] }) {
   const getStatusIcon = (status: string) => {
     switch (status) {
       case "pending":
@@ -83,7 +94,7 @@ export default function RecentOrders() {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
-            {recentOrders.map((order) => (
+            {orders.map((order) => (
               <tr key={order.id} className="hover:bg-gray-50 transition-colors duration-200">
                 <td className="px-6 py-4">
                   <div>

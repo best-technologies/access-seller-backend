@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Search,
   X,
@@ -18,101 +18,50 @@ import {
   Download,
   Plus
 } from "lucide-react";
+import type { CustomersResponse, Customer, CustomersStats } from '@/types/admin/customers/customers';
+import { api } from '@/services/api';
 
-interface Customer {
-  id: string;
-  name: string;
-  email: string;
-  phone: string;
-  address: string;
-  joinDate: string;
-  totalOrders: number;
-  totalValue: number;
-  totalOwed: number;
-  level: "Bronze" | "Silver" | "Gold" | "Platinum" | "VIP";
-  paymentPercentage: number;
-  lastOrderDate?: string;
-  status: "Active" | "Inactive";
+const CUSTOMERS_CACHE_KEY = "admin_customers_cache";
+const CUSTOMERS_CACHE_TIME = 60 * 60 * 1000; // 1 hour in ms
+
+function getCachedCustomers() {
+  if (typeof window === "undefined") return null;
+  const cached = localStorage.getItem(CUSTOMERS_CACHE_KEY);
+  if (!cached) return null;
+  try {
+    const { data, timestamp } = JSON.parse(cached);
+    if (Date.now() - timestamp < CUSTOMERS_CACHE_TIME) {
+      return data;
+    }
+    return null;
+  } catch {
+    return null;
+  }
 }
 
-// Mock data - replace with actual data from your backend
-const customers: Customer[] = [
-  {
-    id: "CUST001",
-    name: "John Doe",
-    email: "john@example.com",
-    phone: "+234 123 456 7890",
-    address: "123 Main St, Lagos, Nigeria",
-    joinDate: "2024-01-15",
-    totalOrders: 5,
-    totalValue: 150000.00,
-    totalOwed: 25000.00,
-    level: "Gold",
-    paymentPercentage: 75,
-    lastOrderDate: "2024-03-15",
-    status: "Active"
-  },
-  {
-    id: "CUST002",
-    name: "Jane Smith",
-    email: "jane@example.com",
-    phone: "+234 987 654 3210",
-    address: "456 Park Ave, Abuja, Nigeria",
-    joinDate: "2024-02-01",
-    totalOrders: 3,
-    totalValue: 75000.00,
-    totalOwed: 0.00,
-    level: "Silver",
-    paymentPercentage: 50,
-    lastOrderDate: "2024-03-10",
-    status: "Active"
-  },
-  {
-    id: "CUST003",
-    name: "Mike Johnson",
-    email: "mike@example.com",
-    phone: "+234 555 666 7777",
-    address: "789 Oak St, Port Harcourt, Nigeria",
-    joinDate: "2023-12-20",
-    totalOrders: 8,
-    totalValue: 225000.00,
-    totalOwed: 45000.00,
-    level: "Platinum",
-    paymentPercentage: 100,
-    lastOrderDate: "2024-03-05",
-    status: "Active"
-  },
-  {
-    id: "CUST004",
-    name: "Sarah Williams",
-    email: "sarah@example.com",
-    phone: "+234 111 222 3333",
-    address: "321 Pine Rd, Benin, Nigeria",
-    joinDate: "2023-11-15",
-    totalOrders: 2,
-    totalValue: 45000.00,
-    totalOwed: 15000.00,
-    level: "Bronze",
-    paymentPercentage: 25,
-    lastOrderDate: "2024-02-20",
-    status: "Inactive"
-  },
-  {
-    id: "CUST005",
-    name: "David Brown",
-    email: "david@example.com",
-    phone: "+234 333 444 5555",
-    address: "654 Elm St, Kano, Nigeria",
-    joinDate: "2022-08-10",
-    totalOrders: 15,
-    totalValue: 500000.00,
-    totalOwed: 0.00,
-    level: "VIP",
-    paymentPercentage: 100,
-    lastOrderDate: "2024-03-18",
-    status: "Active"
+function setCachedCustomers(data: CustomersResponse["data"]) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(
+    CUSTOMERS_CACHE_KEY,
+    JSON.stringify({ data, timestamp: Date.now() })
+  );
+}
+
+function getMinPaymentPercentage(level: string): number {
+  switch (level.toLowerCase()) {
+    case "bronze":
+      return 75;
+    case "silver":
+      return 50;
+    case "gold":
+      return 25;
+    case "platinum":
+    case "vip":
+      return 0;
+    default:
+      return 0;
   }
-];
+}
 
 export default function CustomersPage() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -122,6 +71,73 @@ export default function CustomersPage() {
   const [dateRange, setDateRange] = useState({ start: "", end: "" });
   const [spendRange, setSpendRange] = useState({ min: "", max: "" });
   const [showFilters, setShowFilters] = useState(false);
+  const [customersData, setCustomersData] = useState<CustomersResponse["data"] | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const fetchCustomers = async (forceRefresh = false) => {
+    setIsLoading(true);
+    setError(null);
+    if (!forceRefresh) {
+      const cached = getCachedCustomers();
+      if (cached) {
+        setCustomersData(cached);
+        setIsLoading(false);
+        return;
+      }
+    }
+    try {
+      const response = await api.admin.customers();
+      if (!response.success) throw new Error(response.message || "Failed to fetch customers");
+      setCustomersData(response.data);
+      setCachedCustomers(response.data);
+    } catch (err: any) {
+      setError(err.message || "Failed to fetch customers");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCustomers();
+  }, []);
+
+  const handleRefresh = () => {
+    setIsRefreshing(true);
+    fetchCustomers(true).finally(() => setIsRefreshing(false));
+  };
+
+  const customers: Customer[] = customersData?.customers || [];
+  const stats: CustomersStats | undefined = customersData?.stats;
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent" />
+          <span className="text-gray-600 text-lg font-medium">Loading customers...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-red-600 mb-2">Error</h1>
+          <p className="text-gray-600">{error}</p>
+          <button
+            onClick={() => fetchCustomers(true)}
+            className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-lg"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const filteredCustomers = customers
     .filter(customer => {
@@ -218,17 +234,6 @@ export default function CustomersPage() {
     return "bg-red-50";
   };
 
-  // const getStatusColor = (status: string) => {
-  //   switch (status) {
-  //     case "Active":
-  //       return "bg-green-100 text-green-800";
-  //     case "Inactive":
-  //       return "bg-gray-100 text-gray-800";
-  //     default:
-  //       return "bg-gray-100 text-gray-800";
-  //   }
-  // };
-
   return (
     <div className="space-y-6">
       {/* Header with Actions */}
@@ -250,12 +255,26 @@ export default function CustomersPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-6 gap-6">
+        {/* Total Admins Card (now first) */}
+        <div className="bg-gradient-to-br from-teal-50 to-indigo-50 rounded-xl shadow-sm border border-teal-100 p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-teal-600 font-medium">Total Admins</p>
+              <p className="text-2xl font-semibold text-gray-900">{stats?.totalAdmins ?? 0}</p>
+            </div>
+            <div className="p-3 bg-teal-100 rounded-lg">
+              <User className="h-6 w-6 text-teal-600" />
+            </div>
+          </div>
+        </div>
+
+        {/* Total Customers Card */}
         <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl shadow-sm border border-blue-100 p-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-blue-600 font-medium">Total Customers</p>
-              <p className="text-2xl font-semibold text-gray-900">{customers.length}</p>
+              <p className="text-2xl font-semibold text-gray-900">{stats?.totalCustomers ?? 0}</p>
             </div>
             <div className="p-3 bg-blue-100 rounded-lg">
               <User className="h-6 w-6 text-blue-600" />
@@ -267,9 +286,7 @@ export default function CustomersPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-green-600 font-medium">Active Customers</p>
-              <p className="text-2xl font-semibold text-gray-900">
-                {customers.filter(c => c.status === "Active").length}
-              </p>
+              <p className="text-2xl font-semibold text-gray-900">{stats?.activeCustomers ?? 0}</p>
             </div>
             <div className="p-3 bg-green-100 rounded-lg">
               <User className="h-6 w-6 text-green-600" />
@@ -281,9 +298,7 @@ export default function CustomersPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-purple-600 font-medium">Total Orders</p>
-              <p className="text-2xl font-semibold text-gray-900">
-                {customers.reduce((sum, c) => sum + c.totalOrders, 0)}
-              </p>
+              <p className="text-2xl font-semibold text-gray-900">{stats?.totalOrders ?? 0}</p>
             </div>
             <div className="p-3 bg-purple-100 rounded-lg">
               <ShoppingBag className="h-6 w-6 text-purple-600" />
@@ -295,9 +310,7 @@ export default function CustomersPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-amber-600 font-medium">Total Value</p>
-              <p className="text-2xl font-semibold text-gray-900">
-                ₦{customers.reduce((sum, c) => sum + c.totalValue, 0).toLocaleString()}
-              </p>
+              <p className="text-2xl font-semibold text-gray-900">₦{(stats?.totalValue ?? 0).toLocaleString()}</p>
             </div>
             <div className="p-3 bg-amber-100 rounded-lg">
               <DollarSign className="h-6 w-6 text-amber-600" />
@@ -309,9 +322,7 @@ export default function CustomersPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-red-600 font-medium">Total Owed</p>
-              <p className="text-2xl font-semibold text-gray-900">
-                ₦{customers.reduce((sum, c) => sum + c.totalOwed, 0).toLocaleString()}
-              </p>
+              <p className="text-2xl font-semibold text-gray-900">₦{(stats?.totalOwed ?? 0).toLocaleString()}</p>
             </div>
             <div className="p-3 bg-red-100 rounded-lg">
               <DollarSign className="h-6 w-6 text-red-600" />
@@ -612,15 +623,22 @@ export default function CustomersPage() {
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className={`px-3 py-1 rounded-full text-sm font-medium ${getPaymentPercentageBg(customer.paymentPercentage)} ${getPaymentPercentageColor(customer.paymentPercentage)}`}>
-                      {customer.paymentPercentage}%
-                    </div>
-                    <div className="text-xs text-gray-500 mt-1">
-                      {customer.paymentPercentage === 100 ? "Full payment" : 
-                       customer.paymentPercentage >= 75 ? "High partial" :
-                       customer.paymentPercentage >= 50 ? "Medium partial" :
-                       customer.paymentPercentage >= 25 ? "Low partial" : "Minimal payment"}
-                    </div>
+                    {(() => {
+                      const minPercent = getMinPaymentPercentage(customer.level);
+                      return (
+                        <>
+                          <div className={`px-3 py-1 rounded-full text-sm font-medium ${getPaymentPercentageBg(minPercent)} ${getPaymentPercentageColor(minPercent)}`}>
+                            {minPercent}%
+                          </div>
+                          <div className="text-xs text-gray-500 mt-1">
+                            {minPercent === 100 ? "Full payment" : 
+                              minPercent >= 75 ? "High partial" :
+                              minPercent >= 50 ? "Medium partial" :
+                              minPercent >= 25 ? "Low partial" : "Minimal payment"}
+                          </div>
+                        </>
+                      );
+                    })()}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-3 py-1 rounded-full text-sm font-medium ${
@@ -652,6 +670,19 @@ export default function CustomersPage() {
             </tbody>
           </table>
         </div>
+      </div>
+
+      <div className="flex items-center justify-between mt-6">
+        <button
+          onClick={handleRefresh}
+          disabled={isRefreshing}
+          className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all duration-200 disabled:opacity-50"
+        >
+          {isRefreshing ? (
+            <span className="animate-spin mr-2 h-4 w-4 border-2 border-indigo-600 border-t-transparent rounded-full inline-block" />
+          ) : null}
+          Refresh
+        </button>
       </div>
     </div>
   );

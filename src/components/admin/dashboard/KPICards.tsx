@@ -7,9 +7,19 @@ import {
   RefreshCw,
   TrendingDown
 } from "lucide-react";
-import { dashboardKPIs } from "@/data/admin/dashboard/mockData";
+// import { dashboardKPIs } from "@/data/admin/dashboard/mockData";
 
-export default function KPICards() {
+interface KPI {
+  title: string;
+  value: number;
+  change: number;
+  changeType: "increase" | "decrease";
+  icon: string;
+  color: string;
+  format: string;
+}
+
+export default function KPICards({ kpis }: { kpis: KPI[] }) {
   const getIcon = (iconName: string) => {
     switch (iconName) {
       case "DollarSign":
@@ -110,7 +120,7 @@ export default function KPICards() {
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
-      {dashboardKPIs.map((kpi, index) => {
+      {kpis.map((kpi, index) => {
         const colors = getColorClasses(kpi.color);
         
         return (

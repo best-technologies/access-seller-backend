@@ -15,7 +15,7 @@ export default function AdminPage() {
 
     // If not authenticated, redirect to login
     if (!isAuthenticated) {
-      router.push("/auth/login");
+      router.push("/");
       return;
     }
 
