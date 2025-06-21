@@ -9,6 +9,7 @@ export interface Product {
   category: string;
   stock: number;
   commissionRate: number;
+  referralCommission: number;
   allowedMarketers?: string[]; // IDs of marketers allowed to promote this product
   isActive: boolean;
   createdAt: Date;

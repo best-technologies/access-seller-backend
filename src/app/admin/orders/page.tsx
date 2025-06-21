@@ -230,21 +230,6 @@ export default function OrdersPage() {
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "Delivered":
-        return "bg-green-100 text-green-800";
-      case "Processing":
-        return "bg-blue-100 text-blue-800";
-      case "Shipped":
-        return "bg-purple-100 text-purple-800";
-      case "Cancelled":
-        return "bg-red-100 text-red-800";
-      default:
-        return "bg-gray-100 text-gray-800";
-    }
-  };
-
   const getStatusButtonColor = (status: string) => {
     switch (status) {
       case "Delivered":
@@ -286,95 +271,128 @@ export default function OrdersPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Orders</h1>
-          <p className="text-sm text-gray-500 mt-1">Manage and track customer orders</p>
+      <div className="bg-gradient-to-r from-slate-900 via-purple-900 to-slate-900 rounded-xl p-6 mb-6 shadow-xl">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-white/10 backdrop-blur-sm rounded-lg">
+              <Package className="h-6 w-6 text-white" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-white mb-0.5">Order Management</h1>
+              <p className="text-slate-300 text-xs">Track and manage customer orders</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white/30 focus:ring-offset-2 focus:ring-offset-transparent transition-all duration-200 shadow-lg">
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              Export
+            </button>
+          </div>
         </div>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div className="bg-gradient-to-br from-blue-50 to-indigo-100 rounded-xl shadow-lg border border-blue-200/50 p-4 hover:shadow-xl transition-all duration-300 group">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500">Total Orders</p>
-              <p className="text-2xl font-semibold text-gray-900">{orders.length}</p>
+              <p className="text-xs font-medium text-blue-600 mb-0.5">Total Orders</p>
+              <p className="text-2xl font-bold text-blue-900">{orders.length}</p>
+              <p className="text-xs text-blue-500">All time</p>
             </div>
-            <div className="p-3 bg-blue-50 rounded-lg">
-              <Package className="h-6 w-6 text-blue-600" />
+            <div className="p-3 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg shadow-lg group-hover:scale-110 transition-transform duration-300">
+              <Package className="h-6 w-6 text-white" />
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div className="bg-gradient-to-br from-amber-50 to-orange-100 rounded-xl shadow-lg border border-amber-200/50 p-4 hover:shadow-xl transition-all duration-300 group">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500">Processing</p>
-              <p className="text-2xl font-semibold text-gray-900">
+              <p className="text-xs font-medium text-amber-600 mb-0.5">Processing</p>
+              <p className="text-2xl font-bold text-amber-900">
                 {orders.filter(o => o.shipmentStatus === "Processing").length}
               </p>
+              <p className="text-xs text-amber-500">In progress</p>
             </div>
-            <div className="p-3 bg-yellow-50 rounded-lg">
-              <Clock className="h-6 w-6 text-yellow-600" />
+            <div className="p-3 bg-gradient-to-br from-amber-500 to-orange-600 rounded-lg shadow-lg group-hover:scale-110 transition-transform duration-300">
+              <Clock className="h-6 w-6 text-white" />
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div className="bg-gradient-to-br from-purple-50 to-violet-100 rounded-xl shadow-lg border border-purple-200/50 p-4 hover:shadow-xl transition-all duration-300 group">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500">Shipped</p>
-              <p className="text-2xl font-semibold text-gray-900">
+              <p className="text-xs font-medium text-purple-600 mb-0.5">Shipped</p>
+              <p className="text-2xl font-bold text-purple-900">
                 {orders.filter(o => o.shipmentStatus === "Shipped").length}
               </p>
+              <p className="text-xs text-purple-500">In transit</p>
             </div>
-            <div className="p-3 bg-purple-50 rounded-lg">
-              <Truck className="h-6 w-6 text-purple-600" />
+            <div className="p-3 bg-gradient-to-br from-purple-500 to-violet-600 rounded-lg shadow-lg group-hover:scale-110 transition-transform duration-300">
+              <Truck className="h-6 w-6 text-white" />
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div className="bg-gradient-to-br from-emerald-50 to-green-100 rounded-xl shadow-lg border border-emerald-200/50 p-4 hover:shadow-xl transition-all duration-300 group">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500">Delivered</p>
-              <p className="text-2xl font-semibold text-gray-900">
+              <p className="text-xs font-medium text-emerald-600 mb-0.5">Delivered</p>
+              <p className="text-2xl font-bold text-emerald-900">
                 {orders.filter(o => o.shipmentStatus === "Delivered").length}
               </p>
+              <p className="text-xs text-emerald-500">Completed</p>
             </div>
-            <div className="p-3 bg-green-50 rounded-lg">
-              <CheckCircle2 className="h-6 w-6 text-green-600" />
+            <div className="p-3 bg-gradient-to-br from-emerald-500 to-green-600 rounded-lg shadow-lg group-hover:scale-110 transition-transform duration-300">
+              <CheckCircle2 className="h-6 w-6 text-white" />
             </div>
           </div>
         </div>
       </div>
 
       {/* Search and Filters */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+      <div className="bg-gradient-to-r from-white to-gray-50 rounded-xl shadow-lg border border-gray-200/50 p-6 mb-6">
         <div className="flex flex-col gap-4">
+          {/* Header */}
+          <div className="flex items-center gap-2 mb-2">
+            <div className="p-1.5 bg-indigo-100 rounded-lg">
+              <Search className="h-4 w-4 text-indigo-600" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-gray-900">Order Search</h2>
+              <p className="text-xs text-gray-500">Filter and search through orders</p>
+            </div>
+          </div>
+
           {/* Search and Filter Controls */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             {/* Search Bar */}
-            <div className="md:col-span-2 relative">
+            <div className="md:col-span-2 relative group">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Search className="h-5 w-5 text-gray-400" />
+                <Search className="h-4 w-4 text-gray-400 group-focus-within:text-indigo-500 transition-colors" />
               </div>
               <input
                 type="text"
                 placeholder="Search by order ID, customer name, or email..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
+                className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 bg-white/50 backdrop-blur-sm shadow-sm hover:shadow-md text-sm"
               />
             </div>
 
             {/* Order Status Filter */}
-            <div className="relative">
+            <div className="relative group">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Package className="h-4 w-4 text-gray-400 group-focus-within:text-indigo-500 transition-colors" />
+              </div>
               <select 
                 value={selectedStatus}
                 onChange={(e) => setSelectedStatus(e.target.value)}
-                className="w-full pl-4 pr-10 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors appearance-none bg-white"
+                className="w-full pl-10 pr-8 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 appearance-none bg-white/50 backdrop-blur-sm shadow-sm hover:shadow-md text-sm"
               >
                 <option value="All">All Status</option>
                 <option value="Processing">Processing</option>
@@ -383,16 +401,21 @@ export default function OrdersPage() {
                 <option value="Cancelled">Cancelled</option>
               </select>
               <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                <ChevronDown className="h-5 w-5 text-gray-400" />
+                <ChevronDown className="h-4 w-4 text-gray-400" />
               </div>
             </div>
 
             {/* Payment Status Filter */}
-            <div className="relative">
+            <div className="relative group">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <svg className="h-4 w-4 text-gray-400 group-focus-within:text-indigo-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                </svg>
+              </div>
               <select 
                 value={selectedPaymentStatus}
                 onChange={(e) => setSelectedPaymentStatus(e.target.value)}
-                className="w-full pl-4 pr-10 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors appearance-none bg-white"
+                className="w-full pl-10 pr-8 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 appearance-none bg-white/50 backdrop-blur-sm shadow-sm hover:shadow-md text-sm"
               >
                 <option value="">All Payment Status</option>
                 <option value="Cleared">Cleared</option>
@@ -400,7 +423,7 @@ export default function OrdersPage() {
                 <option value="Refunded">Refunded</option>
               </select>
               <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                <ChevronDown className="h-5 w-5 text-gray-400" />
+                <ChevronDown className="h-4 w-4 text-gray-400" />
               </div>
             </div>
           </div>
@@ -410,27 +433,27 @@ export default function OrdersPage() {
             {/* Date Range */}
             <div className="flex items-center gap-4">
               <div className="flex-1">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Start Date</label>
                 <div className="relative">
                   <input
                     type="date"
                     value={dateRange.start}
                     onChange={(e) => setDateRange({ ...dateRange, start: e.target.value })}
-                    className="w-full pl-4 pr-10 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
+                    className="w-full pl-4 pr-10 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 bg-white/50 backdrop-blur-sm shadow-sm hover:shadow-md text-sm"
                   />
-                  <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                  <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                 </div>
               </div>
               <div className="flex-1">
-                <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">End Date</label>
                 <div className="relative">
                   <input
                     type="date"
                     value={dateRange.end}
                     onChange={(e) => setDateRange({ ...dateRange, end: e.target.value })}
-                    className="w-full pl-4 pr-10 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
+                    className="w-full pl-4 pr-10 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 bg-white/50 backdrop-blur-sm shadow-sm hover:shadow-md text-sm"
                   />
-                  <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                  <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                 </div>
               </div>
             </div>
@@ -438,27 +461,27 @@ export default function OrdersPage() {
             {/* Price Range */}
             <div className="flex items-center gap-4">
               <div className="flex-1">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Min Price</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Min Price</label>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">#</span>
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">₦</span>
                   <input
                     type="number"
                     value={priceRange.min}
                     onChange={(e) => setPriceRange({ ...priceRange, min: e.target.value })}
-                    className="w-full pl-8 pr-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
+                    className="w-full pl-8 pr-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 bg-white/50 backdrop-blur-sm shadow-sm hover:shadow-md text-sm"
                     placeholder="0"
                   />
                 </div>
               </div>
               <div className="flex-1">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Max Price</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Max Price</label>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">#</span>
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">₦</span>
                   <input
                     type="number"
                     value={priceRange.max}
                     onChange={(e) => setPriceRange({ ...priceRange, max: e.target.value })}
-                    className="w-full pl-8 pr-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
+                    className="w-full pl-8 pr-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 bg-white/50 backdrop-blur-sm shadow-sm hover:shadow-md text-sm"
                     placeholder="100000"
                   />
                 </div>
@@ -469,49 +492,49 @@ export default function OrdersPage() {
           {/* Active Filters */}
           {(selectedStatus !== "All" || selectedPaymentStatus || dateRange.start || dateRange.end || priceRange.min || priceRange.max) && (
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-sm text-gray-500">Active filters:</span>
+              <span className="text-xs text-gray-500">Active filters:</span>
               <div className="flex items-center gap-2">
                 {selectedStatus !== "All" && (
-                  <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm bg-indigo-50 text-indigo-700">
+                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs bg-indigo-50 text-indigo-700">
                     {selectedStatus}
                     <button 
                       onClick={() => setSelectedStatus("All")}
                       className="ml-1 hover:text-indigo-900"
                     >
-                      <X className="h-4 w-4" />
+                      <X className="h-3 w-3" />
                     </button>
                   </span>
                 )}
                 {selectedPaymentStatus && (
-                  <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm bg-indigo-50 text-indigo-700">
+                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs bg-indigo-50 text-indigo-700">
                     {selectedPaymentStatus}
                     <button 
                       onClick={() => setSelectedPaymentStatus("")}
                       className="ml-1 hover:text-indigo-900"
                     >
-                      <X className="h-4 w-4" />
+                      <X className="h-3 w-3" />
                     </button>
                   </span>
                 )}
                 {(dateRange.start || dateRange.end) && (
-                  <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm bg-indigo-50 text-indigo-700">
+                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs bg-indigo-50 text-indigo-700">
                     Date Range
                     <button 
                       onClick={() => setDateRange({ start: "", end: "" })}
                       className="ml-1 hover:text-indigo-900"
                     >
-                      <X className="h-4 w-4" />
+                      <X className="h-3 w-3" />
                     </button>
                   </span>
                 )}
                 {(priceRange.min || priceRange.max) && (
-                  <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm bg-indigo-50 text-indigo-700">
+                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs bg-indigo-50 text-indigo-700">
                     Price Range
                     <button 
                       onClick={() => setPriceRange({ min: "", max: "" })}
                       className="ml-1 hover:text-indigo-900"
                     >
-                      <X className="h-4 w-4" />
+                      <X className="h-3 w-3" />
                     </button>
                   </span>
                 )}
@@ -522,16 +545,16 @@ export default function OrdersPage() {
       </div>
 
       {/* Shipment Status Filter */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+      <div className="bg-gradient-to-r from-white to-gray-50 rounded-xl shadow-lg border border-gray-200/50 p-4 mb-6">
         <div className="flex items-center gap-2 flex-wrap">
           {["All", "Processing", "Shipped", "Delivered", "Cancelled"].map((status) => (
             <button
               key={status}
               onClick={() => setSelectedStatus(status)}
-              className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+              className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 shadow-sm hover:shadow-md ${
                 selectedStatus === status 
-                  ? `${getStatusButtonColor(status)} ring-2 ring-offset-2 ring-indigo-500`
-                  : `${getStatusButtonColor(status)}`
+                  ? `${getStatusButtonColor(status)} ring-2 ring-offset-2 ring-indigo-500 transform scale-105`
+                  : `${getStatusButtonColor(status)} hover:scale-105`
               }`}
             >
               {status}
@@ -541,129 +564,177 @@ export default function OrdersPage() {
       </div>
 
       {/* Orders Table */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+      <div className="bg-gradient-to-br from-white to-gray-50 rounded-xl shadow-xl border border-gray-200/50 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="bg-gray-50 border-b border-gray-200">
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Order Details
+              <tr className="bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
+                <th className="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">
+                  <div className="flex items-center gap-1.5">
+                    <Package className="h-3.5 w-3.5" />
+                    Order Details
+                  </div>
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Customer
+                <th className="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">
+                  <div className="flex items-center gap-1.5">
+                    <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                    Customer
+                  </div>
                 </th>
                 <th 
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-gray-700"
+                  className="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider cursor-pointer hover:text-gray-700"
                   onClick={() => handleSort("date")}
                 >
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1.5">
+                    <Calendar className="h-3.5 w-3.5" />
                     Date
-                    <ArrowUpDown className="h-4 w-4" />
+                    <ArrowUpDown className="h-3.5 w-3.5" />
                   </div>
                 </th>
                 <th 
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-gray-700"
+                  className="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider cursor-pointer hover:text-gray-700"
                   onClick={() => handleSort("total")}
                 >
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1.5">
+                    <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                    </svg>
                     Total
-                    <ArrowUpDown className="h-4 w-4" />
+                    <ArrowUpDown className="h-3.5 w-3.5" />
                   </div>
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Amount Paid
+                <th className="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">
+                  <div className="flex items-center gap-1.5">
+                    <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Amount Paid
+                  </div>
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Balance
+                <th className="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">
+                  <div className="flex items-center gap-1.5">
+                    <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                    </svg>
+                    Balance
+                  </div>
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  % Paid
+                <th className="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">
+                  <div className="flex items-center gap-1.5">
+                    <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                    </svg>
+                    % Paid
+                  </div>
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Shipment Status
+                <th className="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">
+                  <div className="flex items-center gap-1.5">
+                    <Truck className="h-3.5 w-3.5" />
+                    Shipment Status
+                  </div>
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Payment Status
+                <th className="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">
+                  <div className="flex items-center gap-1.5">
+                    <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                    </svg>
+                    Payment Status
+                  </div>
                 </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
+                <th className="px-6 py-3 text-right text-xs font-bold text-gray-600 uppercase tracking-wider">
+                  <div className="flex items-center justify-end gap-1.5">
+                    <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4" />
+                    </svg>
+                    Actions
+                  </div>
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200">
+            <tbody className="divide-y divide-gray-200/50">
               {filteredOrders.map((order) => (
-                <tr key={order.id} className="hover:bg-gray-50">
+                <tr key={order.id} className="hover:bg-gradient-to-r hover:from-blue-50/50 hover:to-indigo-50/50 transition-all duration-200 group">
                   <td className="px-6 py-4">
                     <div className="flex items-center">
-                      <div className="h-10 w-10 flex-shrink-0 bg-gray-100 rounded-lg flex items-center justify-center">
-                        <Package className="h-6 w-6 text-gray-400" />
+                      <div className="h-10 w-10 flex-shrink-0 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-lg flex items-center justify-center shadow-sm group-hover:shadow-md transition-shadow">
+                        <Package className="h-5 w-5 text-blue-600" />
                       </div>
-                      <div className="ml-4">
-                        <div className="text-sm font-medium text-gray-900">{order.id}</div>
-                        <div className="text-sm text-gray-500">{order.items.length} items</div>
+                      <div className="ml-3">
+                        <div className="text-sm font-semibold text-gray-900 group-hover:text-blue-900 transition-colors">{order.id}</div>
+                        <div className="text-xs text-gray-500">{order.items.length} items</div>
                         {order.isRecurringCustomer && (
-                          <div className="text-xs text-indigo-600 font-medium">Recurring Customer</div>
+                          <div className="text-xs text-indigo-600 font-medium bg-indigo-50 px-2 py-0.5 rounded-full">Recurring</div>
                         )}
                       </div>
                     </div>
                   </td>
                   <td className="px-6 py-4">
-                    <div className="text-sm text-gray-900">{order.customer.name}</div>
-                    <div className="text-sm text-gray-500">{order.customer.email}</div>
+                    <div className="text-sm font-medium text-gray-900">{order.customer.name}</div>
+                    <div className="text-xs text-gray-500">{order.customer.email}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm text-gray-900">{order.date}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">₦{order.total.toLocaleString()}</div>
+                    <div className="text-sm font-bold text-gray-900">₦{order.total.toLocaleString()}</div>
                     <div className="text-xs text-gray-500">{order.paymentMethod}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">₦{order.amountPaid.toLocaleString()}</div>
+                    <div className="text-sm font-semibold text-gray-900">₦{order.amountPaid.toLocaleString()}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className={`text-sm font-medium ${order.balance > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                    <div className={`text-sm font-semibold ${order.balance > 0 ? 'text-red-600' : 'text-green-600'}`}>
                       ₦{order.balance.toLocaleString()}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className={`text-sm font-medium ${getPercentageColor(order.percentagePaid)}`}>
+                    <div className={`text-sm font-semibold ${getPercentageColor(order.percentagePaid)}`}>
                       {order.percentagePaid}%
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(order.shipmentStatus)}`}>
+                    <span className={`px-3 py-1 rounded-full text-xs font-semibold shadow-sm ${
+                      order.shipmentStatus === 'Delivered'
+                        ? 'bg-gradient-to-r from-emerald-100 to-green-100 text-emerald-800 border border-emerald-200'
+                        : order.shipmentStatus === 'Processing'
+                        ? 'bg-gradient-to-r from-amber-100 to-yellow-100 text-amber-800 border border-amber-200'
+                        : order.shipmentStatus === 'Shipped'
+                        ? 'bg-gradient-to-r from-purple-100 to-violet-100 text-purple-800 border border-purple-200'
+                        : 'bg-gradient-to-r from-red-100 to-pink-100 text-red-800 border border-red-200'
+                    }`}>
                       {order.shipmentStatus}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${getPaymentStatusColor(order.paymentStatus)}`}>
+                    <span className={`px-3 py-1 rounded-full text-xs font-semibold shadow-sm ${getPaymentStatusColor(order.paymentStatus)}`}>
                       {order.paymentStatus}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <div className="flex items-center justify-end gap-2">
+                    <div className="flex items-center justify-end gap-1">
                       <button 
-                        className="p-1.5 text-gray-400 hover:text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"
+                        className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200 group-hover:scale-110"
                         title="View Details"
                         onClick={() => {
                           setSelectedOrder(order);
                           setIsDetailsModalOpen(true);
                         }}
                       >
-                        <Eye className="h-5 w-5" />
+                        <Eye className="h-4 w-4" />
                       </button>
                       <button 
-                        className="p-1.5 text-gray-400 hover:text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"
+                        className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-all duration-200 group-hover:scale-110"
                         title="Download Invoice"
                       >
-                        <Download className="h-5 w-5" />
+                        <Download className="h-4 w-4" />
                       </button>
                       <button 
-                        className="p-1.5 text-gray-400 hover:text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"
+                        className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-lg transition-all duration-200 group-hover:scale-110"
                         title="More Options"
                       >
-                        <MoreVertical className="h-5 w-5" />
+                        <MoreVertical className="h-4 w-4" />
                       </button>
                     </div>
                   </td>

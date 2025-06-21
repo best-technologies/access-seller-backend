@@ -19,14 +19,16 @@ export interface ProductsResponse {
 
 export interface Product {
   id: string;
-  name: string;
-  category: string;
-  price: number;
+  bookName: string;
+  publishedBy: string;
+  bookFormat: string;
+  categoryId: string;
+  isbn: string;
+  sellingPrice: number;
+  normalPrice: number;
   stock: number;
   status: string;
-  isbn: string;
-  publisher: string;
-  format: string;
+  referralCommission?: number;
   // Add more fields as needed
 }
 

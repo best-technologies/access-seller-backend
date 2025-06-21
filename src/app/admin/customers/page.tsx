@@ -236,125 +236,153 @@ export default function CustomersPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header with Actions */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Customers</h1>
-          <p className="text-sm text-gray-500 mt-1">Manage and track customer information</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <button className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all duration-200">
-            <Download className="h-4 w-4" />
-            Export
-          </button>
-          <button className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all duration-200">
-            <Plus className="h-4 w-4" />
-            Add Customer
-          </button>
+      {/* Header */}
+      <div className="bg-gradient-to-r from-slate-900 via-purple-900 to-slate-900 rounded-xl p-6 mb-6 shadow-xl">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-white/10 backdrop-blur-sm rounded-lg">
+              <User className="h-6 w-6 text-white" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-white mb-0.5">Customer Management</h1>
+              <p className="text-slate-300 text-xs">Manage and track customer information</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white/30 focus:ring-offset-2 focus:ring-offset-transparent transition-all duration-200 shadow-lg">
+              <Download className="h-4 w-4" />
+              Export
+            </button>
+            <button className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 to-purple-600 rounded-lg hover:from-indigo-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-white/30 focus:ring-offset-2 focus:ring-offset-transparent transition-all duration-200 shadow-lg">
+              <Plus className="h-4 w-4" />
+              Add Customer
+            </button>
+          </div>
         </div>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-6 gap-6">
-        {/* Total Admins Card (now first) */}
-        <div className="bg-gradient-to-br from-teal-50 to-indigo-50 rounded-xl shadow-sm border border-teal-100 p-6">
+      <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-6">
+        {/* Total Admins Card */}
+        <div className="bg-gradient-to-br from-teal-50 to-indigo-100 rounded-xl shadow-lg border border-teal-200/50 p-4 hover:shadow-xl transition-all duration-300 group">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-teal-600 font-medium">Total Admins</p>
-              <p className="text-2xl font-semibold text-gray-900">{stats?.totalAdmins ?? 0}</p>
+              <p className="text-xs font-medium text-teal-600 mb-0.5">Total Admins</p>
+              <p className="text-2xl font-bold text-teal-900">{stats?.totalAdmins ?? 0}</p>
+              <p className="text-xs text-teal-500">System users</p>
             </div>
-            <div className="p-3 bg-teal-100 rounded-lg">
-              <User className="h-6 w-6 text-teal-600" />
+            <div className="p-3 bg-gradient-to-br from-teal-500 to-indigo-600 rounded-lg shadow-lg group-hover:scale-110 transition-transform duration-300">
+              <User className="h-6 w-6 text-white" />
             </div>
           </div>
         </div>
 
         {/* Total Customers Card */}
-        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl shadow-sm border border-blue-100 p-6">
+        <div className="bg-gradient-to-br from-blue-50 to-indigo-100 rounded-xl shadow-lg border border-blue-200/50 p-4 hover:shadow-xl transition-all duration-300 group">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-blue-600 font-medium">Total Customers</p>
-              <p className="text-2xl font-semibold text-gray-900">{stats?.totalCustomers ?? 0}</p>
+              <p className="text-xs font-medium text-blue-600 mb-0.5">Total Customers</p>
+              <p className="text-2xl font-bold text-blue-900">{stats?.totalCustomers ?? 0}</p>
+              <p className="text-xs text-blue-500">All customers</p>
             </div>
-            <div className="p-3 bg-blue-100 rounded-lg">
-              <User className="h-6 w-6 text-blue-600" />
+            <div className="p-3 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg shadow-lg group-hover:scale-110 transition-transform duration-300">
+              <User className="h-6 w-6 text-white" />
             </div>
           </div>
         </div>
 
-        <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl shadow-sm border border-green-100 p-6">
+        {/* Active Customers Card */}
+        <div className="bg-gradient-to-br from-emerald-50 to-green-100 rounded-xl shadow-lg border border-emerald-200/50 p-4 hover:shadow-xl transition-all duration-300 group">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-green-600 font-medium">Active Customers</p>
-              <p className="text-2xl font-semibold text-gray-900">{stats?.activeCustomers ?? 0}</p>
+              <p className="text-xs font-medium text-emerald-600 mb-0.5">Active Customers</p>
+              <p className="text-2xl font-bold text-emerald-900">{stats?.activeCustomers ?? 0}</p>
+              <p className="text-xs text-emerald-500">Engaged users</p>
             </div>
-            <div className="p-3 bg-green-100 rounded-lg">
-              <User className="h-6 w-6 text-green-600" />
+            <div className="p-3 bg-gradient-to-br from-emerald-500 to-green-600 rounded-lg shadow-lg group-hover:scale-110 transition-transform duration-300">
+              <User className="h-6 w-6 text-white" />
             </div>
           </div>
         </div>
 
-        <div className="bg-gradient-to-br from-purple-50 to-violet-50 rounded-xl shadow-sm border border-purple-100 p-6">
+        {/* Total Orders Card */}
+        <div className="bg-gradient-to-br from-purple-50 to-violet-100 rounded-xl shadow-lg border border-purple-200/50 p-4 hover:shadow-xl transition-all duration-300 group">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-purple-600 font-medium">Total Orders</p>
-              <p className="text-2xl font-semibold text-gray-900">{stats?.totalOrders ?? 0}</p>
+              <p className="text-xs font-medium text-purple-600 mb-0.5">Total Orders</p>
+              <p className="text-2xl font-bold text-purple-900">{stats?.totalOrders ?? 0}</p>
+              <p className="text-xs text-purple-500">All orders</p>
             </div>
-            <div className="p-3 bg-purple-100 rounded-lg">
-              <ShoppingBag className="h-6 w-6 text-purple-600" />
+            <div className="p-3 bg-gradient-to-br from-purple-500 to-violet-600 rounded-lg shadow-lg group-hover:scale-110 transition-transform duration-300">
+              <ShoppingBag className="h-6 w-6 text-white" />
             </div>
           </div>
         </div>
 
-        <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl shadow-sm border border-amber-100 p-6">
+        {/* Total Value Card */}
+        <div className="bg-gradient-to-br from-amber-50 to-orange-100 rounded-xl shadow-lg border border-amber-200/50 p-4 hover:shadow-xl transition-all duration-300 group">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-amber-600 font-medium">Total Value</p>
-              <p className="text-2xl font-semibold text-gray-900">₦{(stats?.totalValue ?? 0).toLocaleString()}</p>
+              <p className="text-xs font-medium text-amber-600 mb-0.5">Total Value</p>
+              <p className="text-2xl font-bold text-amber-900">₦{(stats?.totalValue ?? 0).toLocaleString()}</p>
+              <p className="text-xs text-amber-500">Revenue</p>
             </div>
-            <div className="p-3 bg-amber-100 rounded-lg">
-              <DollarSign className="h-6 w-6 text-amber-600" />
+            <div className="p-3 bg-gradient-to-br from-amber-500 to-orange-600 rounded-lg shadow-lg group-hover:scale-110 transition-transform duration-300">
+              <DollarSign className="h-6 w-6 text-white" />
             </div>
           </div>
         </div>
 
-        <div className="bg-gradient-to-br from-red-50 to-rose-50 rounded-xl shadow-sm border border-red-100 p-6">
+        {/* Total Owed Card */}
+        <div className="bg-gradient-to-br from-red-50 to-rose-100 rounded-xl shadow-lg border border-red-200/50 p-4 hover:shadow-xl transition-all duration-300 group">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-red-600 font-medium">Total Owed</p>
-              <p className="text-2xl font-semibold text-gray-900">₦{(stats?.totalOwed ?? 0).toLocaleString()}</p>
+              <p className="text-xs font-medium text-red-600 mb-0.5">Total Owed</p>
+              <p className="text-2xl font-bold text-red-900">₦{(stats?.totalOwed ?? 0).toLocaleString()}</p>
+              <p className="text-xs text-red-500">Outstanding</p>
             </div>
-            <div className="p-3 bg-red-100 rounded-lg">
-              <DollarSign className="h-6 w-6 text-red-600" />
+            <div className="p-3 bg-gradient-to-br from-red-500 to-rose-600 rounded-lg shadow-lg group-hover:scale-110 transition-transform duration-300">
+              <DollarSign className="h-6 w-6 text-white" />
             </div>
           </div>
         </div>
       </div>
 
       {/* Search and Filter Controls */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+      <div className="bg-gradient-to-r from-white to-gray-50 rounded-xl shadow-lg border border-gray-200/50 p-6 mb-6">
         <div className="flex flex-col gap-4">
+          {/* Header */}
+          <div className="flex items-center gap-2 mb-2">
+            <div className="p-1.5 bg-indigo-100 rounded-lg">
+              <Search className="h-4 w-4 text-indigo-600" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-gray-900">Customer Search</h2>
+              <p className="text-xs text-gray-500">Filter and search through customers</p>
+            </div>
+          </div>
+
           <div className="flex items-center gap-4">
             {/* Search Bar */}
-            <div className="w-96 relative">
+            <div className="flex-1 relative group">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Search className="h-4 w-4 text-gray-400" />
+                <Search className="h-4 w-4 text-gray-400 group-focus-within:text-indigo-500 transition-colors" />
               </div>
               <input
                 type="text"
                 placeholder="Search customers..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
+                className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 bg-white/50 backdrop-blur-sm shadow-sm hover:shadow-md text-sm"
               />
             </div>
 
             {/* Filter Toggle Button */}
             <button
               onClick={() => setShowFilters(!showFilters)}
-              className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
+              className={`inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-lg transition-all duration-200 shadow-sm hover:shadow-md ${
                 showFilters
-                  ? "bg-indigo-50 text-indigo-600"
+                  ? "bg-indigo-50 text-indigo-600 border border-indigo-200"
                   : "bg-white text-gray-700 border border-gray-200 hover:bg-gray-50"
               }`}
             >
@@ -370,31 +398,31 @@ export default function CustomersPage() {
 
           {/* Advanced Filters */}
           {showFilters && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4 bg-gray-50 rounded-lg">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4 bg-gray-50/50 rounded-lg border border-gray-200/50">
               {/* Date Range */}
               <div className="space-y-4">
-                <h3 className="text-sm font-medium text-gray-700">Join Date Range</h3>
+                <h3 className="text-sm font-semibold text-gray-700">Join Date Range</h3>
                 <div className="flex items-center gap-4">
                   <div className="flex-1">
-                    <label className="block text-sm text-gray-500 mb-1">From</label>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">From</label>
                     <div className="relative">
                       <input
                         type="date"
                         value={dateRange.start}
                         onChange={(e) => setDateRange({ ...dateRange, start: e.target.value })}
-                        className="w-full pl-4 pr-10 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
+                        className="w-full pl-4 pr-10 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 bg-white/50 backdrop-blur-sm shadow-sm hover:shadow-md text-sm"
                       />
                       <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                     </div>
                   </div>
                   <div className="flex-1">
-                    <label className="block text-sm text-gray-500 mb-1">To</label>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">To</label>
                     <div className="relative">
                       <input
                         type="date"
                         value={dateRange.end}
                         onChange={(e) => setDateRange({ ...dateRange, end: e.target.value })}
-                        className="w-full pl-4 pr-10 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
+                        className="w-full pl-4 pr-10 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 bg-white/50 backdrop-blur-sm shadow-sm hover:shadow-md text-sm"
                       />
                       <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                     </div>
@@ -404,30 +432,30 @@ export default function CustomersPage() {
 
               {/* Spend Range */}
               <div className="space-y-4">
-                <h3 className="text-sm font-medium text-gray-700">Spend Range</h3>
+                <h3 className="text-sm font-semibold text-gray-700">Spend Range</h3>
                 <div className="flex items-center gap-4">
                   <div className="flex-1">
-                    <label className="block text-sm text-gray-500 mb-1">Min Amount</label>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Min Amount</label>
                     <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">#</span>
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">₦</span>
                       <input
                         type="number"
                         value={spendRange.min}
                         onChange={(e) => setSpendRange({ ...spendRange, min: e.target.value })}
-                        className="w-full pl-8 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
+                        className="w-full pl-8 pr-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 bg-white/50 backdrop-blur-sm shadow-sm hover:shadow-md text-sm"
                         placeholder="0"
                       />
                     </div>
                   </div>
                   <div className="flex-1">
-                    <label className="block text-sm text-gray-500 mb-1">Max Amount</label>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Max Amount</label>
                     <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">#</span>
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">₦</span>
                       <input
                         type="number"
                         value={spendRange.max}
                         onChange={(e) => setSpendRange({ ...spendRange, max: e.target.value })}
-                        className="w-full pl-8 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
+                        className="w-full pl-8 pr-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 bg-white/50 backdrop-blur-sm shadow-sm hover:shadow-md text-sm"
                         placeholder="1000000"
                       />
                     </div>
@@ -440,38 +468,38 @@ export default function CustomersPage() {
           {/* Active Filters */}
           {(selectedStatus !== "All" || dateRange.start || dateRange.end || spendRange.min || spendRange.max) && (
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-sm text-gray-500">Active filters:</span>
+              <span className="text-xs text-gray-500">Active filters:</span>
               <div className="flex items-center gap-2">
                 {selectedStatus !== "All" && (
-                  <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm bg-indigo-50 text-indigo-700">
+                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs bg-indigo-50 text-indigo-700">
                     {selectedStatus}
                     <button 
                       onClick={() => setSelectedStatus("All")}
                       className="ml-1 hover:text-indigo-900"
                     >
-                      <X className="h-4 w-4" />
+                      <X className="h-3 w-3" />
                     </button>
                   </span>
                 )}
                 {(dateRange.start || dateRange.end) && (
-                  <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm bg-indigo-50 text-indigo-700">
+                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs bg-indigo-50 text-indigo-700">
                     Join Date Range
                     <button 
                       onClick={() => setDateRange({ start: "", end: "" })}
                       className="ml-1 hover:text-indigo-900"
                     >
-                      <X className="h-4 w-4" />
+                      <X className="h-3 w-3" />
                     </button>
                   </span>
                 )}
                 {(spendRange.min || spendRange.max) && (
-                  <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm bg-indigo-50 text-indigo-700">
+                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs bg-indigo-50 text-indigo-700">
                     Spend Range
                     <button 
                       onClick={() => setSpendRange({ min: "", max: "" })}
                       className="ml-1 hover:text-indigo-900"
                     >
-                      <X className="h-4 w-4" />
+                      <X className="h-3 w-3" />
                     </button>
                   </span>
                 )}
@@ -482,14 +510,14 @@ export default function CustomersPage() {
       </div>
 
       {/* Filter Tabs */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-        <div className="border-b border-gray-200">
+      <div className="bg-gradient-to-r from-white to-gray-50 rounded-xl shadow-lg border border-gray-200/50 mb-6">
+        <div className="border-b border-gray-200/50">
           <nav className="flex -mb-px">
             {["All", "Active", "Inactive", "New", "VIP"].map((tab) => (
               <button
                 key={tab}
                 onClick={() => setSelectedStatus(tab)}
-                className={`px-6 py-4 text-sm font-medium border-b-2 transition-all duration-200 ${
+                className={`px-6 py-4 text-sm font-semibold border-b-2 transition-all duration-200 ${
                   selectedStatus === tab
                     ? "border-indigo-500 text-indigo-600 bg-indigo-50/50"
                     : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 hover:bg-gray-50/50"
