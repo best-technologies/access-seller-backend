@@ -22,7 +22,7 @@ export interface Product {
   bookName: string;
   publishedBy: string;
   bookFormat: string;
-  categoryId: string;
+  categories: { id: string; name: string }[];
   isbn: string;
   sellingPrice: number | string;
   normalPrice: number | string;

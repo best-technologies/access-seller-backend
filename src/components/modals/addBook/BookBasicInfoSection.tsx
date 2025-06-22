@@ -7,12 +7,12 @@ interface Props {
 
 export default function BookBasicInfoSection({ book, setBook }: Props) {
   return (
-    <div className="bg-white rounded-xl shadow-md p-6 mb-6 border border-gray-100 transition-shadow hover:shadow-lg">
-      <div className="flex items-center gap-2 text-gray-900">
+    <div className="bg-white rounded-xl shadow-md p-6 mb-4 border border-gray-100 transition-shadow hover:shadow-lg">
+      <div className="flex items-center gap-2 text-gray-900 mb-4">
         {/* Book icon and section title can be added here if needed */}
         <h3 className="font-medium">Basic Information</h3>
       </div>
-      <div className="grid grid-cols-1 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
           <div className="relative">
             <input
@@ -29,12 +29,12 @@ export default function BookBasicInfoSection({ book, setBook }: Props) {
           </div>
         </div>
         <div>
-          <div className="relative">
+          <div className="relative h-full">
             <textarea
               value={book.description}
               onChange={(e) => setBook({ ...book, description: e.target.value })}
               placeholder=" "
-              className="peer w-full rounded-lg border border-gray-200 px-4 py-2.5 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-colors bg-gray-50 focus:bg-white"
+              className="peer w-full rounded-lg border border-gray-200 px-4 py-2.5 h-full min-h-[48px] focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-colors bg-gray-50 focus:bg-white"
               rows={3}
               required
               aria-label="Description"

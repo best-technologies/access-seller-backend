@@ -1,31 +1,5 @@
-import React, { useState, useRef } from 'react';
+import React from 'react';
 import { ChevronDown, Search, X, Tag, Globe, FileText, Check } from 'lucide-react';
-
-// Mock data - same as your constants
-const BOOK_CATEGORIES = [
-  { value: 'academic', label: 'Academic' },
-  { value: 'adventure', label: 'Adventure' },
-  { value: 'arts', label: 'Arts' },
-  { value: 'biography', label: 'Biography' },
-  { value: 'business', label: 'Business' },
-  { value: 'children', label: 'Children' },
-  { value: 'fiction', label: 'Fiction' },
-  { value: 'non_fiction', label: 'Non-Fiction' }
-];
-
-const BOOK_LANGUAGES = [
-  { value: 'english', label: 'English' },
-  { value: 'spanish', label: 'Spanish' },
-  { value: 'french', label: 'French' },
-  { value: 'german', label: 'German' }
-];
-
-const BOOK_FORMATS = [
-  { value: 'hardcover', label: 'Hardcover' },
-  { value: 'paperback', label: 'Paperback' },
-  { value: 'e-book', label: 'E-Book' },
-  { value: 'audiobook', label: 'Audiobook' }
-];
 
 // Add types for dropdown config
 interface Option {
@@ -82,7 +56,6 @@ interface ClassificationSectionProps {
     language: boolean;
     format: boolean;
   };
-  
   setDropdownStates: React.Dispatch<React.SetStateAction<{
     category: boolean;
     genre: boolean;
@@ -106,84 +79,19 @@ interface ClassificationSectionProps {
   getLabelByValue: (value: string, type: 'category' | 'language' | 'format') => string;
 }
 
-
-const ClassificationSection: React.FC<ClassificationSectionProps> = ({ book, setBook }) => {
-
-  // Dropdown states
-  const [dropdownStates, setDropdownStates] = useState({
-    category: false,
-    language: false,
-    format: false
-  });
-
-  // Search states
-  const [searchStates, setSearchStates] = useState({
-    category: '',
-    language: '',
-    format: ''
-  });
-
-  // Refs
-  const dropdownRefs = {
-    category: useRef(null),
-    language: useRef(null),
-    format: useRef(null)
-  };
-
-  // Filter options based on search
-  const filteredOptions = {
-    categories: BOOK_CATEGORIES.filter(cat =>
-      cat.label.toLowerCase().includes(searchStates.category.toLowerCase())
-    ),
-    languages: BOOK_LANGUAGES.filter(lang =>
-      lang.label.toLowerCase().includes(searchStates.language.toLowerCase())
-    ),
-    formats: BOOK_FORMATS.filter(format =>
-      format.label.toLowerCase().includes(searchStates.format.toLowerCase())
-    )
-  };
-
-  // Get label by value
-  const getLabelByValue = (value: string, type: DropdownType): string => {
-    const maps: Record<DropdownType, Option[]> = {
-      category: BOOK_CATEGORIES,
-      language: BOOK_LANGUAGES,
-      format: BOOK_FORMATS
-    };
-    return maps[type].find((item: Option) => item.value === value)?.label || value;
-  };
-
-  // Handle selection - THIS IS THE KEY FUNCTION
-  const handleSelection = (type: DropdownType, value: string) => {
-    console.log(`Selecting ${type}: ${value}`);
-    console.log('Current book state:', book);
-    
-    setBook((prev: BookState) => {
-      const currentArray: string[] = prev[type] || [];
-      const exists = currentArray.includes(value);
-      const newArray = exists 
-        ? currentArray.filter((v: string) => v !== value) 
-        : [...currentArray, value];
-      
-      console.log(`${type} array before:`, currentArray);
-      console.log(`${type} array after:`, newArray);
-      
-      return {
-        ...prev,
-        [type]: newArray
-      };
-    });
-  };
-
-  // Handle removal
-  const handleRemoval = (type: DropdownType, value: string) => {
-    console.log(`Removing ${type}: ${value}`);
-    setBook((prev: BookState) => ({
-      ...prev,
-      [type]: prev[type].filter((item: string) => item !== value)
-    }));
-  };
-
+const ClassificationSection: React.FC<ClassificationSectionProps> = ({
+  book,
+  setBook,
+  filteredOptions,
+  dropdownRefs,
+  dropdownStates,
+  setDropdownStates,
+  searchStates,
+  setSearchStates,
+  onSelection,
+  onRemoval,
+  getLabelByValue,
+}) => {
   const dropdownConfig: DropdownConfig[] = [
     {
       key: 'category',
@@ -193,7 +101,7 @@ const ClassificationSection: React.FC<ClassificationSectionProps> = ({ book, set
       emptyMessage: 'No categories found',
       options: filteredOptions.categories,
       values: book.category,
-      searchValue: searchStates.category
+      searchValue: searchStates.category,
     },
     {
       key: 'language',
@@ -203,7 +111,7 @@ const ClassificationSection: React.FC<ClassificationSectionProps> = ({ book, set
       emptyMessage: 'No languages found',
       options: filteredOptions.languages,
       values: book.language,
-      searchValue: searchStates.language
+      searchValue: searchStates.language,
     },
     {
       key: 'format',
@@ -213,13 +121,12 @@ const ClassificationSection: React.FC<ClassificationSectionProps> = ({ book, set
       emptyMessage: 'No formats found',
       options: filteredOptions.formats,
       values: book.format,
-      searchValue: searchStates.format
-    }
+      searchValue: searchStates.format,
+    },
   ];
 
   const renderSelectedTags = (values: string[], type: DropdownType) => {
     if (!values || values.length === 0) return null;
-    
     return (
       <div className="flex flex-wrap gap-1.5 mt-2">
         {values.map((value: string) => (
@@ -232,7 +139,7 @@ const ClassificationSection: React.FC<ClassificationSectionProps> = ({ book, set
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
-                handleRemoval(type, value);
+                onRemoval(type, value);
               }}
               className="hover:bg-indigo-200 rounded-full p-0.5 transition-colors"
             >
@@ -248,7 +155,6 @@ const ClassificationSection: React.FC<ClassificationSectionProps> = ({ book, set
     const isOpen = dropdownStates[config.key];
     const IconComponent = config.icon;
     const selectedCount = config.values.length;
-    
     return (
       <div key={config.key} className="relative">
         <div className="space-y-2">
@@ -264,7 +170,6 @@ const ClassificationSection: React.FC<ClassificationSectionProps> = ({ book, set
                 )}
               </div>
             </label>
-            
             <button
               type="button"
               onClick={() => setDropdownStates(prev => ({
@@ -274,17 +179,20 @@ const ClassificationSection: React.FC<ClassificationSectionProps> = ({ book, set
               className="w-full rounded-lg border-2 border-gray-200 px-4 py-3 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all bg-white hover:bg-gray-50 text-left flex items-center justify-between group"
             >
               <span className={selectedCount > 0 ? 'text-gray-900 font-medium' : 'text-gray-500'}>
-                {selectedCount > 0 
-                  ? `${selectedCount} ${config.label.toLowerCase()}${selectedCount > 1 ? 's' : ''} selected` 
+                {selectedCount > 0
+                  ? config.values
+                      .map(val => getLabelByValue(val, config.key))
+                      .filter(Boolean)
+                      .slice(0, 2)
+                      .join(', ') +
+                    (selectedCount > 2 ? ` +${selectedCount - 2} more` : '')
                   : `Select ${config.label.toLowerCase()}`
                 }
               </span>
               <ChevronDown className={`h-5 w-5 text-gray-400 group-hover:text-gray-600 transition-all duration-200 ${isOpen ? 'rotate-180' : ''}`} />
             </button>
-
             {renderSelectedTags(config.values, config.key)}
           </div>
-
           {isOpen && (
             <div className="absolute z-50 w-full mt-1 bg-white border-2 border-gray-200 rounded-xl shadow-2xl overflow-hidden">
               {/* Search Input */}
@@ -308,7 +216,6 @@ const ClassificationSection: React.FC<ClassificationSectionProps> = ({ book, set
                   </div>
                 )}
               </div>
-
               {/* Options List */}
               <div className="max-h-56 overflow-y-auto">
                 {config.options.length > 0 ? (
@@ -318,17 +225,18 @@ const ClassificationSection: React.FC<ClassificationSectionProps> = ({ book, set
                       <button
                         key={option.value}
                         type="button"
-                        onClick={() => {
-                          handleSelection(config.key, option.value);
-                          // Clear search after selection
+                        onMouseDown={e => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          onSelection(config.key, option.value);
                           setSearchStates(prev => ({
                             ...prev,
                             [config.key]: ''
                           }));
                         }}
                         className={`w-full px-4 py-3 text-left text-sm transition-colors flex items-center justify-between group ${
-                          isSelected 
-                            ? 'bg-indigo-50 text-indigo-700 border-l-4 border-indigo-500' 
+                          isSelected
+                            ? 'bg-indigo-50 text-indigo-700 border-l-4 border-indigo-500'
                             : 'hover:bg-gray-50 hover:text-gray-900 border-l-4 border-transparent'
                         }`}
                       >
@@ -351,7 +259,6 @@ const ClassificationSection: React.FC<ClassificationSectionProps> = ({ book, set
                   </div>
                 )}
               </div>
-
               {/* Close dropdown button */}
               <div className="p-3 border-t border-gray-100 bg-gray-50">
                 <button
@@ -380,12 +287,11 @@ const ClassificationSection: React.FC<ClassificationSectionProps> = ({ book, set
           <p className="text-sm text-gray-600">Organize your book with categories, language, and format</p>
         </div>
       </div>
-
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         {dropdownConfig.map(renderDropdown)}
       </div>
     </div>
   );
-}
+};
 
 export default ClassificationSection;

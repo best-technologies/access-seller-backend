@@ -14,6 +14,7 @@ import PricingInventorySection from './addBook/PricingInventorySection';
 import ClassificationSection from './addBook/ClassificationSection';
 import AdditionalDetailsSection from './addBook/AdditionalDetailsSection';
 import MediaPublisherSection from './addBook/MediaPublisherSection';
+import { api, MetadataResponse } from '@/services/api';
 
 // Enhanced Book interface with better typing
 export interface Book {
@@ -145,7 +146,7 @@ const INITIAL_BOOK_STATE: Book = {
   language: [],
   format: [],
   genre: [],
-  rated: '',
+  rated: 'All',
   display_images: [],
   isbn: '',
   publisher: '',
@@ -226,32 +227,58 @@ export default function AddBookModal({
     format: formatRef
   };
 
+  // Metadata state
+  const [metadata, setMetadata] = useState<MetadataResponse['data'] | null>(null);
+  const [loadingMetadata, setLoadingMetadata] = useState(false);
+  const [metadataError, setMetadataError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      setLoadingMetadata(true);
+      setMetadataError(null);
+      api.admin.fetchMetadata()
+        .then(res => setMetadata(res.data))
+        .catch(err => setMetadataError(err.message || 'Failed to fetch metadata'))
+        .finally(() => setLoadingMetadata(false));
+    }
+  }, [isOpen]);
+
+  // Map backend data to dropdown format
+  const categories = metadata?.categories.map(c => ({ value: c.id, label: c.name })) || [];
+  const genres = metadata?.genres.map(g => ({ value: g.name, label: g.name })) || [];
+  const languages = metadata?.languages.map(l => ({ value: l.name, label: l.name })) || [];
+  const formats = metadata?.formats.map(f => ({ value: f.name, label: f.name })) || [];
+  const ageRatings = metadata?.ageRatings.map(a => ({ value: a.name, label: a.name, description: '' })) || [];
+
   // Memoized filtered options
   const filteredOptions = useMemo(() => ({
-    categories: BOOK_CATEGORIES.filter(cat =>
+    categories: categories.filter(cat =>
       cat.label.toLowerCase().includes(searchStates.category.toLowerCase())
     ),
-    genres: BOOK_GENRES.filter(genre =>
+    genres: genres.filter(genre =>
       genre.label.toLowerCase().includes(searchStates.genre.toLowerCase())
     ),
-    languages: BOOK_LANGUAGES.filter(lang =>
+    languages: languages.filter(lang =>
       lang.label.toLowerCase().includes(searchStates.language.toLowerCase())
     ),
-    formats: BOOK_FORMATS.filter(format =>
+    formats: formats.filter(format =>
       format.label.toLowerCase().includes(searchStates.format.toLowerCase())
     )
-  }), [searchStates]);
+  }), [searchStates, categories, genres, languages, formats]);
 
   // Label lookup functions
-  const getLabelByValue = useCallback((value: string, type: 'category' | 'genre' | 'language' | 'format') => {
-    const maps = {
-      category: BOOK_CATEGORIES,
-      genre: BOOK_GENRES,
-      language: BOOK_LANGUAGES,
-      format: BOOK_FORMATS
-    };
-    return maps[type].find(item => item.value === value)?.label || '';
-  }, []);
+  const getLabelByValue = useCallback(
+    (value: string, type: 'category' | 'genre' | 'language' | 'format') => {
+      const maps = {
+        category: categories,
+        genre: genres,
+        language: languages,
+        format: formats,
+      };
+      return maps[type].find(item => item.value === value)?.label || '';
+    },
+    [categories, genres, languages, formats]
+  );
 
   // Validation function
   const validateForm = useCallback((): ValidationErrors => {
@@ -299,11 +326,13 @@ export default function AddBookModal({
     setCommissionState({ isCustom: false, customValue: '', warning: '' });
   }, []);
 
-  // Handle form submission
+  // Handle form submission - FIXED VERSION
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('Submit function called'); // Debug log
     
     const errors = validateForm();
+    console.log('Validation errors:', errors); // Debug log
     
     if (Object.keys(errors).length > 0) {
       setFormState(prev => ({ ...prev, errors }));
@@ -316,6 +345,7 @@ export default function AddBookModal({
     setFormState(prev => ({ ...prev, isSubmitting: true, errors: {} }));
 
     try {
+      console.log('Submitting book:', book);
       await onAddBook(book);
       handleReset();
       onClose();
@@ -329,6 +359,23 @@ export default function AddBookModal({
       setFormState(prev => ({ ...prev, isSubmitting: false }));
     }
   }, [book, onAddBook, onClose, validateForm, handleReset]);
+
+  // FIXED: Handle button click directly
+  const handleProceedClick = useCallback(async (e: React.MouseEvent) => {
+    e.preventDefault();
+    console.log('Proceed button clicked'); // Debug log
+    
+    // Find the form and trigger submit
+    const form = document.querySelector('#add-book-form') as HTMLFormElement;
+    if (form) {
+      form.requestSubmit();
+    } else {
+      // Fallback: call handleSubmit directly
+      const syntheticEvent = new Event('submit') as any;
+      syntheticEvent.preventDefault = () => {};
+      await handleSubmit(syntheticEvent);
+    }
+  }, [handleSubmit]);
 
   // Handle modal close with unsaved changes warning
   const handleClose = useCallback(() => {
@@ -425,6 +472,29 @@ export default function AddBookModal({
 
   if (!isOpen) return null;
 
+  // Show loading or error state for metadata
+  if (loadingMetadata) {
+    return (
+      <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-50 flex items-center justify-center">
+        <div className="bg-white rounded-2xl p-8 shadow-2xl flex flex-col items-center">
+          <Loader2 className="h-8 w-8 animate-spin text-indigo-600 mb-4" />
+          <span className="text-lg font-medium text-gray-700">Loading book metadata...</span>
+        </div>
+      </div>
+    );
+  }
+  if (metadataError) {
+    return (
+      <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-50 flex items-center justify-center">
+        <div className="bg-white rounded-2xl p-8 shadow-2xl flex flex-col items-center">
+          <AlertCircle className="h-8 w-8 text-red-600 mb-4" />
+          <span className="text-lg font-medium text-red-700 mb-2">{metadataError}</span>
+          <button onClick={onClose} className="mt-4 px-6 py-2 bg-gray-200 rounded-lg text-gray-700 font-medium">Close</button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div 
       className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-50 flex items-center justify-center transition-all duration-300"
@@ -432,19 +502,19 @@ export default function AddBookModal({
       aria-modal="true"
       aria-labelledby="modal-title"
     >
-      <div className="bg-white rounded-2xl w-full max-w-6xl max-h-[95vh] overflow-hidden shadow-2xl border border-gray-200">
+      <div className="bg-white rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden shadow-2xl border border-gray-200 flex flex-col">
         {/* Enhanced Header */}
-        <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50">
+        <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 sticky top-0 z-10 sm:p-4 sm:pt-6 sm:pb-4 sm:rounded-none">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
               <div className="p-2 bg-indigo-100 rounded-lg">
                 <BookOpen className="h-6 w-6 text-indigo-600" />
               </div>
               <div>
-                <h2 id="modal-title" className="text-2xl font-semibold text-gray-900">
+                <h2 id="modal-title" className="text-2xl font-semibold text-gray-900 sm:text-lg">
                   Add New Book
                 </h2>
-                <p className="text-sm text-gray-600 mt-1">
+                <p className="text-sm text-gray-600 mt-1 sm:text-xs">
                   Complete all required fields to add a book to your inventory
                 </p>
               </div>
@@ -457,13 +527,25 @@ export default function AddBookModal({
               )}
               <button
                 onClick={handleClose}
-                className="text-gray-400 hover:text-gray-600 transition-colors p-2 hover:bg-gray-100 rounded-lg"
+                className="text-gray-400 hover:text-gray-600 transition-colors p-2 hover:bg-gray-100 rounded-lg sm:p-3 sm:-mr-2"
                 aria-label="Close modal"
               >
-                <X className="h-5 w-5" />
+                <X className="h-5 w-5 sm:h-6 sm:w-6" />
               </button>
             </div>
           </div>
+          {/* Reset Form Button at the top */}
+          {formState.isDirty && (
+            <div className="mt-4 flex justify-end">
+              <button
+                type="button"
+                onClick={handleReset}
+                className="text-sm text-gray-600 hover:text-gray-800 transition-colors border border-gray-200 rounded-lg px-4 py-2 bg-white sm:px-3 sm:py-1.5"
+              >
+                Reset Form
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Error Summary */}
@@ -487,8 +569,8 @@ export default function AddBookModal({
         )}
 
         {/* Form Content */}
-        <div className="overflow-y-auto max-h-[calc(95vh-12rem)]">
-          <form onSubmit={handleSubmit} className="p-6 space-y-8">
+        <div className="flex-1 overflow-y-auto max-h-[calc(95vh-12rem)] sm:max-h-none sm:pb-32">
+          <form id="add-book-form" onSubmit={handleSubmit} className="p-6 space-y-8 sm:p-4 sm:space-y-6">
             <BookBasicInfoSection 
               book={book} 
               setBook={setBook}
@@ -528,6 +610,7 @@ export default function AddBookModal({
               onGenreSelect={handleGenreSelect}
               onGenreRemove={(value: string) => handleRemoval('genre', value)}
               getGenreLabel={(value) => getLabelByValue(value, 'genre')}
+              ageRatings={ageRatings}
             />
             
             <MediaPublisherSection 
@@ -535,50 +618,57 @@ export default function AddBookModal({
               setBook={setBook}
             />
 
-            {/* Enhanced Action Buttons */}
-            <div className="flex items-center justify-between pt-6 border-t border-gray-200">
-              <div className="flex items-center space-x-4">
-                {formState.isDirty && (
-                  <button
-                    type="button"
-                    onClick={handleReset}
-                    className="text-sm text-gray-600 hover:text-gray-800 transition-colors"
-                  >
-                    Reset Form
-                  </button>
-                )}
-              </div>
-              
-              <div className="flex items-center space-x-3">
-                <button
-                  type="button"
-                  onClick={handleClose}
-                  className="px-6 py-2.5 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors font-medium"
-                  disabled={formState.isSubmitting}
-                >
-                  Cancel
-                </button>
-                
-                <button
-                  type="submit"
-                  disabled={formState.isSubmitting || isLoading}
-                  className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
-                >
-                  {(formState.isSubmitting || isLoading) ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      <span>Adding Book...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Plus className="h-4 w-4" />
-                      <span>Add Book</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
+            {/* Hidden submit button for form submission */}
+            <button type="submit" style={{ display: 'none' }} aria-hidden="true">Submit</button>
+
+            {/* Spacer for sticky action bar on mobile */}
+            <div className="h-4 sm:h-24" />
           </form>
+        </div>
+
+        {/* Enhanced Action Buttons - sticky on mobile */}
+        <div className="flex items-center justify-between pt-6 border-t border-gray-200 bg-white sticky bottom-0 z-20 px-6 sm:px-4 sm:py-4 sm:pt-2 sm:pb-4 sm:rounded-none sm:shadow-[0_-2px_8px_0_rgba(0,0,0,0.04)]">
+          <div className="flex items-center space-x-3">
+            {formState.isDirty && (
+              <button
+                type="button"
+                onClick={handleReset}
+                className="text-sm text-gray-600 hover:text-gray-800 transition-colors sm:text-base"
+              >
+                Reset Form
+              </button>
+            )}
+          </div>
+          
+          <div className="flex items-center space-x-3">
+            <button
+              type="button"
+              onClick={handleClose}
+              className="px-6 py-2.5 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors font-medium sm:px-4 sm:py-2 sm:text-base"
+              disabled={formState.isSubmitting}
+            >
+              Cancel
+            </button>
+            
+            <button
+              type="button"
+              onClick={handleProceedClick}
+              disabled={formState.isSubmitting || isLoading}
+              className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2 sm:px-4 sm:py-2 sm:text-base"
+            >
+              {(formState.isSubmitting || isLoading) ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Adding Book...</span>
+                </>
+              ) : (
+                <>
+                  <Plus className="h-4 w-4" />
+                  <span>Proceed</span>
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </div>
     </div>

@@ -43,6 +43,7 @@ interface AdditionalDetailsSectionProps {
   onGenreSelect: (value: string) => void;
   onGenreRemove: (value: string) => void;
   getGenreLabel: (value: string) => string;
+  ageRatings?: { value: string; label: string; description: string }[];
 }
 
 export default function AdditionalDetailsSection({
@@ -57,6 +58,7 @@ export default function AdditionalDetailsSection({
   onGenreSelect,
   onGenreRemove,
   getGenreLabel,
+  ageRatings,
 }: AdditionalDetailsSectionProps) {
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -253,7 +255,7 @@ export default function AdditionalDetailsSection({
               required
               aria-label="Age Rating"
             >
-              {ageRatingOptions.map((option) => (
+              {ageRatings?.map((option) => (
                 <option key={option.value} value={option.value} disabled={option.value === ''}>
                   {option.label}
                 </option>
@@ -263,7 +265,7 @@ export default function AdditionalDetailsSection({
           </div>
           {book.rated && (
             <div className="text-xs text-gray-600 mt-1">
-              {ageRatingOptions.find((opt) => opt.value === book.rated)?.description}
+              {ageRatings?.find((opt) => opt.value === book.rated)?.description}
             </div>
           )}
         </div>

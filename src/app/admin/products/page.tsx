@@ -19,7 +19,7 @@ import SuccessModal from "@/components/modals/SuccessModal";
 import Loader from "@/components/Loader";
 import { api } from "@/services/api";
 import { formatAmount } from "@/lib/utils";
-import type { ProductsResponse } from "@/types/admin/products/products";
+import type { ProductsResponse, Product } from "@/types/admin/products/products";
 import type { Book } from "@/components/modals/AddBookModal";
 
 const PRODUCTS_CACHE_KEY = "admin_products_cache";
@@ -59,53 +59,11 @@ export default function ProductsPage() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [categorySearch, setCategorySearch] = useState("");
+  const [categoriesMeta, setCategoriesMeta] = useState<{ value: string, label: string }[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<string>("");
+  const [metadata, setMetadata] = useState<any>(null);
 
-  const categories = [
-    { value: "academic", label: "Academic" },
-    { value: "adventure", label: "Adventure" },
-    { value: "arts", label: "Arts" },
-    { value: "biography", label: "Biography" },
-    { value: "business", label: "Business" },
-    { value: "children", label: "Children" },
-    { value: "comics", label: "Comics" },
-    { value: "cooking", label: "Cooking" },
-    { value: "dictionary", label: "Dictionary" },
-    { value: "drama", label: "Drama" },
-    { value: "economics", label: "Economics" },
-    { value: "encyclopedia", label: "Encyclopedia" },
-    { value: "fantasy", label: "Fantasy" },
-    { value: "fiction", label: "Fiction" },
-    { value: "graphic_novels", label: "Graphic Novels" },
-    { value: "health", label: "Health" },
-    { value: "history", label: "History" },
-    { value: "horror", label: "Horror" },
-    { value: "humor", label: "Humor" },
-    { value: "literature", label: "Literature" },
-    { value: "magazine", label: "Magazine" },
-    { value: "mystery", label: "Mystery" },
-    { value: "newspaper", label: "Newspaper" },
-    { value: "non_fiction", label: "Non-Fiction" },
-    { value: "other", label: "Other" },
-    { value: "philosophy", label: "Philosophy" },
-    { value: "poetry", label: "Poetry" },
-    { value: "politics", label: "Politics" },
-    { value: "psychology", label: "Psychology" },
-    { value: "reference", label: "Reference" },
-    { value: "religion", label: "Religion" },
-    { value: "romance", label: "Romance" },
-    { value: "science", label: "Science" },
-    { value: "science_fiction", label: "Science Fiction" },
-    { value: "self_help", label: "Self-Help" },
-    { value: "sports", label: "Sports" },
-    { value: "technology", label: "Technology" },
-    { value: "textbook", label: "Textbook" },
-    { value: "thriller", label: "Thriller" },
-    { value: "travel", label: "Travel" },
-    { value: "western", label: "Western" },
-    { value: "young_adult", label: "Young Adult" },
-  ];
-
-  const filteredCategories = categories.filter(cat =>
+  const filteredCategories = categoriesMeta.filter(cat =>
     cat.label.toLowerCase().includes(categorySearch.toLowerCase())
   );
 
@@ -143,51 +101,67 @@ export default function ProductsPage() {
     fetchProducts();
   }, []);
 
+  useEffect(() => {
+    api.admin.fetchMetadata().then(res => {
+      setCategoriesMeta(res.data.categories.map(c => ({ value: c.id, label: c.name })));
+      setMetadata(res.data);
+    });
+  }, []);
+
   const handleRefresh = () => {
     // console.log('Refresh button clicked');
     setIsRefreshing(true);
     fetchProducts(true).finally(() => setIsRefreshing(false));
   };
 
+  // Helper to map names to IDs
+  function getIds(names: string[], metaArr: { id: string, name: string }[]) {
+    return names.map(name => metaArr.find(m => m.name === name)?.id).filter(Boolean);
+  }
+
+  function transformBookForBackend(book: Book) {
+    return {
+      name: book.name,
+      description: book.description,
+      qty: Number(book.qty),
+      normalPrice: Number(book.normalPrice),
+      sellingPrice: Number(book.sellingPrice),
+      categoryIds: book.category, // already IDs
+      language: metadata ? getIds(book.language, metadata.languages) : [],
+      genre: metadata ? getIds(book.genre, metadata.genres) : [],
+      format: metadata ? getIds(book.format, metadata.formats) : [],
+      rated: book.rated,
+      isbn: book.isbn,
+      publisher: book.publisher,
+      commission: String(book.referralCommission),
+      // Send image file(s) as-is, using the key expected by backend
+      coverImage: book.display_images && book.display_images.length > 0 ? book.display_images[0] : undefined
+    };
+  }
+
   const handleCreateBook = async (book: Book) => {
     setIsCreating(true);
     setError(null);
-    
     try {
+      const payload = transformBookForBackend(book);
       const formData = new FormData();
-      
-      // Add all book fields
-      formData.append('name', book.name);
-      formData.append('description', book.description);
-      formData.append('qty', String(book.qty));
-      formData.append('sellingPrice', String(book.sellingPrice));
-      formData.append('normalPrice', String(book.normalPrice));
-      book.category.forEach((cat) => formData.append('category[]', cat));
-      book.language.forEach((lang) => formData.append('language[]', lang));
-      book.format.forEach((fmt) => formData.append('format[]', fmt));
-      book.genre.forEach((g) => formData.append('genre[]', g));
-      formData.append('rated', book.rated);
-      formData.append('isbn', book.isbn);
-      formData.append('publisher', book.publisher);
-      formData.append('commission', String(book.referralCommission));
-      
-      // Add images if present (max 5)
-      if (book.display_images && book.display_images.length > 0) {
-        const limitedImages = book.display_images.slice(0, 5);
-        limitedImages.forEach((file: File, index: number) => {
-          formData.append(`displayImages[${index}]`, file);
-        });
-      }
-      
+      Object.entries(payload).forEach(([key, value]) => {
+        if (value === undefined || value === null) return;
+        if (Array.isArray(value)) {
+          value.forEach((v) => {
+            if (v !== undefined && v !== null) formData.append(`${key}[]`, String(v));
+          });
+        } else if (key === 'coverImage' && value instanceof File) {
+          formData.append(key, value);
+        } else {
+          formData.append(key, String(value));
+        }
+      });
       const response = await api.admin.products.create(formData) as { success: boolean; message?: string };
       if (!response.success) throw new Error(response.message || "Failed to create book");
-      
       setIsSuccessModalOpen(true);
       setIsAddBookModalOpen(false);
-      
-      // Refresh the products list
       await fetchProducts(true);
-      
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to create book");
     } finally {
@@ -245,12 +219,32 @@ export default function ProductsPage() {
   //   }
   // }
 
-  const filteredBooks = books.filter(book =>
-    (book.bookName?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
-    (book.categoryId?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
-    (book.isbn?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
-    (book.publishedBy?.toLowerCase() || '').includes(searchQuery.toLowerCase())
-  );
+  const filteredBooks = books.filter((book: Product) => {
+    const matchesSearch =
+      (book.bookName?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
+      (Array.isArray(book.categories) ? book.categories.some((cat) => cat.name?.toLowerCase().includes(searchQuery.toLowerCase())) : false) ||
+      (book.isbn?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
+      (book.publishedBy?.toLowerCase() || '').includes(searchQuery.toLowerCase());
+
+    const matchesCategory =
+      !selectedCategory ||
+      (Array.isArray(book.categories) && book.categories.some((cat) => cat.id === selectedCategory));
+
+    return matchesSearch && matchesCategory;
+  });
+
+  const renderCategoryCell = (book: Product) => {
+    const categories = Array.isArray(book.categories) ? book.categories : [];
+    if (categories.length > 0) {
+      return categories.slice(0, 3).map((cat) => (
+        <span key={cat.id} className="text-xs text-gray-600">
+          {cat.name}
+        </span>
+      ));
+    } else {
+      return <span className="text-xs text-gray-400">No category</span>;
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -394,6 +388,8 @@ export default function ProductsPage() {
                 />
                 <select
                   className="w-full pl-10 pr-8 py-2.5 border border-t-0 border-gray-200 rounded-b-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 appearance-none bg-white/50 backdrop-blur-sm shadow-sm hover:shadow-md text-sm"
+                  value={selectedCategory}
+                  onChange={e => setSelectedCategory(e.target.value)}
                 >
                   <option value="">All Categories</option>
                   {filteredCategories.map(cat => (
@@ -540,7 +536,9 @@ export default function ProductsPage() {
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">{book.categoryId}</div>
+                    <div className="flex flex-col gap-1">
+                      {renderCategoryCell(book)}
+                    </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-xs font-mono text-gray-900 bg-gray-100 px-2 py-1 rounded">{book.isbn}</div>

@@ -82,6 +82,18 @@ export interface ProfileResponse {
   data: User;
 }
 
+export interface MetadataResponse {
+  success: boolean;
+  message: string;
+  data: {
+    categories: { id: string; name: string }[];
+    genres: { name: string }[];
+    languages: { name: string }[];
+    formats: { name: string }[];
+    ageRatings: { name: string }[];
+  };
+}
+
 // Token management - to be used by auth context
 export const tokenManager = {
   get: () => {
@@ -173,13 +185,11 @@ export const api = {
       },
       create: async (formData: FormData): Promise<unknown> => {
         console.log("Creating new product");
-        // Create a new axios instance for FormData to avoid Content-Type header
         const formDataInstance = axios.create({
           baseURL: API_URL,
           timeout: 30000,
           headers: {
             'Accept': 'application/json',
-            // Don't set Content-Type - let browser set it for FormData
           }
         });
         
@@ -189,7 +199,23 @@ export const api = {
           formDataInstance.defaults.headers.Authorization = `Bearer ${token}`;
         }
         
-        const response = await formDataInstance.post("admin/products/create", formData);
+        const response = await formDataInstance.post("admin/products/add-new", formData);
+        return response.data;
+      },
+      uploadImage: async (formData: FormData): Promise<{ success: boolean; url?: string; message?: string }> => {
+        // Upload a single image and return its URL
+        const formDataInstance = axios.create({
+          baseURL: API_URL,
+          timeout: 30000,
+          headers: {
+            'Accept': 'application/json',
+          }
+        });
+        const token = tokenManager.get();
+        if (token) {
+          formDataInstance.defaults.headers.Authorization = `Bearer ${token}`;
+        }
+        const response = await formDataInstance.post("admin/products/upload-image", formData);
         return response.data;
       }
     },
@@ -197,6 +223,10 @@ export const api = {
       console.log("Fetching admin customers");
       const response = await axiosInstance.get("admin/customers/dashboard");
       return response as unknown as CustomersResponse;
+    },
+    fetchMetadata: async (): Promise<MetadataResponse> => {
+      const response = await axiosInstance.get('/admin/metadata/all');
+      return response as unknown as MetadataResponse;
     }
   }
 }
