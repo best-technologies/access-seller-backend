@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Image from "next/image";
 import {
   Search,
   Plus,
@@ -14,11 +15,12 @@ import {
   ChevronDown,
 } from "lucide-react";
 import AddBookModal from "@/components/modals/AddBookModal";
-import AddBookOptionsModal from "@/components/modals/AddBookOptionsModal";
 import SuccessModal from "@/components/modals/SuccessModal";
+import Loader from "@/components/Loader";
 import { api } from "@/services/api";
 import { formatAmount } from "@/lib/utils";
 import type { ProductsResponse } from "@/types/admin/products/products";
+import type { Book } from "@/components/modals/AddBookModal";
 
 const PRODUCTS_CACHE_KEY = "admin_products_cache";
 const PRODUCTS_CACHE_TIME = 60 * 60 * 1000; // 1 hour in ms
@@ -30,6 +32,7 @@ function getCachedProducts() {
   try {
     const { data, timestamp } = JSON.parse(cached);
     if (Date.now() - timestamp < PRODUCTS_CACHE_TIME) {
+      console.log("Using products data from cache")
       return data;
     }
     return null;
@@ -46,51 +49,89 @@ function setCachedProducts(data: ProductsResponse["data"]) {
   );
 }
 
-interface Book {
-  name: string;
-  description: string;
-  qty: number;
-  sellingPrice: number;
-  normalPrice: number;
-  category: string;
-  language: string;
-  format: string;
-  genre: string;
-  rated: string;
-  coverImage: string;
-  isbn: string;
-  publisher: string;
-  referralCommission: number;
-}
-
 export default function ProductsPage() {
   const [searchQuery, setSearchQuery] = useState("");
-  const [isAddBookOptionsModalOpen, setIsAddBookOptionsModalOpen] = useState(false);
   const [isAddBookModalOpen, setIsAddBookModalOpen] = useState(false);
   const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [addedBooks, setAddedBooks] = useState<Book[]>([]);
   const [productsData, setProductsData] = useState<ProductsResponse["data"] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+  const [categorySearch, setCategorySearch] = useState("");
+
+  const categories = [
+    { value: "academic", label: "Academic" },
+    { value: "adventure", label: "Adventure" },
+    { value: "arts", label: "Arts" },
+    { value: "biography", label: "Biography" },
+    { value: "business", label: "Business" },
+    { value: "children", label: "Children" },
+    { value: "comics", label: "Comics" },
+    { value: "cooking", label: "Cooking" },
+    { value: "dictionary", label: "Dictionary" },
+    { value: "drama", label: "Drama" },
+    { value: "economics", label: "Economics" },
+    { value: "encyclopedia", label: "Encyclopedia" },
+    { value: "fantasy", label: "Fantasy" },
+    { value: "fiction", label: "Fiction" },
+    { value: "graphic_novels", label: "Graphic Novels" },
+    { value: "health", label: "Health" },
+    { value: "history", label: "History" },
+    { value: "horror", label: "Horror" },
+    { value: "humor", label: "Humor" },
+    { value: "literature", label: "Literature" },
+    { value: "magazine", label: "Magazine" },
+    { value: "mystery", label: "Mystery" },
+    { value: "newspaper", label: "Newspaper" },
+    { value: "non_fiction", label: "Non-Fiction" },
+    { value: "other", label: "Other" },
+    { value: "philosophy", label: "Philosophy" },
+    { value: "poetry", label: "Poetry" },
+    { value: "politics", label: "Politics" },
+    { value: "psychology", label: "Psychology" },
+    { value: "reference", label: "Reference" },
+    { value: "religion", label: "Religion" },
+    { value: "romance", label: "Romance" },
+    { value: "science", label: "Science" },
+    { value: "science_fiction", label: "Science Fiction" },
+    { value: "self_help", label: "Self-Help" },
+    { value: "sports", label: "Sports" },
+    { value: "technology", label: "Technology" },
+    { value: "textbook", label: "Textbook" },
+    { value: "thriller", label: "Thriller" },
+    { value: "travel", label: "Travel" },
+    { value: "western", label: "Western" },
+    { value: "young_adult", label: "Young Adult" },
+  ];
+
+  const filteredCategories = categories.filter(cat =>
+    cat.label.toLowerCase().includes(categorySearch.toLowerCase())
+  );
 
   const fetchProducts = async (forceRefresh = false) => {
+    // console.log('fetchProducts called, forceRefresh:', forceRefresh);
     setIsLoading(true);
     setError(null);
     if (!forceRefresh) {
       const cached = getCachedProducts();
       if (cached) {
+        console.log('Using cached data');
         setProductsData(cached);
         setIsLoading(false);
         return;
       }
     }
     try {
-      const response = await api.admin.products();
+      console.log('Fetching from API...');
+      const response = await api.admin.products.getAll();
+      // console.log('API response:', response);
       if (!response.success) throw new Error(response.message || "Failed to fetch products");
+      // console.log('Setting products data:', response.data);
       setProductsData(response.data);
       setCachedProducts(response.data);
     } catch (err: unknown) {
+      console.error('Error fetching products:', err);
       setError(err instanceof Error ? err.message : "Failed to fetch products");
     } finally {
       setIsLoading(false);
@@ -98,68 +139,75 @@ export default function ProductsPage() {
   };
 
   useEffect(() => {
+    // console.log('useEffect triggered');
     fetchProducts();
   }, []);
 
   const handleRefresh = () => {
+    // console.log('Refresh button clicked');
     setIsRefreshing(true);
     fetchProducts(true).finally(() => setIsRefreshing(false));
   };
 
-  const books = productsData?.productsTable.products || [];
-
-  const filteredBooks = books.filter(book =>
-    (book.bookName?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
-    (book.categoryId?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
-    (book.isbn?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
-    (book.publishedBy?.toLowerCase() || '').includes(searchQuery.toLowerCase())
-  );
-
-  const handleAddBook = (book: Book) => {
-    setAddedBooks([book, ...addedBooks]);
-  };
-
-  const handleProceed = async () => {
-    setIsLoading(true);
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    setIsLoading(false);
-    setIsAddBookModalOpen(false);
-    setIsSuccessModalOpen(true);
-    setAddedBooks([]);
+  const handleCreateBook = async (book: Book) => {
+    setIsCreating(true);
+    setError(null);
+    
+    try {
+      const formData = new FormData();
+      
+      // Add all book fields
+      formData.append('name', book.name);
+      formData.append('description', book.description);
+      formData.append('qty', String(book.qty));
+      formData.append('sellingPrice', String(book.sellingPrice));
+      formData.append('normalPrice', String(book.normalPrice));
+      book.category.forEach((cat) => formData.append('category[]', cat));
+      book.language.forEach((lang) => formData.append('language[]', lang));
+      book.format.forEach((fmt) => formData.append('format[]', fmt));
+      book.genre.forEach((g) => formData.append('genre[]', g));
+      formData.append('rated', book.rated);
+      formData.append('isbn', book.isbn);
+      formData.append('publisher', book.publisher);
+      formData.append('commission', String(book.referralCommission));
+      
+      // Add images if present (max 5)
+      if (book.display_images && book.display_images.length > 0) {
+        const limitedImages = book.display_images.slice(0, 5);
+        limitedImages.forEach((file: File, index: number) => {
+          formData.append(`displayImages[${index}]`, file);
+        });
+      }
+      
+      const response = await api.admin.products.create(formData) as { success: boolean; message?: string };
+      if (!response.success) throw new Error(response.message || "Failed to create book");
+      
+      setIsSuccessModalOpen(true);
+      setIsAddBookModalOpen(false);
+      
+      // Refresh the products list
+      await fetchProducts(true);
+      
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to create book");
+    } finally {
+      setIsCreating(false);
+    }
   };
 
   const handleCloseSuccessModal = () => {
     setIsSuccessModalOpen(false);
   };
 
-  const handleFileUpload = async () => {
-    setIsLoading(true);
-    // Simulate file processing
-    await new Promise(resolve => setTimeout(resolve, 3000));
-    setIsLoading(false);
-    setIsAddBookOptionsModalOpen(false);
-    setIsSuccessModalOpen(true);
-  };
+  // console.log('Component rendering - isLoading:', isLoading, 'productsData:', productsData);
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-blue-50">
-        <div className="flex flex-col items-center gap-6 p-8 bg-white rounded-2xl shadow-xl border border-gray-200/50">
-          <div className="relative">
-            <div className="h-16 w-16 animate-spin rounded-full border-4 border-blue-200 border-t-blue-600" />
-            <div className="absolute inset-0 h-16 w-16 animate-ping rounded-full border-4 border-blue-400 opacity-20" />
-          </div>
-          <div className="text-center">
-            <h2 className="text-xl font-bold text-gray-900 mb-2">Loading Products</h2>
-            <p className="text-gray-600">Please wait while we fetch your book catalog...</p>
-          </div>
-        </div>
-      </div>
-    );
+    // console.log('Showing loading screen');
+    return <Loader title="Loading Products" message="Please wait while we fetch your book catalog..." />;
   }
 
   if (error) {
+    console.log('Showing error screen:', error);
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-red-50 to-pink-50">
         <div className="text-center p-8 bg-white rounded-2xl shadow-xl border border-red-200/50 max-w-md">
@@ -183,6 +231,27 @@ export default function ProductsPage() {
     );
   }
 
+  const books = productsData?.productsTable.products || [];
+  // console.log('Books array length:', books.length);
+
+  // Debug: Log the first book to see the data structure
+  // if (books.length > 0) {
+  //   console.log('First book data:', books[0]);
+  //   console.log('Display images:', books[0].displayImages);
+  //   console.log('Book keys:', Object.keys(books[0]));
+  //   console.log('Type of displayImages:', typeof books[0].displayImages);
+  //   if (books[0].displayImages) {
+  //     console.log('First image object:', books[0].displayImages[0]);
+  //   }
+  // }
+
+  const filteredBooks = books.filter(book =>
+    (book.bookName?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
+    (book.categoryId?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
+    (book.isbn?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
+    (book.publishedBy?.toLowerCase() || '').includes(searchQuery.toLowerCase())
+  );
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -197,20 +266,29 @@ export default function ProductsPage() {
               <p className="text-slate-300 text-xs">Manage your book catalog and inventory</p>
             </div>
           </div>
-          <button
-            onClick={handleRefresh}
-            disabled={isRefreshing}
-            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white/30 focus:ring-offset-2 focus:ring-offset-transparent transition-all duration-200 disabled:opacity-50 shadow-lg"
-          >
-            {isRefreshing ? (
-              <span className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
-            ) : (
-              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-            )}
-            {isRefreshing ? 'Refreshing...' : 'Refresh'}
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white/30 focus:ring-offset-2 focus:ring-offset-transparent transition-all duration-200 disabled:opacity-50 shadow-lg"
+            >
+              {isRefreshing ? (
+                <span className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
+              ) : (
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+              )}
+              {isRefreshing ? 'Refreshing...' : 'Refresh'}
+            </button>
+            <button
+              onClick={() => setIsAddBookModalOpen(true)}
+              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 to-purple-600 rounded-lg hover:from-indigo-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2 focus:ring-offset-transparent transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105"
+            >
+              <Plus className="h-4 w-4" />
+              Add New Book
+            </button>
+          </div>
         </div>
       </div>
 
@@ -283,13 +361,6 @@ export default function ProductsPage() {
                 <p className="text-xs text-gray-500">Search and filter your book collection</p>
               </div>
             </div>
-            <button
-              onClick={() => setIsAddBookOptionsModalOpen(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105 text-sm font-semibold"
-            >
-              <Plus className="h-4 w-4" />
-              <span>Add New Book</span>
-            </button>
           </div>
 
           {/* Search and Filter Controls */}
@@ -313,55 +384,25 @@ export default function ProductsPage() {
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <Tag className="h-4 w-4 text-gray-400 group-focus-within:text-indigo-500 transition-colors" />
               </div>
-              <select 
-                className="w-full pl-10 pr-8 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 appearance-none bg-white/50 backdrop-blur-sm shadow-sm hover:shadow-md text-sm"
-              >
-                <option value="">All Categories</option>
-                <option value="academic">Academic</option>
-                <option value="adventure">Adventure</option>
-                <option value="arts">Arts</option>
-                <option value="biography">Biography</option>
-                <option value="business">Business</option>
-                <option value="children">Children</option>
-                <option value="comics">Comics</option>
-                <option value="cooking">Cooking</option>
-                <option value="dictionary">Dictionary</option>
-                <option value="drama">Drama</option>
-                <option value="economics">Economics</option>
-                <option value="encyclopedia">Encyclopedia</option>
-                <option value="fantasy">Fantasy</option>
-                <option value="fiction">Fiction</option>
-                <option value="graphic_novels">Graphic Novels</option>
-                <option value="health">Health</option>
-                <option value="history">History</option>
-                <option value="horror">Horror</option>
-                <option value="humor">Humor</option>
-                <option value="literature">Literature</option>
-                <option value="magazine">Magazine</option>
-                <option value="mystery">Mystery</option>
-                <option value="newspaper">Newspaper</option>
-                <option value="non_fiction">Non-Fiction</option>
-                <option value="other">Other</option>
-                <option value="philosophy">Philosophy</option>
-                <option value="poetry">Poetry</option>
-                <option value="politics">Politics</option>
-                <option value="psychology">Psychology</option>
-                <option value="reference">Reference</option>
-                <option value="religion">Religion</option>
-                <option value="romance">Romance</option>
-                <option value="science">Science</option>
-                <option value="science_fiction">Science Fiction</option>
-                <option value="self_help">Self-Help</option>
-                <option value="sports">Sports</option>
-                <option value="technology">Technology</option>
-                <option value="textbook">Textbook</option>
-                <option value="thriller">Thriller</option>
-                <option value="travel">Travel</option>
-                <option value="western">Western</option>
-                <option value="young_adult">Young Adult</option>
-              </select>
-              <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                <ChevronDown className="h-4 w-4 text-gray-400" />
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Search categories..."
+                  value={categorySearch}
+                  onChange={e => setCategorySearch(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-t-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 bg-white/50 backdrop-blur-sm shadow-sm hover:shadow-md text-sm"
+                />
+                <select
+                  className="w-full pl-10 pr-8 py-2.5 border border-t-0 border-gray-200 rounded-b-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 appearance-none bg-white/50 backdrop-blur-sm shadow-sm hover:shadow-md text-sm"
+                >
+                  <option value="">All Categories</option>
+                  {filteredCategories.map(cat => (
+                    <option key={cat.value} value={cat.value}>{cat.label}</option>
+                  ))}
+                </select>
+                <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                  <ChevronDown className="h-4 w-4 text-gray-400" />
+                </div>
               </div>
             </div>
 
@@ -457,9 +498,41 @@ export default function ProductsPage() {
                 <tr key={book.id} className="hover:bg-gradient-to-r hover:from-blue-50/50 hover:to-indigo-50/50 transition-all duration-200 group">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
-                      <div className="h-10 w-10 flex-shrink-0 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-lg flex items-center justify-center shadow-sm group-hover:shadow-md transition-shadow">
-                        <BookOpen className="h-5 w-5 text-blue-600" />
-                      </div>
+                      {book.displayImages && book.displayImages.length > 0 ? (
+                        <div className="h-10 w-10 flex-shrink-0 rounded-lg overflow-hidden shadow-sm group-hover:shadow-md transition-shadow">
+                          <Image
+                            src={book.displayImages[0].secure_url}
+                            alt={book.bookName}
+                            width={40}
+                            height={40}
+                            className="h-full w-full object-cover"
+                            onError={(e) => {
+                              console.error('Image failed to load:', book.displayImages?.[0]?.secure_url);
+                              // Fallback to book icon
+                              e.currentTarget.style.display = 'none';
+                              e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                            }}
+                          />
+                          <div className="h-10 w-10 flex-shrink-0 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-lg flex items-center justify-center shadow-sm group-hover:shadow-md transition-shadow hidden">
+                            <BookOpen className="h-5 w-5 text-blue-600" />
+                          </div>
+                          
+                          {/* Temporary fallback img tag for debugging */}
+                          <Image
+                            src={book.displayImages[0].secure_url}
+                            alt={book.bookName}
+                            width={40}
+                            height={40}
+                            className="h-full w-full object-cover absolute inset-0 opacity-0 pointer-events-none"
+                            onLoadingComplete={() => console.log('Image loaded successfully:', book.displayImages?.[0]?.secure_url)}
+                            onError={() => console.error('Image failed to load:', book.displayImages?.[0]?.secure_url)}
+                          />
+                        </div>
+                      ) : (
+                        <div className="h-10 w-10 flex-shrink-0 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-lg flex items-center justify-center shadow-sm group-hover:shadow-md transition-shadow">
+                          <BookOpen className="h-5 w-5 text-blue-600" />
+                        </div>
+                      )}
                       <div className="ml-3">
                         <div className="text-sm font-semibold text-gray-900 group-hover:text-blue-900 transition-colors">{book.bookName}</div>
                         <div className="text-xs text-gray-500">{book.publishedBy} • {book.bookFormat}</div>
@@ -515,24 +588,11 @@ export default function ProductsPage() {
       </div>
 
       {/* Modals */}
-      <AddBookOptionsModal
-        isOpen={isAddBookOptionsModalOpen}
-        onClose={() => setIsAddBookOptionsModalOpen(false)}
-        onManualEntry={() => {
-          setIsAddBookOptionsModalOpen(false);
-          setIsAddBookModalOpen(true);
-        }}
-        onFileUpload={handleFileUpload}
-        isLoading={isLoading}
-      />
-
       <AddBookModal
         isOpen={isAddBookModalOpen}
         onClose={() => setIsAddBookModalOpen(false)}
-        onAddBook={handleAddBook}
-        onProceed={handleProceed}
-        books={addedBooks}
-        isLoading={isLoading}
+        onAddBook={handleCreateBook}
+        isLoading={isCreating}
       />
 
       <SuccessModal

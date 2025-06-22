@@ -164,10 +164,34 @@ export const api = {
       const response = await axiosInstance.get("admin/dashboard/stats")
       return response as unknown as DashboardResponse
     },
-    products: async (): Promise<ProductsResponse> => {
-      console.log("Fetching admin products");
-      const response = await axiosInstance.get("admin/products/dashboard");
-      return response as unknown as ProductsResponse;
+    products: {
+      getAll: async (): Promise<ProductsResponse> => {
+        console.log("Fetching admin products");
+        const response = await axiosInstance.get("admin/products/dashboard");
+        console.log("get all products response: ", response)
+        return response as unknown as ProductsResponse;
+      },
+      create: async (formData: FormData): Promise<unknown> => {
+        console.log("Creating new product");
+        // Create a new axios instance for FormData to avoid Content-Type header
+        const formDataInstance = axios.create({
+          baseURL: API_URL,
+          timeout: 30000,
+          headers: {
+            'Accept': 'application/json',
+            // Don't set Content-Type - let browser set it for FormData
+          }
+        });
+        
+        // Add auth token
+        const token = tokenManager.get();
+        if (token) {
+          formDataInstance.defaults.headers.Authorization = `Bearer ${token}`;
+        }
+        
+        const response = await formDataInstance.post("admin/products/create", formData);
+        return response.data;
+      }
     },
     customers: async (): Promise<CustomersResponse> => {
       console.log("Fetching admin customers");

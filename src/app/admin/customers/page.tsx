@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import type { CustomersResponse, Customer, CustomersStats } from '@/types/admin/customers/customers';
 import { api } from '@/services/api';
+import Loader from "@/components/Loader";
 
 const CUSTOMERS_CACHE_KEY = "admin_customers_cache";
 const CUSTOMERS_CACHE_TIME = 60 * 60 * 1000; // 1 hour in ms
@@ -112,14 +113,8 @@ export default function CustomersPage() {
   const stats: CustomersStats | undefined = customersData?.stats;
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent" />
-          <span className="text-gray-600 text-lg font-medium">Loading customers...</span>
-        </div>
-      </div>
-    );
+    // console.log('Showing loading screen');
+    return <Loader title="Loading Customers" message="Please wait while we fetch your customers..." />;
   }
 
   if (error) {
@@ -233,6 +228,11 @@ export default function CustomersPage() {
     if (percentage >= 25) return "bg-orange-50";
     return "bg-red-50";
   };
+
+  if (isLoading) {
+    // console.log('Showing loading screen');
+    return <Loader title="Loading Users" message="Please wait while we fetch your users..." />;
+  }
 
   return (
     <div className="space-y-6">

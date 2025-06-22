@@ -24,11 +24,15 @@ export interface Product {
   bookFormat: string;
   categoryId: string;
   isbn: string;
-  sellingPrice: number;
-  normalPrice: number;
-  stock: number;
+  sellingPrice: number | string;
+  normalPrice: number | string;
+  stock: number | string;
   status: string;
   referralCommission?: number;
+  displayImages?: Array<{
+    secure_url: string;
+    public_id?: string;
+  }>;
   // Add more fields as needed
 }
 
