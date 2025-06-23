@@ -26,6 +26,9 @@ import EditBookModal from '@/components/modals/EditBookModal';
 const PRODUCTS_CACHE_KEY = "admin_products_cache";
 const PRODUCTS_CACHE_TIME = 60 * 60 * 1000; // 1 hour in ms
 
+const METADATA_CACHE_KEY = "admin_metadata_cache";
+const METADATA_CACHE_TIME = 24 * 60 * 60 * 1000; // 24 hours in ms
+
 function getCachedProducts() {
   if (typeof window === "undefined") return null;
   const cached = localStorage.getItem(PRODUCTS_CACHE_KEY);
@@ -46,6 +49,29 @@ function setCachedProducts(data: ProductsResponse["data"]) {
   if (typeof window === "undefined") return;
   localStorage.setItem(
     PRODUCTS_CACHE_KEY,
+    JSON.stringify({ data, timestamp: Date.now() })
+  );
+}
+
+function getCachedMetadata() {
+  if (typeof window === "undefined") return null;
+  const cached = localStorage.getItem(METADATA_CACHE_KEY);
+  if (!cached) return null;
+  try {
+    const { data, timestamp } = JSON.parse(cached);
+    if (Date.now() - timestamp < METADATA_CACHE_TIME) {
+      return data;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function setCachedMetadata(data: any) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(
+    METADATA_CACHE_KEY,
     JSON.stringify({ data, timestamp: Date.now() })
   );
 }
@@ -100,16 +126,29 @@ export default function ProductsPage() {
     }
   };
 
+  const fetchMetadata = async (forceRefresh = false) => {
+    if (!forceRefresh) {
+      const cached = getCachedMetadata();
+      if (cached) {
+        setCategoriesMeta(cached.categories.map((c: any) => ({ value: c.id, label: c.name })));
+        setMetadata(cached);
+        return;
+      }
+    }
+    try {
+      const res = await api.admin.fetchMetadata();
+      setCategoriesMeta(res.data.categories.map((c: any) => ({ value: c.id, label: c.name })));
+      setMetadata(res.data);
+      setCachedMetadata(res.data);
+    } catch (err) {
+      // Optionally handle error
+    }
+  };
+
   useEffect(() => {
     // console.log('useEffect triggered');
     fetchProducts();
-  }, []);
-
-  useEffect(() => {
-    api.admin.fetchMetadata().then(res => {
-      setCategoriesMeta(res.data.categories.map(c => ({ value: c.id, label: c.name })));
-      setMetadata(res.data);
-    });
+    fetchMetadata();
   }, []);
 
   const handleRefresh = () => {
@@ -117,6 +156,8 @@ export default function ProductsPage() {
     setIsRefreshing(true);
     fetchProducts(true).finally(() => setIsRefreshing(false));
   };
+
+  const handleMetadataRefresh = () => fetchMetadata(true);
 
   // Helper to map names to IDs
   function getIds(names: string[], metaArr: { id: string, name: string }[]) {
@@ -131,19 +172,23 @@ export default function ProductsPage() {
       normalPrice: Number(book.normalPrice),
       sellingPrice: Number(book.sellingPrice),
       categoryIds: book.category, // already IDs
-      language: metadata ? getIds(book.language, metadata.languages) : [],
-      genre: metadata ? getIds(book.genre, metadata.genres) : [],
-      format: metadata ? getIds(book.format, metadata.formats) : [],
+      languageIds: book.language, // names for display
+      genreIds: book.genre, // names for display
+      formatIds: book.format, // names for display
       rated: book.rated,
       isbn: book.isbn,
       publisher: book.publisher,
       commission: String(book.referralCommission),
-      // Send image file(s) as-is, using the key expected by backend
-      coverImage: book.display_images && book.display_images.length > 0 ? book.display_images[0] : undefined
+      coverImage: book.display_images && book.display_images.length > 0 ? book.display_images[0] : undefined,
+      // languageIds: metadata ? getIds(book.language, metadata.languages) : [],
+      // genreIds: metadata ? getIds(book.genre, metadata.genres) : [],
+      // formatIds: metadata ? getIds(book.format, metadata.formats) : [],
     };
   }
 
   const handleCreateBook = async (book: Book) => {
+    console.log("Book data: ", book)
+    
     setIsCreating(true);
     setError(null);
     try {
@@ -153,7 +198,7 @@ export default function ProductsPage() {
         if (value === undefined || value === null) return;
         if (Array.isArray(value)) {
           value.forEach((v) => {
-            if (v !== undefined && v !== null) formData.append(`${key}[]`, String(v));
+            if (v !== undefined && v !== null) formData.append(`${key}`, String(v));
           });
         } else if (key === 'coverImage' && value instanceof File) {
           formData.append(key, value);
@@ -207,12 +252,13 @@ export default function ProductsPage() {
     setIsCreating(true);
     setError(null);
     try {
+      const payload = transformBookForBackend(updatedBook);
       const formData = new FormData();
-      Object.entries(updatedBook).forEach(([key, value]) => {
+      Object.entries(payload).forEach(([key, value]) => {
         if (value === undefined || value === null) return;
         if (Array.isArray(value)) {
           value.forEach((v) => {
-            if (v !== undefined && v !== null) formData.append(`${key}[]`, String(v));
+            if (v !== undefined && v !== null) formData.append(`${key}`, String(v));
           });
         } else if (key === 'coverImage' && value instanceof File) {
           formData.append(key, value);
@@ -265,18 +311,6 @@ export default function ProductsPage() {
   }
 
   const books = productsData?.productsTable.products || [];
-  // console.log('Books array length:', books.length);
-
-  // Debug: Log the first book to see the data structure
-  // if (books.length > 0) {
-  //   console.log('First book data:', books[0]);
-  //   console.log('Display images:', books[0].displayImages);
-  //   console.log('Book keys:', Object.keys(books[0]));
-  //   console.log('Type of displayImages:', typeof books[0].displayImages);
-  //   if (books[0].displayImages) {
-  //     console.log('First image object:', books[0].displayImages[0]);
-  //   }
-  // }
 
   const filteredBooks = books.filter((book: Product) => {
     const matchesSearch =
@@ -650,6 +684,8 @@ export default function ProductsPage() {
         onClose={() => setIsAddBookModalOpen(false)}
         onAddBook={handleCreateBook}
         isLoading={isCreating}
+        onMetadataRefresh={handleMetadataRefresh}
+        metadata={metadata}
       />
 
       <SuccessModal

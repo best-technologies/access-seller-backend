@@ -1,5 +1,6 @@
 import { X, ChevronDown, DollarSign } from 'lucide-react';
 import { Book } from '../AddBookModal';
+import { useState, useRef, useEffect } from 'react';
 
 interface CommissionState {
   isCustom: boolean;
@@ -28,6 +29,8 @@ export default function PricingInventorySection({
   commissionOptions,
   errors = {}
 }: Props) {
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+
   const handleQuantityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     // Allow empty string or valid positive numbers
@@ -228,95 +231,72 @@ export default function PricingInventorySection({
         </div>
 
         {/* Commission Field */}
-        <div className="space-y-1">
-          <div className="relative">
-            {commissionState.isCustom ? (
-              <>
-                <span className="absolute right-4 top-3 text-gray-500 z-10">%</span>
-                <input
-                  type="number"
-                  id="custom-commission"
-                  value={commissionState.customValue}
-                  onChange={handleCustomCommissionChange}
-                  placeholder=" "
-                  min="0"
-                  max="100"
-                  step="0.1"
-                  className={`peer w-full rounded-lg border px-4 pr-8 py-3 focus:ring-2 focus:ring-offset-0 transition-all bg-white placeholder-transparent ${
-                    errors.referralCommission 
-                      ? 'border-red-300 focus:border-red-500 focus:ring-red-200' 
-                      : 'border-gray-300 focus:border-indigo-500 focus:ring-indigo-200 hover:border-gray-400'
-                  }`}
-                  required
-                  aria-label="Custom Commission"
-                  data-error={!!errors.referralCommission}
-                />
-                <label 
-                  htmlFor="custom-commission" 
-                  className={`absolute left-4 transition-all duration-200 pointer-events-none ${
-                    errors.referralCommission ? 'text-red-600' : 'text-gray-500'
-                  } peer-placeholder-shown:top-3 peer-placeholder-shown:text-base peer-focus:top-0 peer-focus:text-xs peer-focus:bg-white peer-focus:px-1 peer-focus:-translate-y-1/2 ${
-                    commissionState.customValue ? 'top-0 text-xs bg-white px-1 -translate-y-1/2' : ''
-                  } ${
-                    errors.referralCommission ? 'peer-focus:text-red-600' : 'peer-focus:text-indigo-600'
-                  }`}
-                >
-                  Custom Commission *
-                </label>
-                <button
-                  type="button"
-                  onClick={resetCustomCommission}
-                  className="absolute right-8 top-3 text-gray-400 hover:text-gray-600 transition-colors z-10"
-                  aria-label="Remove custom commission"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </>
-            ) : (
-              <>
-                <select
-                  id="referral-commission"
-                  value={book.referralCommission || ''}
-                  onChange={handleCommissionSelect}
-                  className={`peer w-full rounded-lg border px-4 py-3 focus:ring-2 focus:ring-offset-0 transition-all bg-white appearance-none ${
-                    errors.referralCommission 
-                      ? 'border-red-300 focus:border-red-500 focus:ring-red-200' 
-                      : 'border-gray-300 focus:border-indigo-500 focus:ring-indigo-200 hover:border-gray-400'
-                  }`}
-                  required
-                  aria-label="Referral Commission"
-                  data-error={!!errors.referralCommission}
-                >
-                  <option value="">Select Commission</option>
-                  {commissionOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
+        <div className="space-y-1 flex items-center gap-2">
+          <div className="relative flex items-center gap-2 w-full">
+            {/* Custom dropdown for commission */}
+            <div className="w-full">
+              <button
+                type="button"
+                className={`w-full rounded-lg border px-4 py-3 bg-white text-left flex justify-between items-center focus:ring-2 focus:ring-indigo-200 ${errors.referralCommission ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-indigo-500 hover:border-gray-400'}`}
+                onClick={() => setDropdownOpen((open) => !open)}
+                aria-haspopup="listbox"
+                aria-expanded={dropdownOpen}
+              >
+                {commissionOptions.some(opt => opt.value === book.referralCommission)
+                  ? commissionOptions.find(opt => opt.value === book.referralCommission)?.label
+                  : (book.referralCommission ? `${book.referralCommission}%` : 'Select Commission')}
+                <ChevronDown className="h-4 w-4 text-gray-400 ml-2" />
+              </button>
+              {dropdownOpen && (
+                <ul className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-auto" role="listbox">
+                  {commissionOptions.map(option => (
+                    <li
+                      key={option.value}
+                      className={`px-4 py-2 cursor-pointer hover:bg-indigo-50 ${book.referralCommission === option.value ? 'bg-indigo-100 font-semibold' : ''}`}
+                      role="option"
+                      aria-selected={book.referralCommission === option.value}
+                      onClick={() => {
+                        setBook({ ...book, referralCommission: option.value });
+                        setDropdownOpen(false);
+                      }}
+                    >
                       {option.label}
-                    </option>
+                    </li>
                   ))}
-                  <option value="-1">Custom %</option>
-                </select>
-                <ChevronDown className="absolute right-4 top-3 h-4 w-4 text-gray-400 pointer-events-none" />
-                <label 
-                  htmlFor="referral-commission" 
-                  className={`absolute left-4 top-0 text-xs bg-white px-1 -translate-y-1/2 transition-colors ${
-                    errors.referralCommission ? 'text-red-600' : 'text-gray-500'
-                  }`}
-                >
-                  Referral Commission *
-                </label>
-              </>
-            )}
+                  <li className="px-4 py-2 flex items-center gap-2 border-t border-gray-100 bg-gray-50">
+                    <span>Other:</span>
+                    <input
+                      type="number"
+                      min="1"
+                      max="100"
+                      step="0.1"
+                      className="w-20 rounded border px-2 py-1 text-sm border-gray-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-200"
+                      value={commissionOptions.some(opt => opt.value === book.referralCommission) ? '' : book.referralCommission || ''}
+                      onChange={e => {
+                        const val = parseFloat(e.target.value);
+                        setBook({ ...book, referralCommission: isNaN(val) ? 0 : val });
+                      }}
+                      placeholder="%"
+                      autoFocus
+                      onClick={e => e.stopPropagation()}
+                    />
+                  </li>
+                </ul>
+              )}
+            </div>
+            <label 
+              htmlFor="referral-commission" 
+              className={`absolute left-4 top-0 text-xs bg-white px-1 -translate-y-1/2 transition-colors ${
+                errors.referralCommission ? 'text-red-600' : 'text-gray-500'
+              }`}
+            >
+              Referral Commission *
+            </label>
           </div>
           {errors.referralCommission && (
-            <p className="text-sm text-red-600 flex items-center gap-1">
+            <p className="text-sm text-red-600 flex items-center gap-1 mt-1">
               <span className="w-1 h-1 bg-red-600 rounded-full"></span>
               {errors.referralCommission}
-            </p>
-          )}
-          {commissionState.warning && (
-            <p className="text-sm text-orange-600 flex items-center gap-1">
-              <span className="w-1 h-1 bg-orange-600 rounded-full"></span>
-              {commissionState.warning}
             </p>
           )}
         </div>

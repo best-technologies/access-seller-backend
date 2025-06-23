@@ -17,6 +17,7 @@ const DASHBOARD_CACHE_TIME = 60 * 60 * 1000; // 1 hour in ms
 function getCachedDashboard() {
   if (typeof window === "undefined") return null;
   const cached = localStorage.getItem(DASHBOARD_CACHE_KEY);
+  console.log("object")
   if (!cached) return null;
   try {
     const { data, timestamp } = JSON.parse(cached);
@@ -59,6 +60,7 @@ export default function AdminDashboard() {
 
     try {
       const response = await api.admin.dashboard();
+      console.log("Response: ", response)
       if (!response.success) throw new Error(response.message || "Failed to fetch dashboard");
       setDashboardData(response.data);
       setCachedDashboard(response.data); // Cache the new data
@@ -141,7 +143,7 @@ export default function AdminDashboard() {
       <KPICards kpis={dashboardData?.dashboard.kpis || []} />
 
       {/* Charts Section */}
-      <ChartsSection salesData={dashboardData?.dashboard.salesData || { labels: [], sales: [], revenue: [], orders: [] }} />
+      {/* <ChartsSection salesData={dashboardData?.dashboard.salesData || { labels: [], sales: [], revenue: [], orders: [] }} /> */}
 
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

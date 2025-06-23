@@ -87,9 +87,9 @@ export interface MetadataResponse {
   message: string;
   data: {
     categories: { id: string; name: string }[];
-    genres: { name: string }[];
-    languages: { name: string }[];
-    formats: { name: string }[];
+    genres: { id: string; name: string }[];
+    languages: { id: string; name: string }[];
+    formats: { id: string; name: string }[];
     ageRatings: { name: string }[];
   };
 }
@@ -241,6 +241,7 @@ export const api = {
     },
     fetchMetadata: async (): Promise<MetadataResponse> => {
       const response = await axiosInstance.get('/admin/metadata/all');
+      console.log("Meta data: ", response)
       return response as unknown as MetadataResponse;
     }
   }

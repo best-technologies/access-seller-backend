@@ -111,6 +111,7 @@ export default function CustomersPage() {
 
   const customers: Customer[] = customersData?.customers || [];
   const stats: CustomersStats | undefined = customersData?.stats;
+  console.log("Stats: ", customersData)
 
   if (isLoading) {
     // console.log('Showing loading screen');
@@ -282,7 +283,7 @@ export default function CustomersPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs font-medium text-blue-600 mb-0.5">Total Customers</p>
-              <p className="text-2xl font-bold text-blue-900">{stats?.totalCustomers ?? 0}</p>
+              <p className="text-2xl font-bold text-blue-900">{stats?.totalCustomers || 5}</p>
               <p className="text-xs text-blue-500">All customers</p>
             </div>
             <div className="p-3 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg shadow-lg group-hover:scale-110 transition-transform duration-300">

@@ -7,7 +7,8 @@ import {
   Loader2, 
   Book, 
   BookOpen, 
-  AlertCircle
+  AlertCircle,
+  RefreshCw
 } from 'lucide-react';
 import BookBasicInfoSection from './addBook/BookBasicInfoSection';
 import PricingInventorySection from './addBook/PricingInventorySection';
@@ -51,9 +52,12 @@ interface AddBookModalProps {
   onClose: () => void;
   onAddBook: (book: Book) => void;
   isLoading: boolean;
+  onMetadataRefresh: () => void;
+  metadata: MetadataResponse['data'] | null;
 }
 
 const COMMISSION_OPTIONS = [
+  { value: 0, label: '0%' },
   { value: 25, label: '25%' },
   { value: 50, label: '50%' },
   { value: 75, label: '75%' },
@@ -71,7 +75,7 @@ const INITIAL_BOOK_STATE: Book = {
   language: [],
   format: [],
   genre: [],
-  rated: 'All',
+  rated: '',
   display_images: [],
   isbn: '',
   publisher: '',
@@ -107,7 +111,9 @@ export default function AddBookModal({
   isOpen,
   onClose,
   onAddBook,
-  isLoading
+  isLoading,
+  onMetadataRefresh,
+  metadata
 }: AddBookModalProps) {
   // State management
   const [book, setBook] = useState<Book>(INITIAL_BOOK_STATE);
@@ -152,27 +158,11 @@ export default function AddBookModal({
     format: formatRef
   };
 
-  // Metadata state
-  const [metadata, setMetadata] = useState<MetadataResponse['data'] | null>(null);
-  const [loadingMetadata, setLoadingMetadata] = useState(false);
-  const [metadataError, setMetadataError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (isOpen) {
-      setLoadingMetadata(true);
-      setMetadataError(null);
-      api.admin.fetchMetadata()
-        .then(res => setMetadata(res.data))
-        .catch(err => setMetadataError(err.message || 'Failed to fetch metadata'))
-        .finally(() => setLoadingMetadata(false));
-    }
-  }, [isOpen]);
-
   // Map backend data to dropdown format
   const categories = metadata?.categories.map(c => ({ value: c.id, label: c.name })) || [];
-  const genres = metadata?.genres.map(g => ({ value: g.name, label: g.name })) || [];
-  const languages = metadata?.languages.map(l => ({ value: l.name, label: l.name })) || [];
-  const formats = metadata?.formats.map(f => ({ value: f.name, label: f.name })) || [];
+  const genres = metadata?.genres.map(g => ({ value: g.id, label: g.name })) || [];
+  const languages = metadata?.languages.map(l => ({ value: l.id, label: l.name })) || [];
+  const formats = metadata?.formats.map(f => ({ value: f.id, label: f.name })) || [];
   const ageRatings = metadata?.ageRatings.map(a => ({ value: a.name, label: a.name, description: '' })) || [];
 
   // Memoized filtered options
@@ -398,23 +388,15 @@ export default function AddBookModal({
   if (!isOpen) return null;
 
   // Show loading or error state for metadata
-  if (loadingMetadata) {
+  if (!metadata) {
     return (
       <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-50 flex items-center justify-center">
         <div className="bg-white rounded-2xl p-8 shadow-2xl flex flex-col items-center">
           <Loader2 className="h-8 w-8 animate-spin text-indigo-600 mb-4" />
           <span className="text-lg font-medium text-gray-700">Loading book metadata...</span>
-        </div>
-      </div>
-    );
-  }
-  if (metadataError) {
-    return (
-      <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-50 flex items-center justify-center">
-        <div className="bg-white rounded-2xl p-8 shadow-2xl flex flex-col items-center">
-          <AlertCircle className="h-8 w-8 text-red-600 mb-4" />
-          <span className="text-lg font-medium text-red-700 mb-2">{metadataError}</span>
-          <button onClick={onClose} className="mt-4 px-6 py-2 bg-gray-200 rounded-lg text-gray-700 font-medium">Close</button>
+          <button onClick={onMetadataRefresh} className="mt-4 px-6 py-2 bg-gray-200 rounded-lg text-gray-700 font-medium flex items-center gap-2">
+            <RefreshCw className="h-4 w-4 animate-spin" /> Refresh
+          </button>
         </div>
       </div>
     );
@@ -445,6 +427,14 @@ export default function AddBookModal({
               </div>
             </div>
             <div className="flex items-center space-x-2">
+              <button
+                onClick={onMetadataRefresh}
+                className="text-gray-400 hover:text-indigo-600 transition-colors p-2 hover:bg-gray-100 rounded-lg sm:p-3"
+                aria-label="Refresh metadata"
+                title="Refresh metadata"
+              >
+                <RefreshCw className="h-5 w-5" />
+              </button>
               {formState.isDirty && (
                 <span className="text-xs text-orange-600 bg-orange-50 px-2 py-1 rounded-full border border-orange-200">
                   Unsaved changes
