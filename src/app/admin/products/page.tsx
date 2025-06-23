@@ -21,6 +21,7 @@ import { api } from "@/services/api";
 import { formatAmount } from "@/lib/utils";
 import type { ProductsResponse, Product } from "@/types/admin/products/products";
 import type { Book } from "@/components/modals/AddBookModal";
+import EditBookModal from '@/components/modals/EditBookModal';
 
 const PRODUCTS_CACHE_KEY = "admin_products_cache";
 const PRODUCTS_CACHE_TIME = 60 * 60 * 1000; // 1 hour in ms
@@ -62,6 +63,9 @@ export default function ProductsPage() {
   const [categoriesMeta, setCategoriesMeta] = useState<{ value: string, label: string }[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [metadata, setMetadata] = useState<any>(null);
+  const [editingBook, setEditingBook] = useState<Book | null>(null);
+  const [editingBookId, setEditingBookId] = useState<string | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   const filteredCategories = categoriesMeta.filter(cat =>
     cat.label.toLowerCase().includes(categorySearch.toLowerCase())
@@ -171,6 +175,61 @@ export default function ProductsPage() {
 
   const handleCloseSuccessModal = () => {
     setIsSuccessModalOpen(false);
+  };
+
+  function productToBook(product: Product): Book {
+    return {
+      name: product.bookName || '',
+      description: (product as any).description || '',
+      qty: String(product.stock ?? ''),
+      sellingPrice: String(product.sellingPrice ?? ''),
+      normalPrice: String(product.normalPrice ?? ''),
+      category: product.categories?.map(c => c.id) || [],
+      language: (product as any).language || [],
+      format: (product as any).format || [],
+      genre: (product as any).genre || [],
+      rated: (product as any).rated || '',
+      display_images: [], // You may want to handle images separately
+      isbn: product.isbn || '',
+      publisher: product.publishedBy || '',
+      referralCommission: product.referralCommission ?? 0,
+    };
+  }
+
+  const handleEditBook = (book: Product) => {
+    setEditingBook(productToBook(book));
+    setEditingBookId(book.id);
+    setIsEditModalOpen(true);
+  };
+
+  const handleUpdateBook = async (updatedBook: Book) => {
+    if (!editingBookId) return;
+    setIsCreating(true);
+    setError(null);
+    try {
+      const formData = new FormData();
+      Object.entries(updatedBook).forEach(([key, value]) => {
+        if (value === undefined || value === null) return;
+        if (Array.isArray(value)) {
+          value.forEach((v) => {
+            if (v !== undefined && v !== null) formData.append(`${key}[]`, String(v));
+          });
+        } else if (key === 'coverImage' && value instanceof File) {
+          formData.append(key, value);
+        } else {
+          formData.append(key, String(value));
+        }
+      });
+      await api.admin.products.update(editingBookId, formData);
+      setIsEditModalOpen(false);
+      setEditingBook(null);
+      setEditingBookId(null);
+      await fetchProducts(true);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to update book");
+    } finally {
+      setIsCreating(false);
+    }
   };
 
   // console.log('Component rendering - isLoading:', isLoading, 'productsData:', productsData);
@@ -567,7 +626,7 @@ export default function ProductsPage() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <div className="flex items-center justify-end gap-1">
-                      <button className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200 group-hover:scale-110">
+                      <button className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200 group-hover:scale-110" onClick={() => handleEditBook(book)}>
                         <Edit className="h-4 w-4" />
                       </button>
                       <button className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200 group-hover:scale-110">
@@ -597,6 +656,15 @@ export default function ProductsPage() {
         isOpen={isSuccessModalOpen}
         onClose={handleCloseSuccessModal}
       />
+
+      <EditBookModal
+        isOpen={isEditModalOpen}
+        onClose={() => { setIsEditModalOpen(false); setEditingBook(null); setEditingBookId(null); }}
+        book={editingBook}
+        onUpdate={handleUpdateBook}
+        // isEdit={true}
+        isLoading={isCreating}
+      />
     </div>
   );
-} 
+}

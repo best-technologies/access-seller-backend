@@ -1,11 +1,7 @@
-"use client"
-
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { 
   X, 
-  Plus, 
   Loader2, 
-  Book, 
   BookOpen, 
   AlertCircle
 } from 'lucide-react';
@@ -16,7 +12,6 @@ import AdditionalDetailsSection from './addBook/AdditionalDetailsSection';
 import MediaPublisherSection from './addBook/MediaPublisherSection';
 import { api, MetadataResponse } from '@/services/api';
 
-// Enhanced Book interface with better typing
 export interface Book {
   name: string;
   description: string;
@@ -34,22 +29,21 @@ export interface Book {
   referralCommission: number;
 }
 
-// Validation error interface
 interface ValidationErrors {
   [key: string]: string;
 }
 
-// Form state interface
 interface FormState {
   isSubmitting: boolean;
   isDirty: boolean;
   errors: ValidationErrors;
 }
 
-interface AddBookModalProps {
+interface EditBookModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onAddBook: (book: Book) => void;
+  book: Book | null;
+  onUpdate: (book: Book) => void;
   isLoading: boolean;
 }
 
@@ -60,7 +54,6 @@ const COMMISSION_OPTIONS = [
   { value: 100, label: '100%' }
 ] as const;
 
-// Initial book state
 const INITIAL_BOOK_STATE: Book = {
   name: '',
   description: '',
@@ -78,7 +71,6 @@ const INITIAL_BOOK_STATE: Book = {
   referralCommission: 0
 };
 
-// Validation helper functions
 const validateRequired = (value: string | unknown[], fieldName: string): string => {
   if (Array.isArray(value)) {
     return value.length === 0 ? `${fieldName} is required` : '';
@@ -103,14 +95,15 @@ const validateISBN = (isbn: string): string => {
   return '';
 };
 
-export default function AddBookModal({
+export default function EditBookModal({
   isOpen,
   onClose,
-  onAddBook,
+  book: initialBook,
+  onUpdate,
   isLoading
-}: AddBookModalProps) {
+}: EditBookModalProps) {
   // State management
-  const [book, setBook] = useState<Book>(INITIAL_BOOK_STATE);
+  const [book, setBook] = useState<Book>(initialBook || INITIAL_BOOK_STATE);
   const [formState, setFormState] = useState<FormState>({
     isSubmitting: false,
     isDirty: false,
@@ -244,21 +237,17 @@ export default function AddBookModal({
 
   // Reset form
   const handleReset = useCallback(() => {
-    setBook(INITIAL_BOOK_STATE);
+    setBook(initialBook || INITIAL_BOOK_STATE);
     setFormState({ isSubmitting: false, isDirty: false, errors: {} });
     setSearchStates({ category: '', genre: '', language: '', format: '' });
     setDropdownStates({ category: false, genre: false, language: false, format: false });
     setCommissionState({ isCustom: false, customValue: '', warning: '' });
-  }, []);
+  }, [initialBook]);
 
-  // Handle form submission - FIXED VERSION
+  // Handle form submission - for edit
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Submit function called'); // Debug log
-    
     const errors = validateForm();
-    console.log('Validation errors:', errors); // Debug log
-    
     if (Object.keys(errors).length > 0) {
       setFormState(prev => ({ ...prev, errors }));
       // Scroll to first error
@@ -266,36 +255,28 @@ export default function AddBookModal({
       firstErrorElement?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
-
     setFormState(prev => ({ ...prev, isSubmitting: true, errors: {} }));
-
     try {
-      console.log('Submitting book:', book);
-      await onAddBook(book);
+      await onUpdate(book);
       handleReset();
       onClose();
     } catch (error) {
-      console.error('Error adding book:', error);
       setFormState(prev => ({ 
         ...prev, 
-        errors: { submit: 'Failed to add book. Please try again.' }
+        errors: { submit: 'Failed to update book. Please try again.' }
       }));
     } finally {
       setFormState(prev => ({ ...prev, isSubmitting: false }));
     }
-  }, [book, onAddBook, onClose, validateForm, handleReset]);
+  }, [book, onUpdate, onClose, validateForm, handleReset]);
 
-  // FIXED: Handle button click directly
+  // Handle button click directly
   const handleProceedClick = useCallback(async (e: React.MouseEvent) => {
     e.preventDefault();
-    console.log('Proceed button clicked'); // Debug log
-    
-    // Find the form and trigger submit
-    const form = document.querySelector('#add-book-form') as HTMLFormElement;
+    const form = document.querySelector('#edit-book-form') as HTMLFormElement;
     if (form) {
       form.requestSubmit();
     } else {
-      // Fallback: call handleSubmit directly
       const syntheticEvent = new Event('submit') as any;
       syntheticEvent.preventDefault = () => {};
       await handleSubmit(syntheticEvent);
@@ -324,12 +305,10 @@ export default function AddBookModal({
         }
       });
     };
-
     const hasOpenDropdown = Object.values(dropdownStates).some(Boolean);
     if (hasOpenDropdown) {
       document.addEventListener('mousedown', handleClickOutside);
     }
-
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [dropdownStates, dropdownRefs]);
 
@@ -346,19 +325,17 @@ export default function AddBookModal({
         }
       }
     };
-
     if (isOpen) {
       document.addEventListener('keydown', handleKeyDown);
     }
-
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, dropdownStates, handleClose]);
 
   // Mark form as dirty when book changes
   useEffect(() => {
-    const isDirty = JSON.stringify(book) !== JSON.stringify(INITIAL_BOOK_STATE);
+    const isDirty = !!initialBook && JSON.stringify(book) !== JSON.stringify(initialBook);
     setFormState(prev => ({ ...prev, isDirty }));
-  }, [book]);
+  }, [book, initialBook]);
 
   // Handle selection functions
   const handleSelection = useCallback((type: 'category' | 'genre' | 'language' | 'format', value: string) => {
@@ -437,10 +414,10 @@ export default function AddBookModal({
               </div>
               <div>
                 <h2 id="modal-title" className="text-2xl font-semibold text-gray-900 sm:text-lg">
-                  Add New Book
+                  Edit Book
                 </h2>
                 <p className="text-sm text-gray-600 mt-1 sm:text-xs">
-                  Complete all required fields to add a book to your inventory
+                  Update the details and save changes to this book
                 </p>
               </div>
             </div>
@@ -495,7 +472,7 @@ export default function AddBookModal({
 
         {/* Form Content */}
         <div className="flex-1 overflow-y-auto max-h-[calc(95vh-12rem)] sm:max-h-none sm:pb-32">
-          <form id="add-book-form" onSubmit={handleSubmit} className="p-6 space-y-8 sm:p-4 sm:space-y-6">
+          <form id="edit-book-form" onSubmit={handleSubmit} className="p-6 space-y-8 sm:p-4 sm:space-y-6">
             <BookBasicInfoSection 
               book={book} 
               setBook={setBook}
@@ -584,12 +561,12 @@ export default function AddBookModal({
               {(formState.isSubmitting || isLoading) ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  <span>Adding Book...</span>
+                  <span>Updating...</span>
                 </>
               ) : (
                 <>
-                  <Plus className="h-4 w-4" />
-                  <span>Proceed</span>
+                  <BookOpen className="h-4 w-4" />
+                  <span>Update</span>
                 </>
               )}
             </button>
@@ -598,4 +575,4 @@ export default function AddBookModal({
       </div>
     </div>
   );
-}
+} 

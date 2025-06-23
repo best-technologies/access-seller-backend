@@ -217,6 +217,21 @@ export const api = {
         }
         const response = await formDataInstance.post("admin/products/upload-image", formData);
         return response.data;
+      },
+      update: async (id: string, formData: FormData): Promise<unknown> => {
+        const formDataInstance = axios.create({
+          baseURL: API_URL,
+          timeout: 30000,
+          headers: {
+            'Accept': 'application/json',
+          }
+        });
+        const token = tokenManager.get();
+        if (token) {
+          formDataInstance.defaults.headers.Authorization = `Bearer ${token}`;
+        }
+        const response = await formDataInstance.patch(`admin/products/update/${id}`, formData);
+        return response.data;
       }
     },
     customers: async (): Promise<CustomersResponse> => {
