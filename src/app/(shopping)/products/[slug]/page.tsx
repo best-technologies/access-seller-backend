@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useParams } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useParams, useRouter, usePathname } from "next/navigation";
 import Image from "next/image";
 import { 
   ArrowLeft, 
@@ -18,106 +18,129 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import PageHeader from "@/components/ui/PageHeader";
+import GeneralNavbar from "@/components/GeneralNavbar";
 import { useCart } from "@/hooks/useCart";
 import { useWishlist } from "@/hooks/useWishlist";
 import toast from "react-hot-toast";
-
-// Mock data - In a real app, this would come from an API
-const products = [
-  {
-    id: 1,
-    title: "The Great Gatsby",
-    author: "F. Scott Fitzgerald",
-    price: 24.99,
-    originalPrice: 29.99,
-    rating: 4.5,
-    reviews: 128,
-    image: "https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=500&h=500&fit=crop",
-    category: "Fiction",
-    isNew: true,
-    discount: 17,
-    shipping: "Free Shipping",
-    delivery: "2-3 days",
-    format: "Hardcover",
-    pages: 240,
-    language: "English",
-    isbn: "978-0743273565",
-    publishedDate: "April 10, 1925",
-    description: "The Great Gatsby is a 1925 novel by American writer F. Scott Fitzgerald. Set in the Jazz Age on Long Island, the novel depicts narrator Nick Carraway's interactions with mysterious millionaire Jay Gatsby and Gatsby's obsession to reunite with his former lover, Daisy Buchanan.",
-    stock: 15,
-    availableFormats: ["Hardcover", "Paperback", "E-Book", "Audiobook"],
-    images: [
-      "https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=500&h=500&fit=crop",
-      "https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=500&h=500&fit=crop",
-      "https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=500&h=500&fit=crop"
-    ],
-    features: [
-      "Classic American Literature",
-      "Beautiful Hardcover Edition",
-      "Includes Critical Analysis",
-      "Perfect for Book Collectors",
-      "Great Gift Choice"
-    ],
-    specifications: {
-      "Publisher": "Scribner",
-      "Publication Date": "April 10, 1925",
-      "Pages": "240",
-      "Language": "English",
-      "ISBN-10": "0743273567",
-      "ISBN-13": "978-0743273565",
-      "Dimensions": "5.5 x 0.6 x 8.4 inches",
-      "Weight": "12.8 ounces"
-    }
-  }
-];
+import { api } from '@/services/api';
+import Loader from "@/components/Loader";
 
 export default function ProductDetailPage() {
   const params = useParams();
   const [selectedImage, setSelectedImage] = useState(0);
   const [quantity, setQuantity] = useState(1);
-  const [selectedFormat, setSelectedFormat] = useState("Hardcover");
+  const [selectedFormat, setSelectedFormat] = useState<string | null>(null);
+  const [product, setProduct] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Extract product ID from slug with type safety
+  // Extract product ID from slug
   const slug = params?.slug as string;
-  const productId = slug ? parseInt(slug.split('-')[0]) : null;
-  const product = productId ? products.find(p => p.id === productId) : null;
+  const productId = slug && slug.includes('-') ? slug.substring(0, slug.indexOf('-')) : slug || null;
+  console.log('slug:', slug, 'productId:', productId);
+
+  useEffect(() => {
+    if (!productId) return;
+    setLoading(true);
+    setError(null);
+    console.log('Calling getSingleProduct with id:', productId);
+    api.public.getSingleProduct(productId)
+      .then((res) => {
+        console.log('API response:', res);
+        const d = res.data || res;
+        // Normalize API response to match frontend expectations
+        const normalized = {
+          id: d.id,
+          title: d.name,
+          description: d.description,
+          price: d.sellingPrice,
+          originalPrice: d.normalPrice,
+          stock: d.stock,
+          images: d.images || [],
+          category: d.category?.name || '',
+          categoryId: d.categoryId,
+          commission: d.commission,
+          isActive: d.isActive,
+          status: d.status,
+          isbn: d.isbn,
+          publisher: d.publisher,
+          format: d.format || [],
+          availableFormats: d.format || [],
+          language: d.language || [],
+          genre: d.genre || [],
+          createdAt: d.createdAt,
+          updatedAt: d.updatedAt,
+          // Fallbacks/defaults for fields not in API
+          features: d.features || [
+            "High quality print",
+            "Available in multiple formats",
+            "Bestseller in its category"
+          ],
+          rating: d.rating || 4.5,
+          reviews: d.reviews || 0,
+          specifications: d.specifications || {
+            Publisher: d.publisher,
+            ISBN: d.isbn,
+            Language: (d.language || []).join(', '),
+            Genre: (d.genre || []).join(', '),
+            Format: (d.format || []).join(', '),
+            "Commission Rate": d.commission ? `${d.commission}%` : undefined,
+            "Stock": d.stock,
+            "Created At": d.createdAt,
+            "Updated At": d.updatedAt,
+          },
+          isNew: d.isNew || false,
+        };
+        setProduct(normalized);
+        if (normalized.availableFormats.length) {
+          setSelectedFormat(normalized.availableFormats[0]);
+        }
+      })
+      .catch((err) => {
+        console.error('API error:', err);
+        setError("Book Not Found");
+      })
+      .finally(() => setLoading(false));
+  }, [productId]);
 
   const { cart, addToCart, updateQuantity, removeFromCart } = useCart();
   const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
-  const cartItem = cart.find(item => item.productId === String(product?.id));
+  const cartItem = product ? cart.find(item => item.productId === String(product.id)) : null;
+  const router = useRouter();
 
   const handleWishlistToggle = () => {
     if (!product) return;
-    
     const productId = String(product.id);
-    
     if (isInWishlist(productId)) {
       removeFromWishlist(productId);
-      toast.success(`${product.title} removed from wishlist`);
+      toast.success(`${product.title || product.name} removed from wishlist`);
     } else {
       addToWishlist({
         id: productId,
-        title: product.title,
+        title: product.title || product.name,
         author: product.author,
         price: product.price,
-        image: product.images[0],
+        image: product.images?.[0] || product.display_picture,
         category: product.category,
         rating: product.rating,
         reviews: product.reviews,
         originalPrice: product.originalPrice,
         discount: product.discount,
-        isNew: product.isNew
+        isNew: product.isNew || product.is_new
       });
-      toast.success(`${product.title} added to wishlist`);
+      toast.success(`${product.title || product.name} added to wishlist`);
     }
   };
 
-  if (!product) {
+  if (loading) {
+    return <Loader/>;
+  }
+
+  if (error || !product) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">Book Not Found</h1>
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">{error || "Book Not Found"}</h1>
           <Link href="/products">
             <Button variant="outline">
               <ArrowLeft className="h-4 w-4 mr-2" />
@@ -131,7 +154,7 @@ export default function ProductDetailPage() {
 
   return (
     <>
-      <PageHeader title="Book Details" />
+      <GeneralNavbar />
       <div className="min-h-screen bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {/* Breadcrumb */}
@@ -141,7 +164,7 @@ export default function ProductDetailPage() {
               className="inline-flex items-center text-gray-600 hover:text-gray-900"
             >
               <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Books
+              
             </Link>
           </div>
 
@@ -159,7 +182,7 @@ export default function ProductDetailPage() {
                   />
                 </div>
                 <div className="grid grid-cols-4 gap-4">
-                  {product.images.map((image, index) => (
+                  {product.images.map((image: string, index: number) => (
                     <button
                       key={index}
                       onClick={() => setSelectedImage(index)}
@@ -229,7 +252,7 @@ export default function ProductDetailPage() {
                 <div className="space-y-4">
                   <h3 className="font-semibold text-gray-900">Available Formats</h3>
                   <div className="grid grid-cols-2 gap-4">
-                    {product.availableFormats.map((format) => (
+                    {product.availableFormats.map((format: string) => (
                       <button
                         key={format}
                         onClick={() => setSelectedFormat(format)}
@@ -255,7 +278,7 @@ export default function ProductDetailPage() {
                 <div className="space-y-4">
                   <h3 className="font-semibold text-gray-900">Key Features</h3>
                   <ul className="space-y-2">
-                    {product.features.map((feature, index) => (
+                    {product.features.map((feature: string, index: number) => (
                       <li key={index} className="flex items-center gap-2 text-gray-600">
                         <Check className="h-5 w-5 text-green-500" />
                         {feature}
@@ -294,38 +317,39 @@ export default function ProductDetailPage() {
 
                   <div className="flex gap-4">
                     {cartItem ? (
-                      <Button className="flex-1 bg-green-600 hover:bg-green-700 text-white" onClick={() => updateQuantity(String(product.id), quantity)}>
-                        <Check className="h-5 w-5 mr-2" />
-                        Update Cart
-                      </Button>
+                      <>
+                        <Button variant="outline" className="flex-1" onClick={() => removeFromCart(String(product.id))}>
+                          Remove from Cart
+                        </Button>
+                        <Button className="flex-1 bg-green-600 hover:bg-green-700 text-white" onClick={() => router.push('/cart')}>
+                          Go to Cart
+                        </Button>
+                      </>
                     ) : (
-                      <Button className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white" onClick={() => addToCart({
-                        productId: String(product.id),
-                        quantity,
-                        price: product.price,
-                        product: {
-                          name: product.title,
-                          image: product.images[0],
-                          category: product.category
-                        }
-                      })}>
-                        <ShoppingCart className="h-5 w-5 mr-2" />
-                        Add to Cart
-                      </Button>
+                      <>
+                        <Button className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white" onClick={() => addToCart({
+                          productId: String(product.id),
+                          quantity,
+                          price: product.price,
+                          product: {
+                            name: product.title,
+                            image: product.images[0],
+                            category: product.category
+                          }
+                        })}>
+                          <ShoppingCart className="h-5 w-5 mr-2" />
+                          Add to Cart
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          className={`flex-1 ${isInWishlist(String(product.id)) ? 'bg-red-50 border-red-200 text-red-600 hover:bg-red-100' : ''}`}
+                          onClick={handleWishlistToggle}
+                        >
+                          <Heart className={`h-5 w-5 mr-2 ${isInWishlist(String(product.id)) ? 'fill-current' : ''}`} />
+                          {isInWishlist(String(product.id)) ? 'Remove from Wishlist' : 'Add to Wishlist'}
+                        </Button>
+                      </>
                     )}
-                    {cartItem && (
-                      <Button variant="outline" className="flex-1" onClick={() => removeFromCart(String(product.id))}>
-                        Remove
-                      </Button>
-                    )}
-                    <Button 
-                      variant="outline" 
-                      className={`flex-1 ${isInWishlist(String(product.id)) ? 'bg-red-50 border-red-200 text-red-600 hover:bg-red-100' : ''}`}
-                      onClick={handleWishlistToggle}
-                    >
-                      <Heart className={`h-5 w-5 mr-2 ${isInWishlist(String(product.id)) ? 'fill-current' : ''}`} />
-                      {isInWishlist(String(product.id)) ? 'Remove from Wishlist' : 'Add to Wishlist'}
-                    </Button>
                   </div>
                 </div>
 
@@ -355,7 +379,7 @@ export default function ProductDetailPage() {
                 {Object.entries(product.specifications).map(([key, value]) => (
                   <div key={key} className="flex">
                     <span className="w-1/3 text-gray-500">{key}</span>
-                    <span className="w-2/3 text-gray-900">{value}</span>
+                    <span className="w-2/3 text-gray-900">{value as string}</span>
                   </div>
                 ))}
               </div>

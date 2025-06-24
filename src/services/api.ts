@@ -183,7 +183,12 @@ export const api = {
       const response = await axiosInstance.get(`/products/browse?page=${page}`);
       console.log('[API] Browse products response:', response);
       return response as unknown as BrowseProductsResponse;
-    }
+    },
+    getSingleProduct: async (id: string): Promise<any> => {
+      // Fetch a single product by id
+      const response = await axiosInstance.get(`/products/${id}`);
+      return response;
+    },
   },
 
   admin: {
