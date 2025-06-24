@@ -20,6 +20,8 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import PageHeader from "@/components/ui/PageHeader";
 import { useCart } from "@/hooks/useCart";
+import { useWishlist } from "@/hooks/useWishlist";
+import toast from "react-hot-toast";
 
 // Mock data - In a real app, this would come from an API
 const products = [
@@ -82,7 +84,34 @@ export default function ProductDetailPage() {
   const product = productId ? products.find(p => p.id === productId) : null;
 
   const { cart, addToCart, updateQuantity, removeFromCart } = useCart();
+  const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
   const cartItem = cart.find(item => item.productId === String(product?.id));
+
+  const handleWishlistToggle = () => {
+    if (!product) return;
+    
+    const productId = String(product.id);
+    
+    if (isInWishlist(productId)) {
+      removeFromWishlist(productId);
+      toast.success(`${product.title} removed from wishlist`);
+    } else {
+      addToWishlist({
+        id: productId,
+        title: product.title,
+        author: product.author,
+        price: product.price,
+        image: product.images[0],
+        category: product.category,
+        rating: product.rating,
+        reviews: product.reviews,
+        originalPrice: product.originalPrice,
+        discount: product.discount,
+        isNew: product.isNew
+      });
+      toast.success(`${product.title} added to wishlist`);
+    }
+  };
 
   if (!product) {
     return (
@@ -289,9 +318,13 @@ export default function ProductDetailPage() {
                         Remove
                       </Button>
                     )}
-                    <Button variant="outline" className="flex-1">
-                      <Heart className="h-5 w-5 mr-2" />
-                      Add to Wishlist
+                    <Button 
+                      variant="outline" 
+                      className={`flex-1 ${isInWishlist(String(product.id)) ? 'bg-red-50 border-red-200 text-red-600 hover:bg-red-100' : ''}`}
+                      onClick={handleWishlistToggle}
+                    >
+                      <Heart className={`h-5 w-5 mr-2 ${isInWishlist(String(product.id)) ? 'fill-current' : ''}`} />
+                      {isInWishlist(String(product.id)) ? 'Remove from Wishlist' : 'Add to Wishlist'}
                     </Button>
                   </div>
                 </div>

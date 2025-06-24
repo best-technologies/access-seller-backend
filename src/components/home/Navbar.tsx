@@ -21,12 +21,16 @@ import {
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
+import { useWishlist } from "@/hooks/useWishlist";
+import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 
 export default function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const { isAuthenticated, user, logout } = useAuth();
+  const { wishlistCount } = useWishlist();
+  const router = useRouter();
 
   const handleBackdropClick = (e: React.MouseEvent) => {
     if (e.target === e.currentTarget) {
@@ -43,6 +47,10 @@ export default function Navbar() {
       console.error('Logout failed:', error);
       toast.error('Logout failed. Please try again.');
     }
+  };
+
+  const handleWishlistClick = () => {
+    router.push("/wishlist");
   };
 
   return (
@@ -65,8 +73,16 @@ export default function Navbar() {
               <button className="p-2 text-gray-600 hover:text-indigo-600 transition-colors">
                 <Search className="w-5 h-5" />
               </button>
-              <button className="p-2 text-gray-600 hover:text-indigo-600 transition-colors">
+              <button 
+                onClick={handleWishlistClick}
+                className="relative p-2 text-gray-600 hover:text-indigo-600 transition-colors"
+              >
                 <Heart className="w-5 h-5" />
+                {wishlistCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-indigo-600 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
+                    {wishlistCount}
+                  </span>
+                )}
               </button>
               <MiniCartPreview />
               <button 
@@ -105,9 +121,16 @@ export default function Navbar() {
 
               {/* User Actions */}
               <div className="flex items-center space-x-4">
-                <button className="relative p-2 text-gray-600 hover:text-indigo-600 transition-colors">
+                <button 
+                  onClick={handleWishlistClick}
+                  className="relative p-2 text-gray-600 hover:text-indigo-600 transition-colors"
+                >
                   <Heart className="w-5 h-5" />
-                  <span className="absolute -top-1 -right-1 bg-indigo-600 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">3</span>
+                  {wishlistCount > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-indigo-600 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
+                      {wishlistCount}
+                    </span>
+                  )}
                 </button>
                 <MiniCartPreview />
                 
@@ -228,6 +251,15 @@ export default function Navbar() {
                   <Link href="/categories" className="flex items-center space-x-3 px-3 py-2 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors">
                     <Tag className="w-5 h-5 text-indigo-600" />
                     <span className="text-sm font-medium">Categories</span>
+                  </Link>
+                  <Link href="/wishlist" className="flex items-center space-x-3 px-3 py-2 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors">
+                    <Heart className="w-5 h-5 text-indigo-600" />
+                    <span className="text-sm font-medium">Wishlist</span>
+                    {wishlistCount > 0 && (
+                      <span className="ml-auto bg-indigo-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                        {wishlistCount}
+                      </span>
+                    )}
                   </Link>
                   {/* <Link href="/deals" className="flex items-center space-x-3 px-3 py-2 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors">
                     <Tag className="w-5 h-5 text-indigo-600" />

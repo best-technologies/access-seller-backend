@@ -7,64 +7,11 @@ import { useRef } from "react";
 import Image from "next/image";
 import { useCart } from "@/hooks/useCart";
 
-const newBooks = [
-  {
-    id: 101,
-    title: "Digital Marketing Mastery",
-    author: "Marketing Experts",
-    desc: "Learn the art and science of digital marketing in the modern age.",
-    price: "26.99",
-    image: "/images/book-images/TBm-300x300.png",
-    releaseDate: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-  },
-  {
-    id: 102,
-    title: "Business Growth Strategies",
-    author: "Business Leaders",
-    desc: "Proven strategies for sustainable business growth and success.",
-    price: "21.99",
-    image: "/images/book-images/mockup-2.png",
-    releaseDate: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-  },
-  {
-    id: 103,
-    title: "E-commerce Success",
-    author: "Industry Experts",
-    desc: "The complete guide to building a successful online store.",
-    price: "23.99",
-    image: "/images/book-images/7733342_1580677080347book3d.png",
-    releaseDate: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-  },
-  {
-    id: 104,
-    title: "Profit First",
-    author: "Mike Michalowicz",
-    desc: "Transform your business from a cash-eating monster to a money-making machine.",
-    price: "24.99",
-    image: "/images/book-images/profit-first.png",
-    releaseDate: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-  },
-  {
-    id: 105,
-    title: "Launch",
-    author: "Jeff Walker",
-    desc: "The ultimate guide to launching your product or service online.",
-    price: "29.99",
-    image: "/images/book-images/Launch-Jeff-Walker-2.png",
-    releaseDate: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-  },
-  {
-    id: 106,
-    title: "50 Shades of Growth",
-    author: "Sid Bharath",
-    desc: "A comprehensive guide to e-commerce growth strategies.",
-    price: "19.99",
-    image: "/images/book-images/Best-Ecommerce-Books-50-Shades-of-Growth-–-Sid-Bharath-and-D.png",
-    releaseDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-  }
-];
+interface NewArrivalsProps {
+  books: any[];
+}
 
-export default function NewArrivals() {
+export default function NewArrivals({ books = [] }: NewArrivalsProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const { addToCart } = useCart();
 
@@ -109,7 +56,7 @@ export default function NewArrivals() {
 
           {/* Grid Layout for Mobile, Scrollable for Desktop */}
           <div className="flex overflow-x-auto pb-6 gap-3 px-4 sm:px-0 sm:gap-4 sm:snap-x sm:snap-mandatory sm:scrollbar-hide">
-            {newBooks.map((book) => (
+            {books.map((book) => (
               <Card key={book.id} className="group relative flex-none w-[140px] sm:w-[180px] overflow-hidden border-none shadow-lg hover:shadow-xl transition-all duration-300 snap-start">
                 <div className="aspect-[3/4] w-full bg-gray-100 relative overflow-hidden">
                   <div className="relative w-full h-full">

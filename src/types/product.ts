@@ -22,3 +22,49 @@ export interface Category {
   slug: string;
   description?: string;
 }
+
+// DTOs for /products/browse API response
+export interface BrowseProductsResponse {
+  success: boolean;
+  message: string;
+  data: BrowseProductsData;
+}
+
+export interface BrowseProductsData {
+  page: number;
+  pageSize: number;
+  total: number;
+  hasMore: boolean;
+  categories: BrowseCategory[];
+  formats: BrowseFormat[];
+  products: BrowseProduct[];
+}
+
+export interface BrowseCategory {
+  id: string;
+  name: string;
+  total_books: number;
+  icon?: string;
+}
+
+export interface BrowseFormat {
+  id: string;
+  name: string;
+  total_books: number;
+}
+
+export interface BrowseProduct {
+  id: string;
+  product_name: string;
+  is_new: boolean;
+  stock_status: string;
+  display_picture: string | null;
+  author: string;
+  total_sold: number;
+  selling_price: number;
+  nomral_price: number;
+  format: string;
+  stock_count: number;
+  categories: { id: string; name: string }[];
+  formats: { id: string; name: string }[];
+}

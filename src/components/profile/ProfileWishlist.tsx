@@ -1,61 +1,88 @@
 "use client";
 
 import Image from "next/image";
-import { Trash2 } from "lucide-react";
-
-// Mock wishlist data - replace with actual data from your backend
-const wishlistItems = [
-  {
-    id: 1,
-    title: "The Great Gatsby",
-    author: "F. Scott Fitzgerald",
-    price: 24.99,
-    image: "https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=400&h=600&fit=crop&crop=center"
-  },
-  {
-    id: 2,
-    title: "To Kill a Mockingbird",
-    author: "Harper Lee",
-    price: 18.99,
-    image: "https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=400&h=600&fit=crop&crop=center"
-  },
-  {
-    id: 3,
-    title: "1984",
-    author: "George Orwell",
-    price: 16.99,
-    image: "https://images.unsplash.com/photo-1512820790803-83ca734da794?w=400&h=600&fit=crop&crop=center"
-  }
-];
+import { Trash2, ShoppingCart } from "lucide-react";
+import { useWishlist } from "@/hooks/useWishlist";
+import { useCart } from "@/hooks/useCart";
+import toast from "react-hot-toast";
 
 export default function ProfileWishlist() {
+  const { wishlist, removeFromWishlist } = useWishlist();
+  const { addToCart } = useCart();
+
+  const handleAddToCart = (item: any) => {
+    addToCart({
+      productId: item.id,
+      quantity: 1,
+      price: item.price,
+      product: {
+        name: item.title,
+        image: item.image,
+        category: item.category
+      }
+    });
+  };
+
+  const handleRemoveFromWishlist = (itemId: string, itemTitle: string) => {
+    removeFromWishlist(itemId);
+    toast.success(`${itemTitle} removed from wishlist`);
+  };
+
+  if (wishlist.length === 0) {
+    return (
+      <div className="space-y-6">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
+          <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
+            <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+            </svg>
+          </div>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">Your Wishlist is Empty</h3>
+          <p className="text-gray-600 mb-6">
+            Start building your collection by adding books you love to your wishlist
+          </p>
+          <button className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg font-medium">
+            Browse Books
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-gray-900">My Wishlist</h3>
-          <span className="text-sm text-gray-500">{wishlistItems.length} items</span>
+          <span className="text-sm text-gray-500">{wishlist.length} items</span>
         </div>
         <div className="space-y-4">
-          {wishlistItems.map((item) => (
+          {wishlist.map((item) => (
             <div key={item.id} className="flex gap-4 p-4 border border-gray-200 rounded-lg">
-              <Image
-                src={item.image}
-                alt={item.title}
-                width={200}
-                height={280}
-                className="w-full h-full object-cover"
-              />
+              <div className="relative w-20 h-28 flex-shrink-0">
+                <Image
+                  src={item.image}
+                  alt={item.title}
+                  fill
+                  className="object-cover rounded"
+                />
+              </div>
               <div className="flex-1">
                 <h4 className="font-medium text-gray-900">{item.title}</h4>
                 <p className="text-sm text-gray-500">by {item.author}</p>
                 <div className="mt-2 flex items-center justify-between">
-                  <span className="text-lg font-semibold text-gray-900">${item.price}</span>
+                  <span className="text-lg font-semibold text-gray-900">₦{item.price.toLocaleString(undefined, {maximumFractionDigits:0})}</span>
                   <div className="flex items-center gap-4">
-                    <button className="text-indigo-600 hover:text-indigo-700 text-sm font-medium">
+                    <button 
+                      onClick={() => handleAddToCart(item)}
+                      className="text-indigo-600 hover:text-indigo-700 text-sm font-medium"
+                    >
                       Add to Cart
                     </button>
-                    <button className="text-gray-400 hover:text-red-500">
+                    <button 
+                      onClick={() => handleRemoveFromWishlist(item.id, item.title)}
+                      className="text-gray-400 hover:text-red-500"
+                    >
                       <Trash2 className="h-5 w-5" />
                     </button>
                   </div>

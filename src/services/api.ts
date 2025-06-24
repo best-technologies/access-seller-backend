@@ -3,6 +3,7 @@ import { DashboardResponse } from '@/types/admin/dashboard/dashboard';
 import type { ProductsResponse } from '@/types/admin/products/products';
 import type { CustomersResponse } from '@/types/admin/customers/customers';
 import axios, { AxiosError, AxiosInstance } from 'axios';
+import type { BrowseProductsResponse } from '@/types/product';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
 
@@ -170,6 +171,21 @@ export const api = {
     }
   },
 
+  public: {
+    getHomepageProducts: async ():Promise<DashboardResponse> => {
+      console.log('[API] Fetching homepage products from /products');
+      const response = await axiosInstance.get('/products');
+      console.log('[API] Homepage products response:', response);
+      return response as unknown as DashboardResponse;
+    },
+    getBrowseProducts: async (page = 1): Promise<BrowseProductsResponse> => {
+      console.log(`[API] Fetching browse products from /products/browse?page=${page}`);
+      const response = await axiosInstance.get(`/products/browse?page=${page}`);
+      console.log('[API] Browse products response:', response);
+      return response as unknown as BrowseProductsResponse;
+    }
+  },
+
   admin: {
     dashboard: async (): Promise<DashboardResponse> => {
       console.log("Fetching admin dashboard");
@@ -177,9 +193,9 @@ export const api = {
       return response as unknown as DashboardResponse
     },
     products: {
-      getAll: async (): Promise<ProductsResponse> => {
+      getAll: async (page = 1): Promise<ProductsResponse> => {
         console.log("Fetching admin products");
-        const response = await axiosInstance.get("admin/products/dashboard");
+        const response = await axiosInstance.get(`admin/products/all?page=${page}`);
         console.log("get all products response: ", response)
         return response as unknown as ProductsResponse;
       },

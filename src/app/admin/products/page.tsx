@@ -22,6 +22,7 @@ import { formatAmount } from "@/lib/utils";
 import type { ProductsResponse, Product } from "@/types/admin/products/products";
 import type { Book } from "@/components/modals/AddBookModal";
 import EditBookModal from '@/components/modals/EditBookModal';
+import BookCatalogSearchFilter from "@/components/common/BookCatalogSearchFilter";
 
 const PRODUCTS_CACHE_KEY = "admin_products_cache";
 const PRODUCTS_CACHE_TIME = 60 * 60 * 1000; // 1 hour in ms
@@ -92,6 +93,8 @@ export default function ProductsPage() {
   const [editingBook, setEditingBook] = useState<Book | null>(null);
   const [editingBookId, setEditingBookId] = useState<string | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10; // You can adjust this as needed
 
   const filteredCategories = categoriesMeta.filter(cat =>
     cat.label.toLowerCase().includes(categorySearch.toLowerCase())
@@ -278,7 +281,49 @@ export default function ProductsPage() {
     }
   };
 
-  // console.log('Component rendering - isLoading:', isLoading, 'productsData:', productsData);
+  const books = productsData?.productsTable.products || [];
+
+  const filteredBooks = books.filter((book: Product) => {
+    const matchesSearch =
+      (book.bookName?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
+      (Array.isArray(book.categories) ? book.categories.some((cat) => cat.name?.toLowerCase().includes(searchQuery.toLowerCase())) : false) ||
+      (book.isbn?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
+      (book.publishedBy?.toLowerCase() || '').includes(searchQuery.toLowerCase());
+
+    const matchesCategory =
+      !selectedCategory ||
+      (Array.isArray(book.categories) && book.categories.some((cat) => cat.id === selectedCategory));
+
+    return matchesSearch && matchesCategory;
+  });
+
+  // Pagination logic
+  const totalBooks = filteredBooks.length;
+  const totalPages = Math.ceil(totalBooks / itemsPerPage);
+  const paginatedBooks = filteredBooks.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+  const handlePageChange = (page: number) => {
+    if (page < 1 || page > totalPages) return;
+    setCurrentPage(page);
+  };
+
+  useEffect(() => {
+    // Reset to first page if filters/search change and current page is out of range
+    if (currentPage > totalPages) setCurrentPage(1);
+  }, [searchQuery, selectedCategory, totalPages]);
+
+  const renderCategoryCell = (book: Product) => {
+    const categories = Array.isArray(book.categories) ? book.categories : [];
+    if (categories.length > 0) {
+      return categories.slice(0, 3).map((cat) => (
+        <span key={cat.id} className="text-xs text-gray-600">
+          {cat.name}
+        </span>
+      ));
+    } else {
+      return <span className="text-xs text-gray-400">No category</span>;
+    }
+  };
 
   if (isLoading) {
     // console.log('Showing loading screen');
@@ -309,35 +354,6 @@ export default function ProductsPage() {
       </div>
     );
   }
-
-  const books = productsData?.productsTable.products || [];
-
-  const filteredBooks = books.filter((book: Product) => {
-    const matchesSearch =
-      (book.bookName?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
-      (Array.isArray(book.categories) ? book.categories.some((cat) => cat.name?.toLowerCase().includes(searchQuery.toLowerCase())) : false) ||
-      (book.isbn?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
-      (book.publishedBy?.toLowerCase() || '').includes(searchQuery.toLowerCase());
-
-    const matchesCategory =
-      !selectedCategory ||
-      (Array.isArray(book.categories) && book.categories.some((cat) => cat.id === selectedCategory));
-
-    return matchesSearch && matchesCategory;
-  });
-
-  const renderCategoryCell = (book: Product) => {
-    const categories = Array.isArray(book.categories) ? book.categories : [];
-    if (categories.length > 0) {
-      return categories.slice(0, 3).map((cat) => (
-        <span key={cat.id} className="text-xs text-gray-600">
-          {cat.name}
-        </span>
-      ));
-    } else {
-      return <span className="text-xs text-gray-400">No category</span>;
-    }
-  };
 
   return (
     <div className="space-y-6">
@@ -435,88 +451,19 @@ export default function ProductsPage() {
       </div>
 
       {/* Search and Filters */}
-      <div className="bg-gradient-to-r from-white to-gray-50 rounded-xl shadow-lg border border-gray-200/50 p-6 mb-6">
-        <div className="flex flex-col gap-4">
-          {/* Header */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="p-1.5 bg-indigo-100 rounded-lg">
-                <Search className="h-4 w-4 text-indigo-600" />
-              </div>
-              <div>
-                <h2 className="text-lg font-bold text-gray-900">Book Catalog</h2>
-                <p className="text-xs text-gray-500">Search and filter your book collection</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Search and Filter Controls */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            {/* Search Bar */}
-            <div className="md:col-span-2 relative group">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Search className="h-4 w-4 text-gray-400 group-focus-within:text-indigo-500 transition-colors" />
-              </div>
-              <input
-                type="text"
-                placeholder="Search by book name, ISBN, or publisher..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 bg-white/50 backdrop-blur-sm shadow-sm hover:shadow-md text-sm"
-              />
-            </div>
-
-            {/* Category Filter */}
-            <div className="relative group">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Tag className="h-4 w-4 text-gray-400 group-focus-within:text-indigo-500 transition-colors" />
-              </div>
-              <div className="relative">
-                <input
-                  type="text"
-                  placeholder="Search categories..."
-                  value={categorySearch}
-                  onChange={e => setCategorySearch(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-t-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 bg-white/50 backdrop-blur-sm shadow-sm hover:shadow-md text-sm"
-                />
-                <select
-                  className="w-full pl-10 pr-8 py-2.5 border border-t-0 border-gray-200 rounded-b-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 appearance-none bg-white/50 backdrop-blur-sm shadow-sm hover:shadow-md text-sm"
-                  value={selectedCategory}
-                  onChange={e => setSelectedCategory(e.target.value)}
-                >
-                  <option value="">All Categories</option>
-                  {filteredCategories.map(cat => (
-                    <option key={cat.value} value={cat.value}>{cat.label}</option>
-                  ))}
-                </select>
-                <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                  <ChevronDown className="h-4 w-4 text-gray-400" />
-                </div>
-              </div>
-            </div>
-
-            {/* Status Filter */}
-            <div className="relative group">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <svg className="h-4 w-4 text-gray-400 group-focus-within:text-indigo-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <select 
-                className="w-full pl-10 pr-8 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 appearance-none bg-white/50 backdrop-blur-sm shadow-sm hover:shadow-md text-sm"
-              >
-                <option value="">All Status</option>
-                <option value="in-stock">In Stock</option>
-                <option value="out-of-stock">Out of Stock</option>
-                <option value="low-stock">Low Stock</option>
-              </select>
-              <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                <ChevronDown className="h-4 w-4 text-gray-400" />
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      <BookCatalogSearchFilter
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+        categorySearch={categorySearch}
+        setCategorySearch={setCategorySearch}
+        filteredCategories={filteredCategories}
+        selectedCategory={selectedCategory}
+        setSelectedCategory={setSelectedCategory}
+        showSeeAllButton={true}
+        seeAllHref="/admin/products/all"
+        headerTitle="Book Catalog"
+        headerDescription="Search and filter your book collection"
+      />
 
       {/* Books Table */}
       <div className="bg-gradient-to-br from-white to-gray-50 rounded-xl shadow-xl border border-gray-200/50 overflow-hidden">
@@ -583,7 +530,7 @@ export default function ProductsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200/50">
-              {filteredBooks.map((book) => (
+              {paginatedBooks.map((book) => (
                 <tr key={book.id} className="hover:bg-gradient-to-r hover:from-blue-50/50 hover:to-indigo-50/50 transition-all duration-200 group">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
@@ -677,6 +624,39 @@ export default function ProductsPage() {
           </table>
         </div>
       </div>
+
+      {/* Pagination Controls */}
+      {totalPages > 1 && (
+        <div className="flex justify-center items-center gap-2 mt-6">
+          <button
+            onClick={() => handlePageChange(currentPage - 1)}
+            disabled={currentPage === 1}
+            className="px-3 py-1 rounded-lg border bg-white text-gray-700 font-semibold shadow-sm hover:bg-indigo-50 disabled:opacity-50"
+          >
+            Prev
+          </button>
+          {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+            <button
+              key={page}
+              onClick={() => handlePageChange(page)}
+              className={`px-3 py-1 rounded-lg border font-semibold shadow-sm transition-all duration-150 ${
+                page === currentPage
+                  ? 'bg-indigo-600 text-white border-indigo-600 scale-105'
+                  : 'bg-white text-gray-700 hover:bg-indigo-50 border-gray-200'
+              }`}
+            >
+              {page}
+            </button>
+          ))}
+          <button
+            onClick={() => handlePageChange(currentPage + 1)}
+            disabled={currentPage === totalPages}
+            className="px-3 py-1 rounded-lg border bg-white text-gray-700 font-semibold shadow-sm hover:bg-indigo-50 disabled:opacity-50"
+          >
+            Next
+          </button>
+        </div>
+      )}
 
       {/* Modals */}
       <AddBookModal

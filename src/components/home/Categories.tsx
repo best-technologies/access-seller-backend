@@ -5,34 +5,11 @@ import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
 import Image from "next/image";
 
-const categories = [
-  { 
-    name: "Business", 
-    image: "/images/book-images/profit-first.png",
-    count: "500+ Books",
-    description: "Business strategy, entrepreneurship, and management"
-  },
-  { 
-    name: "Marketing", 
-    image: "/images/book-images/TBm-300x300.png",
-    count: "300+ Books",
-    description: "Digital marketing, branding, and growth strategies"
-  },
-  { 
-    name: "E-commerce", 
-    image: "/images/book-images/ecommerce-book-cover.png",
-    count: "400+ Books",
-    description: "Online retail, store management, and sales"
-  },
-  { 
-    name: "Technology", 
-    image: "/images/book-images/7733342_1580677080347book3d.png",
-    count: "600+ Books",
-    description: "Programming, digital tools, and tech trends"
-  },
-];
+interface CategoriesProps {
+  categories: any[];
+}
 
-export default function Categories() {
+export default function Categories({ categories = [] }: CategoriesProps) {
   return (
     <div className="px-4 sm:px-0">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 sm:mb-12">
