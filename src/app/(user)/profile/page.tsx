@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import { 
   User,
@@ -16,33 +16,75 @@ import ProfileOrders from "@/components/profile/ProfileOrders";
 import ProfileWishlist from "@/components/profile/ProfileWishlist";
 import ProfileSettings from "@/components/profile/ProfileSettings";
 import ReferralEarnings from "@/components/profile/ReferralEarnings";
-
-// Mock user data - replace with actual user data from your backend
-const userData = {
-  name: "Mayowa Steve",
-  email: "bernardmayowaa@gmail.com",
-  phone: "+2348146694787",
-  address: "123 Book Street, Reading City, RC 12345",
-  joinDate: "March 2024",
-  avatar: "/images/icons/media.svg",
-  stats: {
-    orders: 12,
-    wishlist: 8,
-    reviews: 5
-  },
-  referralCode: "MAYOWA2024",
-  referralLink: "https://accesssellr.com/ref/MAYOWA2024"
-};
+import { api } from "@/services/api";
+import Loader from "@/components/Loader";
 
 export default function ProfilePage() {
+  const [userData, setUserData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("profile");
   const [copied, setCopied] = useState<{ type: null | "code" | "link" }>({ type: null });
+  const [affiliateDashboard, setAffiliateDashboard] = useState<any>(null);
+  const [affiliateLoading, setAffiliateLoading] = useState(false);
+  const [affiliateError, setAffiliateError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        setLoading(true);
+        const response = await api.user.getProfile();
+        setUserData(response.data);
+      } catch (err: any) {
+        setError(err.message || "Failed to load profile");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchProfile();
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === "referrals" && !affiliateDashboard && !affiliateLoading) {
+      setAffiliateLoading(true);
+      setAffiliateError(null);
+      api.user.getAffiliateDashboard()
+        .then((res) => setAffiliateDashboard(res.data))
+        .catch((err) => setAffiliateError(err.message || "Failed to load affiliate dashboard"))
+        .finally(() => setAffiliateLoading(false));
+    }
+  }, [activeTab, affiliateDashboard, affiliateLoading]);
 
   const handleCopy = (value: string, type: "code" | "link") => {
     navigator.clipboard.writeText(value);
     setCopied({ type });
     setTimeout(() => setCopied({ type: null }), 1500);
   };
+
+  if (loading) return <Loader/>;
+  if (error) return <div className="min-h-screen flex items-center justify-center text-red-500">{error}</div>;
+  if (!userData) return null;
+
+  // Map userData to the expected structure for ProfileInfo and sidebar
+  const mappedUserData = {
+    name: `${userData.first_name} ${userData.last_name}`,
+    email: userData.email,
+    phone: userData.phone_number || "",
+    address: userData.address || "",
+    joinDate: userData.joined_date || "",
+    avatar: userData.profile_picture || "/images/icons/media.svg",
+    stats: {
+      orders: userData.stats?.totalOrders ?? 0,
+      wishlist: 0,
+      reviews: 0,
+    },
+    referralCode: userData.referralCode || "",
+    referralLink: userData.referralLink || ""
+  };
+
+  if (activeTab === "referrals") {
+    console.log("affiliateDashboard in parent:", affiliateDashboard);
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -53,7 +95,7 @@ export default function ProfilePage() {
         </p>
 
         {/* Referral Link & Code Section */}
-        <div className="mb-8 flex flex-col md:flex-row gap-4 items-start md:items-center">
+        {/* <div className="mb-8 flex flex-col md:flex-row gap-4 items-start md:items-center">
           <div className="flex flex-col md:flex-row gap-2 md:gap-6 items-start md:items-center bg-white border border-indigo-100 rounded-xl shadow-sm p-4">
             <div className="flex flex-col gap-1">
               <span className="text-xs text-gray-500 font-medium">Referral Link</span>
@@ -92,7 +134,7 @@ export default function ProfilePage() {
               </div>
             </div>
           </div>
-        </div>
+        </div> */}
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           {/* Sidebar */}
@@ -100,14 +142,15 @@ export default function ProfilePage() {
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
               <div className="flex flex-col items-center">
                 <Image
-                  src={userData.avatar}
-                  alt={`${userData.name}'s profile picture`}
+                  src={mappedUserData.avatar}
+                  alt={`${mappedUserData.name}'s profile picture`}
                   width={120}
                   height={120}
                   className="w-30 h-30 rounded-full object-cover mb-4"
                 />
-                <h2 className="text-lg font-semibold text-gray-900">{userData.name}</h2>
-                <p className="text-sm text-gray-500">Member since {userData.joinDate}</p>
+                <h2 className="text-lg font-semibold text-gray-900">{mappedUserData.name}</h2>
+                <p className="text-sm text-gray-500">{mappedUserData.email}</p>
+                <p className="text-xs text-gray-400">Joined {mappedUserData.joinDate}</p>
               </div>
 
               <nav className="mt-8 space-y-1">
@@ -131,7 +174,7 @@ export default function ProfilePage() {
                   }`}
                 >
                   <DollarSign className="h-5 w-5" />
-                  Referral Earnings
+                  Affiliate
                 </button>
                 <button
                   onClick={() => setActiveTab("orders")}
@@ -172,8 +215,26 @@ export default function ProfilePage() {
 
           {/* Main Content */}
           <div className="lg:col-span-3">
-            {activeTab === "profile" && <ProfileInfo userData={userData} />}
-            {activeTab === "referrals" && <ReferralEarnings />}
+            {activeTab === "profile" && <ProfileInfo userData={mappedUserData} />}
+            {activeTab === "referrals" && (
+              affiliateLoading ? (
+                <Loader/>
+              ) : affiliateError ? (
+                <div className="min-h-[200px] flex items-center justify-center text-red-500">{affiliateError}</div>
+              ) : affiliateDashboard ? (
+                <ReferralEarnings 
+                  affiliateDashboard={affiliateDashboard} 
+                  refreshAffiliateDashboard={() => {
+                    setAffiliateLoading(true);
+                    setAffiliateError(null);
+                    api.user.getAffiliateDashboard()
+                      .then((res) => setAffiliateDashboard(res.data))
+                      .catch((err) => setAffiliateError(err.message || "Failed to load affiliate dashboard"))
+                      .finally(() => setAffiliateLoading(false));
+                  }}
+                />
+              ) : null
+            )}
             {activeTab === "orders" && <ProfileOrders />}
             {activeTab === "wishlist" && <ProfileWishlist />}
             {activeTab === "settings" && <ProfileSettings />}

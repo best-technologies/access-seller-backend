@@ -85,6 +85,24 @@ export interface ProfileResponse {
   data: User;
 }
 
+export interface AffiliateAccessResponse {
+  success: boolean;
+  message: string;
+  data: {
+    is_affiliate: boolean;
+    affiliate_status: 'not_affiliate' | 'awaiting_approval' | 'rejected' | 'approved';
+    createdAt: string | null;
+    affiliate: any; // Replace 'any' with a more specific type if available
+    stats: {
+      totalPurchases: number;
+      totalEarned: number;
+      totalWithdrawn: number;
+      pendingWithdrawals: number;
+    };
+    tableAnalysis: any[]; // Replace 'any' with a more specific type if available
+  };
+}
+
 export interface MetadataResponse {
   success: boolean;
   message: string;
@@ -175,7 +193,15 @@ export const api = {
       const data = await axiosInstance.get('/user/user-checkout-profile');
       return data;
     },
-    
+    getAffiliateDashboard: async () => {
+      const data = await axiosInstance.get('/user/affiliate-dashboard');
+      return data;
+    },
+    requestAffiliateAccess: async (niche: string, reason: string): Promise<AffiliateAccessResponse> => {
+      const res = await axiosInstance.post('/user/request-affiliate-access', { niche, reason });
+      console.log("[API Call] response: ", res.data)
+      return res as unknown as AffiliateAccessResponse;
+    },
   },
 
   public: {
