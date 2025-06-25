@@ -40,7 +40,7 @@ const sidebarItems = [
     href: "/admin/customers"
   },
   {
-    title: "Referrals",
+    title: "Affiliates",
     icon: Currency,
     href: "/admin/referrals"
   },

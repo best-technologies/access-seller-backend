@@ -36,7 +36,7 @@ export default function ReferralEarnings({ affiliateDashboard, refreshAffiliateD
     setSubmitting(true);
     try {
       const res = await api.user.requestAffiliateAccess(niche, reason);
-      console.log("[From withint the page] Response: ",res)
+      console.log("[From within the page] Response: ",res)
       if (res.success) {
         toast.success(res.message || "Request sent successfully!");
         setShowModal(false);

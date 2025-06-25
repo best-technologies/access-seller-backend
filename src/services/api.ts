@@ -60,6 +60,8 @@ export interface User {
   last_name: string;
   profile_picture: string;
   role: string;
+  is_affiliate?: boolean;
+  affiliate_status?: string;
 }
 
 export interface LoginResponse {
@@ -297,7 +299,22 @@ export const api = {
       const response = await axiosInstance.get('/admin/metadata/all');
       console.log("Meta data: ", response)
       return response as unknown as MetadataResponse;
-    }
+    },
+    getAffiliateDashboard: async (): Promise<import('@/types/admin/dashboard/dashboard').AffiliateDashboardResponse> => {
+      const response = await axiosInstance.get('/admin/affiliates');
+      return response as unknown as import('@/types/admin/dashboard/dashboard').AffiliateDashboardResponse;
+    },
+    getAllAffiliates: async (page = 1, limit = 20, status?: string) => {
+      let url = `/admin/affiliates/all?page=${page}&limit=${limit}`;
+      if (status) url += `&status=${status}`;
+      const response = await axiosInstance.get(url);
+      return response;
+    },
+    updateAffiliateStatus: async (id: string, status: string) => {
+      // Sends a PUT request to update affiliate status
+      const response = await axiosInstance.put(`/admin/affiliates/${id}/status`, { status });
+      return response;
+    },
   },
 
   discount: {

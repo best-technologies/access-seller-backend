@@ -1,40 +1,61 @@
 "use client";
 
 import { useState } from "react";
-import KPICards from "@/components/admin/referrals/KPICards";
-import NavigationTabs from "@/components/admin/referrals/NavigationTabs";
-import OverviewTab from "@/components/admin/referrals/OverviewTab";
-import LeaderboardTab from "@/components/admin/referrals/LeaderboardTab";
-import PayoutsTab from "@/components/admin/referrals/PayoutsTab";
-import EventsTab from "@/components/admin/referrals/EventsTab";
-import AnalyticsTab from "@/components/admin/referrals/AnalyticsTab";
-import ReferralSettingsModal, { ReferralSettings } from "@/components/modals/ReferralSettingsModal";
+import KPICards from "@/components/admin/affiliates/KPICards";
+import NavigationTabs from "@/components/admin/affiliates/NavigationTabs";
+import OverviewTab from "@/components/admin/affiliates/OverviewTab";
+import LeaderboardTab from "@/components/admin/affiliates/LeaderboardTab";
+import PayoutsTab from "@/components/admin/affiliates/PayoutsTab";
+import EventsTab from "@/components/admin/affiliates/EventsTab";
+import AnalyticsTab from "@/components/admin/affiliates/AnalyticsTab";
+import AffiliateSettingsModal, { AffiliateSettings } from "@/components/modals/ReferralSettingsModal";
+import useSWR from 'swr';
+import { api } from '@/services/api';
+import type { AffiliateDashboardResponse } from '@/types/admin/dashboard/dashboard';
+import Loader from "@/components/Loader";
+import AllAffiliatesTab from '@/components/admin/affiliates/AllAffiliatesTab';
+import PendingAffiliatesTab from '@/components/admin/affiliates/PendingAffiliatesTab';
 
-export default function ReferralsPage() {
+export default function AffiliatesPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [timeframe, setTimeframe] = useState("This Month");
   const [sortBy, setSortBy] = useState("revenue");
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [activeTab, setActiveTab] = useState("leaderboard");
-  const [referralSettings, setReferralSettings] = useState<ReferralSettings>({
-    referralPercentage: 10,
-    minimumReferrals: 1,
-    rewardThreshold: 50,
-    expirationDays: 30
-  });
+  const [activeSubTab, setActiveSubTab] = useState("topAffiliates");
 
-  const handleSaveSettings = (newSettings: ReferralSettings) => {
-    setReferralSettings(newSettings);
-    // Save logic here
+  // SWR fetcher
+  const fetchAffiliateDashboard = async () => {
+    return await api.admin.getAffiliateDashboard();
   };
+
+  // SWR hook with 5 min cache
+  const { data, error, isLoading, mutate } = useSWR<AffiliateDashboardResponse>(
+    'admin/affiliates-dashboard',
+    fetchAffiliateDashboard,
+    { dedupingInterval: 300000, revalidateOnFocus: false }
+  );
+
+  // Loading and error states
+  if (isLoading) {
+    return <Loader/>
+  }
+  if (error) {
+    return <div className="py-20 text-center text-red-500">Failed to load affiliate dashboard: {error.message}</div>;
+  }
+  if (!data || !data.success) {
+    return <div className="py-20 text-center text-gray-500">No affiliate dashboard data available.</div>;
+  }
+
+  const dashboard = data.data;
 
   return (
     <div className="space-y-6">
       {/* Header with Actions */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Referral Analytics</h1>
-          <p className="text-sm text-gray-500 mt-1">Comprehensive referral performance dashboard</p>
+          <h1 className="text-2xl font-bold text-gray-900">Affiliate Analytics</h1>
+          <p className="text-sm text-gray-500 mt-1">Comprehensive affiliate performance dashboard</p>
         </div>
         <div className="flex items-center gap-3">
           <button 
@@ -47,42 +68,69 @@ export default function ReferralsPage() {
             Export Report
           </button>
           <button className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all duration-200">
-            Add Referral
+            Add Affiliate
           </button>
         </div>
       </div>
 
       {/* Settings Modal */}
-      <ReferralSettingsModal
+      <AffiliateSettingsModal
         isOpen={showSettingsModal}
         onClose={() => setShowSettingsModal(false)}
-        onSave={handleSaveSettings}
-        initialSettings={referralSettings}
+        onSave={() => {}}
+        initialSettings={dashboard.affiliateSettings}
       />
 
       {/* Top-Level KPIs */}
-      <KPICards />
+      <KPICards kpiCards={dashboard.kpiCards} />
 
       {/* Navigation Tabs */}
       <NavigationTabs activeTab={activeTab} onTabChange={setActiveTab} />
 
-      {/* Tab Content */}
-      {activeTab === "overview" && (
-        <OverviewTab timeframe={timeframe} onTimeframeChange={setTimeframe} />
-      )}
+      {/* Show subtabs only if on Top Affiliates */}
       {activeTab === "leaderboard" && (
-        <LeaderboardTab
-          searchQuery={searchQuery}
-          timeframe={timeframe}
-          sortBy={sortBy}
-          onSearchChange={setSearchQuery}
-          onTimeframeChange={setTimeframe}
-          onSortByChange={setSortBy}
-        />
+        <>
+          {/* Subtab Navigation */}
+          <div className="flex gap-2 border-b border-gray-200 mb-2">
+            {[
+              { key: "topAffiliates", label: "Top Affiliates" },
+              { key: "all", label: "All" },
+              { key: "pending", label: "Pending Approval" },
+            ].map(tab => (
+              <button
+                key={tab.key}
+                onClick={() => setActiveSubTab(tab.key)}
+                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors duration-200 ${activeSubTab === tab.key ? 'border-indigo-600 text-indigo-700' : 'border-transparent text-gray-500 hover:text-indigo-600'}`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Subtab Content */}
+          {activeSubTab === "topAffiliates" && (
+            <LeaderboardTab
+              searchQuery={searchQuery}
+              timeframe={timeframe}
+              sortBy={sortBy}
+              onSearchChange={setSearchQuery}
+              onTimeframeChange={setTimeframe}
+              onSortByChange={setSortBy}
+              leaderboard={dashboard.leaderboard}
+            />
+          )}
+          {activeSubTab === "all" && (
+            <AllAffiliatesTab />
+          )}
+          {activeSubTab === "pending" && (
+            <PendingAffiliatesTab />
+          )}
+        </>
       )}
-      {activeTab === "payouts" && <PayoutsTab />}
-      {activeTab === "events" && <EventsTab />}
-      {activeTab === "analytics" && <AnalyticsTab />}
+
+      {activeTab === "payouts" && <PayoutsTab payouts={dashboard.payouts} />}
+      {activeTab === "events" && <EventsTab events={dashboard.events} />}
+      {activeTab === "analytics" && <AnalyticsTab analytics={dashboard.analytics} />}
     </div>
   );
 }

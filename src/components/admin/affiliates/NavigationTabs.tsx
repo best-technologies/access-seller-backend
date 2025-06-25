@@ -8,9 +8,9 @@ interface NavigationTabsProps {
 export default function NavigationTabs({ activeTab, onTabChange }: NavigationTabsProps) {
   const tabs = [
     // { id: "overview", label: "Overview", icon: BarChart3 },
-    { id: "leaderboard", label: "Top Referrers", icon: Crown },
+    { id: "leaderboard", label: "Top Affiliates", icon: Crown },
     { id: "payouts", label: "Commission Payouts", icon: Wallet },
-    { id: "events", label: "Referral Events", icon: Activity },
+    { id: "events", label: "Affiliate Events", icon: Activity },
     { id: "analytics", label: "Analytics", icon: PieChart }
   ];
 

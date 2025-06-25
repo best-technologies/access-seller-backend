@@ -24,6 +24,7 @@ import { useWishlist } from "@/hooks/useWishlist";
 import toast from "react-hot-toast";
 import { api } from '@/services/api';
 import Loader from "@/components/Loader";
+import { useAuth } from "@/context/AuthContext";
 
 export default function ProductDetailPage() {
   const params = useParams();
@@ -33,11 +34,18 @@ export default function ProductDetailPage() {
   const [product, setProduct] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { user, isAuthenticated } = useAuth();
 
   // Extract product ID from slug
   const slug = params?.slug as string;
   const productId = slug && slug.includes('-') ? slug.substring(0, slug.indexOf('-')) : slug || null;
-  console.log('slug:', slug, 'productId:', productId);
+  // console.log('slug:', slug, 'productId:', productId);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      console.log("User auth check: ", user)
+    }
+  }, [isAuthenticated, user]);
 
   useEffect(() => {
     if (!productId) return;
@@ -210,9 +218,23 @@ export default function ProductDetailPage() {
               {/* Book Info */}
               <div className="space-y-6">
                 <div>
-                  <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                    {product.title}
-                  </h1>
+                  <div className="flex items-center justify-between mb-2">
+                    <h1 className="text-3xl font-bold text-gray-900">
+                      {product.title}
+                    </h1>
+                    {/* Affiliate Promote Button - right of title */}
+                    {isAuthenticated && user?.is_affiliate && user?.affiliate_status === 'approved' && (
+                      <Button
+                        variant="outline"
+                        className="flex items-center gap-2 border-indigo-500 text-indigo-700 hover:bg-indigo-50 hover:border-indigo-600 hover:text-indigo-900 font-semibold shadow-sm transition-all text-base px-4 py-2 rounded-lg"
+                        title="Generate affiliate link for this product"
+                        // onClick={handleGenerateAffiliateLink}
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V4a2 2 0 10-4 0v1.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
+                        Promote / Get Affiliate Link
+                      </Button>
+                    )}
+                  </div>
                   <p className="text-xl text-gray-600 mb-4">
                     by {product.author}
                   </p>
