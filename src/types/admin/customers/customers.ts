@@ -32,4 +32,5 @@ export interface Customer {
   paymentPercentage: number;
   status: string;
   lastOrderDate?: string;
+  allowedPartialPayment?: number; // 0-100, default 100
 } 

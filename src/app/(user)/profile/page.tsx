@@ -7,7 +7,8 @@ import {
   BookOpen,
   Heart,
   Settings,
-  DollarSign
+  DollarSign,
+  Copy
 } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import ProfileInfo from "@/components/profile/ProfileInfo";
@@ -23,16 +24,25 @@ const userData = {
   phone: "+2348146694787",
   address: "123 Book Street, Reading City, RC 12345",
   joinDate: "March 2024",
-  avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=faces",
+  avatar: "/images/icons/media.svg",
   stats: {
     orders: 12,
     wishlist: 8,
     reviews: 5
-  }
+  },
+  referralCode: "MAYOWA2024",
+  referralLink: "https://accesssellr.com/ref/MAYOWA2024"
 };
 
 export default function ProfilePage() {
   const [activeTab, setActiveTab] = useState("profile");
+  const [copied, setCopied] = useState<{ type: null | "code" | "link" }>({ type: null });
+
+  const handleCopy = (value: string, type: "code" | "link") => {
+    navigator.clipboard.writeText(value);
+    setCopied({ type });
+    setTimeout(() => setCopied({ type: null }), 1500);
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -41,6 +51,48 @@ export default function ProfilePage() {
         <p className="text-sm text-gray-500 mb-8">
           Manage your account settings and preferences
         </p>
+
+        {/* Referral Link & Code Section */}
+        <div className="mb-8 flex flex-col md:flex-row gap-4 items-start md:items-center">
+          <div className="flex flex-col md:flex-row gap-2 md:gap-6 items-start md:items-center bg-white border border-indigo-100 rounded-xl shadow-sm p-4">
+            <div className="flex flex-col gap-1">
+              <span className="text-xs text-gray-500 font-medium">Referral Link</span>
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-indigo-700 text-sm bg-indigo-50 px-2 py-1 rounded-lg select-all">
+                  {userData.referralLink}
+                </span>
+                <button
+                  onClick={() => handleCopy(userData.referralLink, "link")}
+                  className="p-1.5 rounded-lg bg-indigo-100 hover:bg-indigo-200 transition-colors"
+                  title="Copy referral link"
+                >
+                  <Copy className="h-4 w-4 text-indigo-600" />
+                </button>
+                {copied.type === "link" && (
+                  <span className="ml-2 text-xs text-green-600 font-semibold">Copied!</span>
+                )}
+              </div>
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-xs text-gray-500 font-medium">Referral Code</span>
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-indigo-700 text-sm bg-indigo-50 px-2 py-1 rounded-lg select-all">
+                  {userData.referralCode}
+                </span>
+                <button
+                  onClick={() => handleCopy(userData.referralCode, "code")}
+                  className="p-1.5 rounded-lg bg-indigo-100 hover:bg-indigo-200 transition-colors"
+                  title="Copy referral code"
+                >
+                  <Copy className="h-4 w-4 text-indigo-600" />
+                </button>
+                {copied.type === "code" && (
+                  <span className="ml-2 text-xs text-green-600 font-semibold">Copied!</span>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           {/* Sidebar */}

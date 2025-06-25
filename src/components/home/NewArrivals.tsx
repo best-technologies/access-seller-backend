@@ -91,6 +91,8 @@ export default function NewArrivals({ books = [] }: NewArrivalsProps) {
                       productId: String(book.id),
                       quantity: 1,
                       price: Number(book.price),
+                      sellingPrice: Number(book.sellingPrice ?? book.price),
+                      normalPrice: Number(book.normalPrice ?? book.originalPrice ?? book.price),
                       product: {
                         name: book.title,
                         image: book.image,

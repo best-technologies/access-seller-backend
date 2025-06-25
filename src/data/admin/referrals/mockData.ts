@@ -65,16 +65,16 @@ export const referralAnalytics: ReferralAnalytics[] = [
     id: "REF001",
     referrer: {
       id: "CUST001",
-      name: "John Doe",
-      email: "john@example.com",
-      phone: "+234 123 456 7890",
-      referralCode: "JOHN123"
+      name: "Chinedu Okafor",
+      email: "chinedu.okafor@example.com",
+      phone: "+234 803 123 4567",
+      referralCode: "CHINEDU234"
     },
     referred: {
       id: "CUST002",
-      name: "Jane Smith",
-      email: "jane@example.com",
-      phone: "+234 987 654 3210"
+      name: "Aisha Bello",
+      email: "aisha.bello@example.com",
+      phone: "+234 802 987 6543"
     },
     date: "2024-03-15",
     status: "Completed",
@@ -90,16 +90,16 @@ export const referralAnalytics: ReferralAnalytics[] = [
     id: "REF002",
     referrer: {
       id: "CUST003",
-      name: "Mike Johnson",
-      email: "mike@example.com",
-      phone: "+234 555 666 7777",
-      referralCode: "MIKE456"
+      name: "Emeka Umeh",
+      email: "emeka.umeh@example.com",
+      phone: "+234 805 555 6666",
+      referralCode: "EMEKA456"
     },
     referred: {
       id: "CUST004",
-      name: "Sarah Williams",
-      email: "sarah@example.com",
-      phone: "+234 111 222 3333"
+      name: "Ngozi Nwosu",
+      email: "ngozi.nwosu@example.com",
+      phone: "+234 809 111 2222"
     },
     date: "2024-03-10",
     status: "Pending",
@@ -114,16 +114,16 @@ export const referralAnalytics: ReferralAnalytics[] = [
     id: "REF003",
     referrer: {
       id: "CUST002",
-      name: "Jane Smith",
-      email: "jane@example.com",
-      phone: "+234 987 654 3210",
-      referralCode: "JANE789"
+      name: "Aisha Bello",
+      email: "aisha.bello@example.com",
+      phone: "+234 802 987 6543",
+      referralCode: "AISHA789"
     },
     referred: {
       id: "CUST005",
-      name: "David Brown",
-      email: "david@example.com",
-      phone: "+234 333 444 5555"
+      name: "Tunde Balogun",
+      email: "tunde.balogun@example.com",
+      phone: "+234 807 333 4444"
     },
     date: "2024-03-05",
     status: "Expired",
@@ -137,8 +137,8 @@ export const referralAnalytics: ReferralAnalytics[] = [
 export const topReferrers: TopReferrer[] = [
   {
     id: "CUST001",
-    name: "John Doe",
-    referralCode: "JOHN123",
+    name: "Chinedu Okafor",
+    referralCode: "CHINEDU234",
     referredUsers: 54,
     referralOrders: 37,
     revenueGenerated: 2560000,
@@ -147,8 +147,8 @@ export const topReferrers: TopReferrer[] = [
   },
   {
     id: "CUST002",
-    name: "Jane Fox",
-    referralCode: "BOOKQUEEN",
+    name: "Aisha Bello",
+    referralCode: "AISHA789",
     referredUsers: 41,
     referralOrders: 29,
     revenueGenerated: 1980000,
@@ -157,8 +157,8 @@ export const topReferrers: TopReferrer[] = [
   },
   {
     id: "CUST003",
-    name: "Mike Johnson",
-    referralCode: "MIKE456",
+    name: "Emeka Umeh",
+    referralCode: "EMEKA456",
     referredUsers: 38,
     referralOrders: 25,
     revenueGenerated: 1750000,
@@ -167,8 +167,8 @@ export const topReferrers: TopReferrer[] = [
   },
   {
     id: "CUST004",
-    name: "Sarah Williams",
-    referralCode: "SARAH789",
+    name: "Ngozi Nwosu",
+    referralCode: "NGOZI321",
     referredUsers: 32,
     referralOrders: 22,
     revenueGenerated: 1450000,
@@ -177,8 +177,8 @@ export const topReferrers: TopReferrer[] = [
   },
   {
     id: "CUST005",
-    name: "David Brown",
-    referralCode: "DAVID101",
+    name: "Tunde Balogun",
+    referralCode: "TUNDE101",
     referredUsers: 28,
     referralOrders: 19,
     revenueGenerated: 1200000,
@@ -190,7 +190,7 @@ export const topReferrers: TopReferrer[] = [
 export const commissionPayouts: CommissionPayout[] = [
   {
     referrerId: "CUST001",
-    referrerName: "John Doe",
+    referrerName: "Chinedu Okafor",
     commissionEarned: 180000,
     paid: 150000,
     pending: 30000,
@@ -199,7 +199,7 @@ export const commissionPayouts: CommissionPayout[] = [
   },
   {
     referrerId: "CUST002",
-    referrerName: "Jane Fox",
+    referrerName: "Aisha Bello",
     commissionEarned: 110000,
     paid: 100000,
     pending: 10000,
@@ -208,7 +208,7 @@ export const commissionPayouts: CommissionPayout[] = [
   },
   {
     referrerId: "CUST003",
-    referrerName: "Mike Johnson",
+    referrerName: "Emeka Umeh",
     commissionEarned: 95000,
     paid: 80000,
     pending: 15000,
@@ -220,23 +220,23 @@ export const commissionPayouts: CommissionPayout[] = [
 export const referralEvents: ReferralEvent[] = [
   {
     date: "2024-06-17",
-    referrer: "John Doe",
-    referredUser: "Emeka Umeh",
+    referrer: "Chinedu Okafor",
+    referredUser: "Tunde Balogun",
     action: "Purchase",
     commission: 5000,
     orderAmount: 50000
   },
   {
     date: "2024-06-17",
-    referrer: "Jane Fox",
-    referredUser: "Aisha Bello",
+    referrer: "Aisha Bello",
+    referredUser: "Ngozi Nwosu",
     action: "Signup",
     commission: 0
   },
   {
     date: "2024-06-16",
-    referrer: "Mike Johnson",
-    referredUser: "Kemi Adebayo",
+    referrer: "Emeka Umeh",
+    referredUser: "Chinedu Okafor",
     action: "Purchase",
     commission: 3000,
     orderAmount: 30000

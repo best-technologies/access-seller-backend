@@ -443,6 +443,8 @@ export default function ProfessionalProductsPage() {
                                       productId: String(product.id),
                                       quantity: 1,
                                       price: product.selling_price,
+                                      sellingPrice: product.selling_price,
+                                      normalPrice: product.nomral_price ?? product.selling_price,
                                       product: {
                                         name: product.product_name,
                                         image: typeof product.display_picture === 'string' ? product.display_picture : '/placeholder.png',
@@ -542,6 +544,8 @@ export default function ProfessionalProductsPage() {
                                         productId: String(product.id),
                                         quantity: 1,
                                         price: product.selling_price,
+                                        sellingPrice: product.selling_price,
+                                        normalPrice: product.nomral_price ?? product.selling_price,
                                         product: {
                                           name: product.product_name,
                                           image: product.display_picture || undefined,

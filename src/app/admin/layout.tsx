@@ -8,6 +8,7 @@ import {
   ShoppingCart,
   Users,
   DollarSign,
+  Currency,
   Settings,
   BarChart3,
   MessageSquare,
@@ -40,23 +41,28 @@ const sidebarItems = [
   },
   {
     title: "Referrals",
-    icon: DollarSign,
+    icon: Currency,
     href: "/admin/referrals"
   },
   {
-    title: "Analytics",
-    icon: BarChart3,
-    href: "/admin/analytics"
+    title: "Discounts",
+    icon: Currency,
+    href: "/admin/promos-commissions"
   },
+  // {
+  //   title: "Analytics",
+  //   icon: BarChart3,
+  //   href: "/admin/analytics"
+  // },
   {
-    title: "Messages",
+    title: "Notifications",
     icon: MessageSquare,
     href: "/admin/messages"
   },
   {
-    title: "Settings",
+    title: "Profile",
     icon: Settings,
-    href: "/admin/settings"
+    href: "/admin/profile"
   }
 ];
 
@@ -89,7 +95,7 @@ export default function AdminLayout({
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="flex flex-col items-center gap-4">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent" />
-          <span className="text-gray-600 text-lg font-medium">Checking admin access...</span>
+          <span className="text-gray-600 text-lg font-medium">Validating...</span>
         </div>
       </div>
     );

@@ -4,6 +4,8 @@ import type { ProductsResponse } from '@/types/admin/products/products';
 import type { CustomersResponse } from '@/types/admin/customers/customers';
 import axios, { AxiosError, AxiosInstance } from 'axios';
 import type { BrowseProductsResponse } from '@/types/product';
+import { toast } from 'react-hot-toast';
+import { PromoCodeVerifyResponse } from '@/types/admin/discounts/discount';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
 
@@ -168,7 +170,12 @@ export const api = {
       const data = await axiosInstance.get('/auth/fetch-user-details');
       console.log('Profile fetch response:', data);
       return data as unknown as ProfileResponse;
-    }
+    },
+    getCheckoutProfile: async () => {
+      const data = await axiosInstance.get('/user/user-checkout-profile');
+      return data;
+    },
+    
   },
 
   public: {
@@ -265,5 +272,13 @@ export const api = {
       console.log("Meta data: ", response)
       return response as unknown as MetadataResponse;
     }
+  },
+
+  discount: {
+    verifyPromoCode: async (promoCode: string, productId: string): Promise<PromoCodeVerifyResponse> => {
+      const response = await axiosInstance.post('/discount/verify-promocode', { code: promoCode, productId });
+      console.log("[API call] Response: ", response);
+      return response as unknown as PromoCodeVerifyResponse;
+    },
   }
 }

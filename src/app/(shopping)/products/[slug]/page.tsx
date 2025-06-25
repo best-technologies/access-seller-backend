@@ -55,6 +55,7 @@ export default function ProductDetailPage() {
           description: d.description,
           price: d.sellingPrice,
           originalPrice: d.normalPrice,
+          amountSaved: d.amountSaved,
           stock: d.stock,
           images: d.images || [],
           category: d.category?.name || '',
@@ -119,7 +120,7 @@ export default function ProductDetailPage() {
         id: productId,
         title: product.title || product.name,
         author: product.author,
-        price: product.price,
+        price: product.sellingPrice,
         image: product.images?.[0] || product.display_picture,
         category: product.category,
         rating: product.rating,
@@ -151,6 +152,8 @@ export default function ProductDetailPage() {
       </div>
     );
   }
+
+  console.log("originalPrice:", product.originalPrice, "price:", product.price);
 
   return (
     <>
@@ -231,15 +234,15 @@ export default function ProductDetailPage() {
 
                 <div className="flex items-baseline gap-3">
                   <span className="text-3xl font-bold text-gray-900">
-                    ${product.price}
+                    ₦{product.price}
                   </span>
                   {product.originalPrice && (
                     <>
                       <span className="text-xl text-gray-500 line-through">
-                        ${product.originalPrice}
+                        ₦{product.originalPrice}
                       </span>
                       <span className="text-green-600 font-medium">
-                        Save ${(product.originalPrice - product.price).toFixed(2)}
+                        Save ₦{product.amountSaved}
                       </span>
                     </>
                   )}
@@ -331,6 +334,8 @@ export default function ProductDetailPage() {
                           productId: String(product.id),
                           quantity,
                           price: product.price,
+                          sellingPrice: product.sellingPrice ?? product.price,
+                          normalPrice: product.normalPrice ?? product.originalPrice ?? product.price,
                           product: {
                             name: product.title,
                             image: product.images[0],

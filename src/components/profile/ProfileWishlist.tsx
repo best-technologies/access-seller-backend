@@ -15,6 +15,8 @@ export default function ProfileWishlist() {
       productId: item.id,
       quantity: 1,
       price: item.price,
+      sellingPrice: item.sellingPrice ?? item.price,
+      normalPrice: item.normalPrice ?? item.originalPrice ?? item.price,
       product: {
         name: item.title,
         image: item.image,

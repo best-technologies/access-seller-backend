@@ -23,6 +23,7 @@ import type { ProductsResponse, Product } from "@/types/admin/products/products"
 import type { Book } from "@/components/modals/AddBookModal";
 import EditBookModal from '@/components/modals/EditBookModal';
 import BookCatalogSearchFilter from "@/components/common/BookCatalogSearchFilter";
+import AddBookOptionsModal from "@/components/modals/AddBookOptionsModal";
 
 const PRODUCTS_CACHE_KEY = "admin_products_cache";
 const PRODUCTS_CACHE_TIME = 60 * 60 * 1000; // 1 hour in ms
@@ -80,6 +81,7 @@ function setCachedMetadata(data: any) {
 export default function ProductsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isAddBookModalOpen, setIsAddBookModalOpen] = useState(false);
+  const [isAddBookOptionsModalOpen, setIsAddBookOptionsModalOpen] = useState(false);
   const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [productsData, setProductsData] = useState<ProductsResponse["data"] | null>(null);
@@ -385,7 +387,7 @@ export default function ProductsPage() {
               {isRefreshing ? 'Refreshing...' : 'Refresh'}
             </button>
             <button
-              onClick={() => setIsAddBookModalOpen(true)}
+              onClick={() => setIsAddBookOptionsModalOpen(true)}
               className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 to-purple-600 rounded-lg hover:from-indigo-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2 focus:ring-offset-transparent transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105"
             >
               <Plus className="h-4 w-4" />
@@ -659,6 +661,20 @@ export default function ProductsPage() {
       )}
 
       {/* Modals */}
+      <AddBookOptionsModal
+        isOpen={isAddBookOptionsModalOpen}
+        onClose={() => setIsAddBookOptionsModalOpen(false)}
+        onManualEntry={() => {
+          setIsAddBookOptionsModalOpen(false);
+          setIsAddBookModalOpen(true);
+        }}
+        onFileUpload={async (file) => {
+          // TODO: Implement bulk upload logic here
+          setIsAddBookOptionsModalOpen(false);
+        }}
+        isLoading={isCreating}
+      />
+
       <AddBookModal
         isOpen={isAddBookModalOpen}
         onClose={() => setIsAddBookModalOpen(false)}

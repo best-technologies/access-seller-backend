@@ -20,6 +20,8 @@ interface Book {
   badge?: 'Bestseller' | 'Trending' | 'Hot' | "Editor's Choice";
   discount?: number;
   isNew?: boolean;
+  sellingPrice?: string;
+  normalPrice?: string;
 }
 
 interface FeaturedBooksProps {
@@ -255,6 +257,8 @@ export default function FeaturedBooks({ books = [], available_categories = [] }:
                           productId: String(book.id),
                           quantity: 1,
                           price: Number(book.price),
+                          sellingPrice: Number(book.sellingPrice ?? book.price),
+                          normalPrice: Number(book.normalPrice ?? book.originalPrice ?? book.price),
                           product: {
                             name: book.title,
                             image: book.image,

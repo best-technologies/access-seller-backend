@@ -21,6 +21,8 @@ import {
 import type { CustomersResponse, Customer, CustomersStats } from '@/types/admin/customers/customers';
 import { api } from '@/services/api';
 import Loader from "@/components/Loader";
+import { Dialog } from '@headlessui/react';
+import { Menu } from '@headlessui/react';
 
 const CUSTOMERS_CACHE_KEY = "admin_customers_cache";
 const CUSTOMERS_CACHE_TIME = 60 * 60 * 1000; // 1 hour in ms
@@ -76,6 +78,15 @@ export default function CustomersPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isPartialModalOpen, setIsPartialModalOpen] = useState(false);
+  const [editUser, setEditUser] = useState<Customer | null>(null);
+  const [editAllowedPartialPayment, setEditAllowedPartialPayment] = useState<number>(100);
+  const [newPartialPayment, setNewPartialPayment] = useState<number>(100);
+  const [editName, setEditName] = useState("");
+  const [editEmail, setEditEmail] = useState("");
+  const [editPhone, setEditPhone] = useState("");
+  const [editLoading, setEditLoading] = useState(false);
 
   const fetchCustomers = async (forceRefresh = false) => {
     setIsLoading(true);
@@ -228,6 +239,82 @@ export default function CustomersPage() {
     if (percentage >= 50) return "bg-yellow-50";
     if (percentage >= 25) return "bg-orange-50";
     return "bg-red-50";
+  };
+
+  const openEditModal = (user: Customer) => {
+    setEditUser(user);
+    setEditName(user.name);
+    setEditEmail(user.email);
+    setEditPhone(user.phone);
+    setIsEditModalOpen(true);
+  };
+
+  const openPartialModal = (user: Customer) => {
+    setEditUser(user);
+    setEditAllowedPartialPayment(user.allowedPartialPayment ?? 100);
+    setNewPartialPayment(user.allowedPartialPayment ?? 100);
+    setIsPartialModalOpen(true);
+  };
+
+  const closeEditModal = () => {
+    setIsEditModalOpen(false);
+    setEditUser(null);
+  };
+
+  const closePartialModal = () => {
+    setIsPartialModalOpen(false);
+    setEditUser(null);
+  };
+
+  const handleEditSave = async () => {
+    if (!editUser) return;
+    setEditLoading(true);
+    try {
+      // TODO: Replace with real API call
+      // await api.admin.updateCustomer(editUser.id, { name: editName, email: editEmail, phone: editPhone, allowedPartialPayment: editAllowedPartialPayment });
+      // For now, just update locally
+      setCustomersData((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          customers: prev.customers.map((c) =>
+            c.id === editUser.id
+              ? { ...c, name: editName, email: editEmail, phone: editPhone, allowedPartialPayment: editAllowedPartialPayment }
+              : c
+          ),
+        };
+      });
+      closeEditModal();
+    } catch (e) {
+      // handle error
+      alert("Failed to update user");
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
+  const handlePartialSave = async () => {
+    if (!editUser) return;
+    setEditLoading(true);
+    try {
+      // TODO: Replace with real API call
+      setCustomersData((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          customers: prev.customers.map((c) =>
+            c.id === editUser.id
+              ? { ...c, allowedPartialPayment: newPartialPayment }
+              : c
+          ),
+        };
+      });
+      closePartialModal();
+    } catch (e) {
+      alert("Failed to update partial %");
+    } finally {
+      setEditLoading(false);
+    }
   };
 
   if (isLoading) {
@@ -541,7 +628,7 @@ export default function CustomersPage() {
       </div>
 
       {/* Customers Table */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
@@ -686,12 +773,65 @@ export default function CustomersPage() {
                       >
                         <Eye className="h-5 w-5" />
                       </button>
-                      <button 
-                        className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors duration-200"
-                        title="More Options"
-                      >
-                        <MoreVertical className="h-5 w-5" />
-                      </button>
+                      <Menu as="div" className="relative inline-block text-left">
+                        <Menu.Button className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors duration-200" title="More Options">
+                          <MoreVertical className="h-5 w-5" />
+                        </Menu.Button>
+                        <Menu.Items className="absolute right-0 mt-2 w-48 origin-top-right bg-white border border-gray-200 divide-y divide-gray-100 rounded-md shadow-lg focus:outline-none z-50 flex flex-col">
+                          <div className="py-1 flex flex-col">
+                            <Menu.Item>
+                              {({ active }) => (
+                                <button
+                                  onClick={() => openEditModal(customer)}
+                                  className={`w-full text-left px-4 py-2 text-sm ${active ? 'bg-indigo-50 text-indigo-700' : 'text-gray-700'}`}
+                                >
+                                  Edit Profile
+                                </button>
+                              )}
+                            </Menu.Item>
+                            <Menu.Item>
+                              {({ active }) => (
+                                <button
+                                  onClick={() => openPartialModal(customer)}
+                                  className={`w-full text-left px-4 py-2 text-sm ${active ? 'bg-indigo-50 text-indigo-700' : 'text-gray-700'}`}
+                                >
+                                  Change Partial %
+                                </button>
+                              )}
+                            </Menu.Item>
+                            <Menu.Item>
+                              {({ active }) => (
+                                <button
+                                  onClick={() => alert('Deactivate user (not implemented)')}
+                                  className={`w-full text-left px-4 py-2 text-sm ${active ? 'bg-indigo-50 text-indigo-700' : 'text-gray-700'}`}
+                                >
+                                  Deactivate User
+                                </button>
+                              )}
+                            </Menu.Item>
+                            <Menu.Item>
+                              {({ active }) => (
+                                <button
+                                  onClick={() => alert('View orders (not implemented)')}
+                                  className={`w-full text-left px-4 py-2 text-sm ${active ? 'bg-indigo-50 text-indigo-700' : 'text-gray-700'}`}
+                                >
+                                  View Orders
+                                </button>
+                              )}
+                            </Menu.Item>
+                            <Menu.Item>
+                              {({ active }) => (
+                                <button
+                                  onClick={() => alert('Reset password (not implemented)')}
+                                  className={`w-full text-left px-4 py-2 text-sm ${active ? 'bg-indigo-50 text-indigo-700' : 'text-gray-700'}`}
+                                >
+                                  Reset Password
+                                </button>
+                              )}
+                            </Menu.Item>
+                          </div>
+                        </Menu.Items>
+                      </Menu>
                     </div>
                   </td>
                 </tr>
@@ -713,6 +853,138 @@ export default function CustomersPage() {
           Refresh
         </button>
       </div>
+
+      {/* Edit User Modal */}
+      <Dialog open={isEditModalOpen} onClose={closeEditModal} className="fixed z-50 inset-0 overflow-y-auto">
+        <div className="flex items-center justify-center min-h-screen px-4">
+          <div className="fixed inset-0 bg-black opacity-30" />
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full mx-auto z-50 p-6 relative">
+            <Dialog.Title className="text-lg font-bold mb-4">Edit User</Dialog.Title>
+            <form
+              onSubmit={e => {
+                e.preventDefault();
+                handleEditSave();
+              }}
+              className="space-y-4"
+            >
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Name</label>
+                <input
+                  type="text"
+                  value={editName}
+                  onChange={e => setEditName(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Email</label>
+                <input
+                  type="email"
+                  value={editEmail}
+                  onChange={e => setEditEmail(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Phone</label>
+                <input
+                  type="text"
+                  value={editPhone}
+                  onChange={e => setEditPhone(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  required
+                />
+              </div>
+              <div className="flex justify-end gap-2 mt-6">
+                <button
+                  type="button"
+                  onClick={closeEditModal}
+                  className="px-4 py-2 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  disabled={editLoading}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 font-semibold"
+                  disabled={editLoading}
+                >
+                  {editLoading ? 'Saving...' : 'Save'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </Dialog>
+
+      {/* Change Partial % Modal */}
+      <Dialog open={isPartialModalOpen} onClose={closePartialModal} className="fixed z-50 inset-0 overflow-y-auto">
+        <div className="flex items-center justify-center min-h-screen px-4">
+          <div className="fixed inset-0 bg-black opacity-30" />
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full mx-auto z-50 p-6 relative">
+            <Dialog.Title className="text-lg font-bold mb-4">Change Allowed Partial %</Dialog.Title>
+            {editUser && (
+              <div className="mb-4 text-sm text-gray-700">
+                Changing for: <span className="font-semibold">{editUser.name}</span>
+              </div>
+            )}
+            <form
+              onSubmit={e => {
+                e.preventDefault();
+                handlePartialSave();
+              }}
+              className="space-y-4"
+            >
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Current Allowed Partial %</label>
+                <input
+                  type="number"
+                  value={editAllowedPartialPayment}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-500"
+                  readOnly
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">New Allowed Partial %</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={100}
+                  value={newPartialPayment}
+                  onChange={e => {
+                    let val = e.target.value.replace(/^0+/, '');
+                    let num = Number(val);
+                    if (!val || isNaN(num) || num < 1) num = 1;
+                    if (num > 100) num = 100;
+                    setNewPartialPayment(num);
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  required
+                />
+              </div>
+              <div className="flex justify-end gap-2 mt-6">
+                <button
+                  type="button"
+                  onClick={closePartialModal}
+                  className="px-4 py-2 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  disabled={editLoading}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 font-semibold"
+                  disabled={editLoading}
+                >
+                  {editLoading ? 'Saving...' : 'Save'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </Dialog>
     </div>
   );
 } 

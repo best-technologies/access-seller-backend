@@ -134,32 +134,32 @@ export const dashboardKPIs: DashboardKPI[] = [
 export const recentOrders: RecentOrder[] = [
   {
     id: "ORD001",
-    customerName: "John Doe",
-    customerEmail: "john@example.com",
+    customerName: "Chinedu Okafor",
+    customerEmail: "chinedu.okafor@gmail.com",
     orderNumber: "#ORD-2024-001",
     amount: 45000,
     status: "delivered",
-    date: "2024-03-15",
+    date: "2024-06-15",
     items: 3
   },
   {
     id: "ORD002",
-    customerName: "Jane Smith",
-    customerEmail: "jane@example.com",
+    customerName: "Aisha Bello",
+    customerEmail: "aisha.bello@yahoo.com",
     orderNumber: "#ORD-2024-002",
     amount: 32000,
     status: "shipped",
-    date: "2024-03-14",
+    date: "2024-06-14",
     items: 2
   },
   {
     id: "ORD003",
-    customerName: "Mike Johnson",
-    customerEmail: "mike@example.com",
+    customerName: "Emeka Uche",
+    customerEmail: "emeka.uche@outlook.com",
     orderNumber: "#ORD-2024-003",
     amount: 78000,
     status: "processing",
-    date: "2024-03-14",
+    date: "2024-06-14",
     items: 5
   },
   {
@@ -169,7 +169,7 @@ export const recentOrders: RecentOrder[] = [
     orderNumber: "#ORD-2024-004",
     amount: 25000,
     status: "pending",
-    date: "2024-03-13",
+    date: "2024-06-13",
     items: 1
   },
   {
@@ -179,7 +179,7 @@ export const recentOrders: RecentOrder[] = [
     orderNumber: "#ORD-2024-005",
     amount: 95000,
     status: "delivered",
-    date: "2024-03-13",
+    date: "2024-06-13",
     items: 4
   }
 ];
@@ -293,7 +293,7 @@ export const notifications: Notification[] = [
     id: "NOTIF001",
     type: "order",
     title: "New Order Received",
-    message: "Order #ORD-2024-006 has been placed",
+    message: "Order #ORD-2024-006 has been placed by Chinedu Okafor",
     time: "2 minutes ago",
     read: false,
     priority: "medium"
@@ -302,7 +302,7 @@ export const notifications: Notification[] = [
     id: "NOTIF002",
     type: "customer",
     title: "New Customer Registration",
-    message: "Alice Johnson has joined the platform",
+    message: "Aisha Bello has joined the platform",
     time: "5 minutes ago",
     read: false,
     priority: "low"
