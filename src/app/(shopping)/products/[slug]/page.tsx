@@ -14,7 +14,10 @@ import {
   Book,
   BookOpen,
   Download,
-  Check
+  Check,
+  X,
+  Copy,
+  Share2
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -34,12 +37,50 @@ export default function ProductDetailPage() {
   const [product, setProduct] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isAffiliateReferral, setIsAffiliateReferral] = useState(false);
+  const [referralData, setReferralData] = useState<any>(null);
+  const [showShippingModal, setShowShippingModal] = useState(false);
+  const [shippingForm, setShippingForm] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    address: ''
+  });
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [affiliateLink, setAffiliateLink] = useState<string | null>(null);
+  const [isGeneratingLink, setIsGeneratingLink] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
   const { user, isAuthenticated } = useAuth();
 
   // Extract product ID from slug
   const slug = params?.slug as string;
   const productId = slug && slug.includes('-') ? slug.substring(0, slug.indexOf('-')) : slug || null;
   // console.log('slug:', slug, 'productId:', productId);
+
+  // Detect affiliate referral
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const refId = urlParams.get('ref');
+      
+      if (refId) {
+        setIsAffiliateReferral(true);
+        const referralInfo = {
+          refId,
+          productId,
+          timestamp: Date.now(),
+          url: window.location.href
+        };
+        setReferralData(referralInfo);
+        
+        // Store referral data for checkout attribution
+        localStorage.setItem('affiliate_referral', JSON.stringify(referralInfo));
+        
+        // Track affiliate click (you can add analytics here)
+        console.log('Affiliate referral detected:', referralInfo);
+      }
+    }
+  }, [productId]);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -112,6 +153,24 @@ export default function ProductDetailPage() {
       .finally(() => setLoading(false));
   }, [productId]);
 
+  // Check if affiliate link already exists for this product
+  useEffect(() => {
+    if (product && isAuthenticated && user?.is_affiliate && user?.affiliate_status === 'approved') {
+      api.user.getAffiliateLinks()
+        .then((res: any) => {
+          if (res.success && res.data) {
+            const existingLink = res.data.find((link: any) => link.productId === product.id);
+            if (existingLink) {
+              setAffiliateLink(existingLink.shareableLink || `${window.location.origin}/products/${existingLink.productId}?ref=${existingLink.slug}`);
+            }
+          }
+        })
+        .catch((error) => {
+          console.log('Error checking existing affiliate links:', error);
+        });
+    }
+  }, [product, isAuthenticated, user]);
+
   const { cart, addToCart, updateQuantity, removeFromCart } = useCart();
   const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
   const cartItem = product ? cart.find(item => item.productId === String(product.id)) : null;
@@ -138,6 +197,118 @@ export default function ProductDetailPage() {
         isNew: product.isNew || product.is_new
       });
       toast.success(`${product.title || product.name} added to wishlist`);
+    }
+  };
+
+  const handleBuyNow = () => {
+    if (!product) return;
+    
+    if (isAffiliateReferral) {
+      setShowShippingModal(true);
+    } else {
+      // Regular flow - add to cart and go to checkout
+      addToCart({
+        productId: String(product.id),
+        quantity,
+        price: product.price,
+        sellingPrice: product.sellingPrice ?? product.price,
+        normalPrice: product.normalPrice ?? product.originalPrice ?? product.price,
+        product: {
+          name: product.title,
+          image: product.images[0],
+          category: product.category
+        }
+      });
+      router.push('/checkout');
+    }
+  };
+
+  const handleShippingSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // Validate form
+    if (!shippingForm.name || !shippingForm.email || !shippingForm.phone || !shippingForm.address) {
+      toast.error('Please fill in all fields');
+      return;
+    }
+
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(shippingForm.email)) {
+      toast.error('Please enter a valid email address');
+      return;
+    }
+
+    // Phone validation (basic)
+    if (shippingForm.phone.length < 10) {
+      toast.error('Please enter a valid phone number');
+      return;
+    }
+
+    setIsProcessingPayment(true);
+
+    // Prepare order data
+    const orderData = {
+      product: {
+        id: product.id,
+        name: product.title,
+        price: product.price,
+        image: product.images[0],
+        category: product.category
+      },
+      quantity,
+      totalCost: product.price * quantity,
+      shipping: shippingForm,
+      referral: referralData,
+      timestamp: new Date().toISOString()
+    };
+
+    console.log('Processing affiliate order:', orderData);
+
+    // Simulate payment processing
+    setTimeout(() => {
+      setIsProcessingPayment(false);
+      setShowShippingModal(false);
+      setShippingForm({ name: '', email: '', phone: '', address: '' });
+      
+      // Show success message
+      toast.success('🎉 Order successfully paid! Thank you for your purchase.');
+      
+      // Here you would typically send the orderData to your backend
+      // api.orders.createAffiliateOrder(orderData);
+      
+    }, 2000);
+  };
+
+  const handleGenerateAffiliateLink = async () => {
+    if (!product || !user?.is_affiliate) return;
+    
+    setIsGeneratingLink(true);
+    try {
+      const response: any = await api.user.generateAffiliateLink(product.id);
+      if (response.success) {
+        setAffiliateLink(response.data.shareableLink);
+        toast.success('Affiliate link generated successfully!');
+      } else {
+        toast.error(response.message || 'Failed to generate affiliate link');
+      }
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to generate affiliate link');
+    } finally {
+      setIsGeneratingLink(false);
+    }
+  };
+
+  const handleCopyAffiliateLink = async () => {
+    if (!affiliateLink) return;
+    
+    try {
+      await navigator.clipboard.writeText(affiliateLink);
+      setLinkCopied(true);
+      toast.success('Affiliate link copied to clipboard!');
+      setTimeout(() => setLinkCopied(false), 2000);
+    } catch (error) {
+      toast.error('Failed to copy link');
     }
   };
 
@@ -178,6 +349,32 @@ export default function ProductDetailPage() {
               
             </Link>
           </div>
+
+          {/* Affiliate Referral Badge */}
+          {isAffiliateReferral && (
+            <div className="mb-6 bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 rounded-xl p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-indigo-600 rounded-full flex items-center justify-center">
+                    <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-indigo-900">
+                      You were referred by an affiliate partner
+                    </p>
+                    <p className="text-xs text-indigo-700">
+                      Special commission offer available
+                    </p>
+                  </div>
+                </div>
+                <div className="bg-indigo-600 text-white text-xs px-3 py-1 rounded-full font-medium">
+                  Commissioned Offer
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
             <div className="grid lg:grid-cols-2 gap-8 p-8">
@@ -224,15 +421,54 @@ export default function ProductDetailPage() {
                     </h1>
                     {/* Affiliate Promote Button - right of title */}
                     {isAuthenticated && user?.is_affiliate && user?.affiliate_status === 'approved' && (
-                      <Button
-                        variant="outline"
-                        className="flex items-center gap-2 border-indigo-500 text-indigo-700 hover:bg-indigo-50 hover:border-indigo-600 hover:text-indigo-900 font-semibold shadow-sm transition-all text-base px-4 py-2 rounded-lg"
-                        title="Generate affiliate link for this product"
-                        // onClick={handleGenerateAffiliateLink}
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V4a2 2 0 10-4 0v1.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
-                        Promote / Get Affiliate Link
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        {affiliateLink ? (
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs bg-indigo-50 text-indigo-700 px-2 py-1 rounded font-mono truncate max-w-[200px]" title={affiliateLink}>
+                              {affiliateLink}
+                            </span>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="flex items-center gap-1 border-indigo-500 text-indigo-700 hover:bg-indigo-50 hover:border-indigo-600 hover:text-indigo-900 font-semibold shadow-sm transition-all text-sm px-3 py-1 rounded-lg"
+                              onClick={handleCopyAffiliateLink}
+                              disabled={linkCopied}
+                            >
+                              {linkCopied ? (
+                                <>
+                                  <Check className="h-4 w-4" />
+                                  Copied!
+                                </>
+                              ) : (
+                                <>
+                                  <Copy className="h-4 w-4" />
+                                  Copy Link
+                                </>
+                              )}
+                            </Button>
+                          </div>
+                        ) : (
+                          <Button
+                            variant="outline"
+                            className="flex items-center gap-2 border-indigo-500 text-indigo-700 hover:bg-indigo-50 hover:border-indigo-600 hover:text-indigo-900 font-semibold shadow-sm transition-all text-base px-4 py-2 rounded-lg"
+                            title="Generate affiliate link for this product"
+                            onClick={handleGenerateAffiliateLink}
+                            disabled={isGeneratingLink}
+                          >
+                            {isGeneratingLink ? (
+                              <>
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-indigo-600"></div>
+                                Generating...
+                              </>
+                            ) : (
+                              <>
+                                <Share2 className="h-5 w-5" />
+                                Generate Affiliate Link
+                              </>
+                            )}
+                          </Button>
+                        )}
+                      </div>
                     )}
                   </div>
                   <p className="text-xl text-gray-600 mb-4">
@@ -249,6 +485,11 @@ export default function ProductDetailPage() {
                     {product.isNew && (
                       <span className="bg-blue-500 text-white text-xs px-2 py-1 rounded-full">
                         New
+                      </span>
+                    )}
+                    {isAffiliateReferral && (
+                      <span className="bg-gradient-to-r from-orange-500 to-red-500 text-white text-xs px-2 py-1 rounded-full font-medium">
+                        🔥 Selling Fast!
                       </span>
                     )}
                   </div>
@@ -352,32 +593,55 @@ export default function ProductDetailPage() {
                       </>
                     ) : (
                       <>
-                        <Button className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white" onClick={() => addToCart({
-                          productId: String(product.id),
-                          quantity,
-                          price: product.price,
-                          sellingPrice: product.sellingPrice ?? product.price,
-                          normalPrice: product.normalPrice ?? product.originalPrice ?? product.price,
-                          product: {
-                            name: product.title,
-                            image: product.images[0],
-                            category: product.category
-                          }
-                        })}>
-                          <ShoppingCart className="h-5 w-5 mr-2" />
-                          Add to Cart
-                        </Button>
-                        <Button 
-                          variant="outline" 
-                          className={`flex-1 ${isInWishlist(String(product.id)) ? 'bg-red-50 border-red-200 text-red-600 hover:bg-red-100' : ''}`}
-                          onClick={handleWishlistToggle}
-                        >
-                          <Heart className={`h-5 w-5 mr-2 ${isInWishlist(String(product.id)) ? 'fill-current' : ''}`} />
-                          {isInWishlist(String(product.id)) ? 'Remove from Wishlist' : 'Add to Wishlist'}
-                        </Button>
+                        {/* Primary CTA - Buy Now for affiliate referrals, Add to Cart for regular traffic */}
+                        {isAffiliateReferral ? (
+                          <Button 
+                            className="flex-1 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold text-lg py-3" 
+                            onClick={handleBuyNow}
+                          >
+                            🚀 Buy Now - Secure Checkout
+                          </Button>
+                        ) : (
+                          <Button className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white" onClick={() => addToCart({
+                            productId: String(product.id),
+                            quantity,
+                            price: product.price,
+                            sellingPrice: product.sellingPrice ?? product.price,
+                            normalPrice: product.normalPrice ?? product.originalPrice ?? product.price,
+                            product: {
+                              name: product.title,
+                              image: product.images[0],
+                              category: product.category
+                            }
+                          })}>
+                            <ShoppingCart className="h-5 w-5 mr-2" />
+                            Add to Cart
+                          </Button>
+                        )}
+                        
+                        {/* Secondary CTA - Only show for non-affiliate traffic */}
+                        {!isAffiliateReferral && (
+                          <Button 
+                            variant="outline" 
+                            className={`flex-1 ${isInWishlist(String(product.id)) ? 'bg-red-50 border-red-200 text-red-600 hover:bg-red-100' : ''}`}
+                            onClick={handleWishlistToggle}
+                          >
+                            <Heart className={`h-5 w-5 mr-2 ${isInWishlist(String(product.id)) ? 'fill-current' : ''}`} />
+                            {isInWishlist(String(product.id)) ? 'Remove from Wishlist' : 'Add to Wishlist'}
+                          </Button>
+                        )}
                       </>
                     )}
                   </div>
+                  
+                  {/* Affiliate urgency message */}
+                  {isAffiliateReferral && (
+                    <div className="mt-4 p-3 bg-gradient-to-r from-orange-50 to-red-50 border border-orange-200 rounded-lg">
+                      <p className="text-sm text-orange-800 font-medium">
+                        ⚡ Limited time offer! This commission deal expires soon.
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 <div className="border-t border-gray-200 pt-6 space-y-4">
@@ -414,6 +678,125 @@ export default function ProductDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Shipping Address Modal */}
+      {showShippingModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-md mx-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Shipping Information</h3>
+              <button
+                onClick={() => setShowShippingModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {isProcessingPayment ? (
+              <div className="text-center py-8">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+                <p className="text-lg font-medium text-gray-900 mb-2">Processing Payment...</p>
+                <p className="text-sm text-gray-600">Please wait while we secure your order</p>
+              </div>
+            ) : (
+              <form onSubmit={handleShippingSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Full Name *
+                  </label>
+                  <input
+                    type="text"
+                    value={shippingForm.name}
+                    onChange={(e) => setShippingForm(prev => ({ ...prev, name: e.target.value }))}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    placeholder="Enter your full name"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Email Address *
+                  </label>
+                  <input
+                    type="email"
+                    value={shippingForm.email}
+                    onChange={(e) => setShippingForm(prev => ({ ...prev, email: e.target.value }))}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    placeholder="Enter your email address"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Phone Number *
+                  </label>
+                  <input
+                    type="tel"
+                    value={shippingForm.phone}
+                    onChange={(e) => setShippingForm(prev => ({ ...prev, phone: e.target.value }))}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    placeholder="Enter your phone number"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Shipping Address *
+                  </label>
+                  <textarea
+                    value={shippingForm.address}
+                    onChange={(e) => setShippingForm(prev => ({ ...prev, address: e.target.value }))}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    rows={3}
+                    placeholder="Enter your complete shipping address"
+                    required
+                  />
+                </div>
+
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <h4 className="font-medium text-gray-900 mb-2">Order Summary</h4>
+                  <div className="space-y-1 text-sm">
+                    <div className="flex justify-between">
+                      <span>{product.title}</span>
+                      <span>₦{product.price}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Quantity</span>
+                      <span>{quantity}</span>
+                    </div>
+                    <div className="border-t pt-1 flex justify-between font-medium">
+                      <span>Total</span>
+                      <span>₦{product.price * quantity}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-3 pt-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => setShowShippingModal(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={!shippingForm.name || !shippingForm.email || !shippingForm.phone || !shippingForm.address}
+                    className="flex-1 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Proceed to Payment
+                  </Button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
     </>
   );
 } 

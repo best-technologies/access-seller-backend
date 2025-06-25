@@ -199,6 +199,14 @@ export const api = {
       const data = await axiosInstance.get('/user/affiliate-dashboard');
       return data;
     },
+    getAffiliateLinks: async () => {
+      const data = await axiosInstance.get('/user/affiliate-links');
+      return data;
+    },
+    generateAffiliateLink: async (productId: string) => {
+      const data = await axiosInstance.post('/user/generate-link', { productId });
+      return data;
+    },
     requestAffiliateAccess: async (niche: string, reason: string): Promise<AffiliateAccessResponse> => {
       const res = await axiosInstance.post('/user/request-affiliate-access', { niche, reason });
       console.log("[API Call] response: ", res.data)

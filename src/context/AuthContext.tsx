@@ -81,9 +81,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.log('Token found, validating with server...');
       // Validate token by fetching user profile
       const profile = await api.user.getProfile();
-      console.log('Profile validation result:', profile);
-      console.log('Profile success:', profile.success);
-      console.log('Profile data:', profile.data);
+      // console.log('Profile validation result:', profile);
+      // console.log('Profile success:', profile.success);
+      // console.log('Profile data:', profile.data);
       
       if (profile.success && profile.data) {
         console.log('Profile validation successful, setting auth state to true');

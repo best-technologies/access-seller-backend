@@ -8,7 +8,9 @@ import {
   Heart,
   Settings,
   DollarSign,
-  Copy
+  Copy,
+  Menu,
+  X
 } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import ProfileInfo from "@/components/profile/ProfileInfo";
@@ -28,6 +30,16 @@ export default function ProfilePage() {
   const [affiliateDashboard, setAffiliateDashboard] = useState<any>(null);
   const [affiliateLoading, setAffiliateLoading] = useState(false);
   const [affiliateError, setAffiliateError] = useState<string | null>(null);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+
+  // Sidebar navigation items
+  const sidebarItems = [
+    { key: "profile", label: "Profile Information", icon: User },
+    { key: "referrals", label: "Affiliate", icon: DollarSign },
+    { key: "orders", label: "My Orders", icon: BookOpen },
+    { key: "wishlist", label: "Wishlist", icon: Heart },
+    { key: "settings", label: "Settings", icon: Settings },
+  ];
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -87,160 +99,86 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <PageHeader title="My Profile" />
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <p className="text-sm text-gray-500 mb-8">
-          Manage your account settings and preferences
-        </p>
-
-        {/* Referral Link & Code Section */}
-        {/* <div className="mb-8 flex flex-col md:flex-row gap-4 items-start md:items-center">
-          <div className="flex flex-col md:flex-row gap-2 md:gap-6 items-start md:items-center bg-white border border-indigo-100 rounded-xl shadow-sm p-4">
-            <div className="flex flex-col gap-1">
-              <span className="text-xs text-gray-500 font-medium">Referral Link</span>
-              <div className="flex items-center gap-2">
-                <span className="font-mono text-indigo-700 text-sm bg-indigo-50 px-2 py-1 rounded-lg select-all">
-                  {userData.referralLink}
-                </span>
-                <button
-                  onClick={() => handleCopy(userData.referralLink, "link")}
-                  className="p-1.5 rounded-lg bg-indigo-100 hover:bg-indigo-200 transition-colors"
-                  title="Copy referral link"
-                >
-                  <Copy className="h-4 w-4 text-indigo-600" />
-                </button>
-                {copied.type === "link" && (
-                  <span className="ml-2 text-xs text-green-600 font-semibold">Copied!</span>
-                )}
-              </div>
-            </div>
-            <div className="flex flex-col gap-1">
-              <span className="text-xs text-gray-500 font-medium">Referral Code</span>
-              <div className="flex items-center gap-2">
-                <span className="font-mono text-indigo-700 text-sm bg-indigo-50 px-2 py-1 rounded-lg select-all">
-                  {userData.referralCode}
-                </span>
-                <button
-                  onClick={() => handleCopy(userData.referralCode, "code")}
-                  className="p-1.5 rounded-lg bg-indigo-100 hover:bg-indigo-200 transition-colors"
-                  title="Copy referral code"
-                >
-                  <Copy className="h-4 w-4 text-indigo-600" />
-                </button>
-                {copied.type === "code" && (
-                  <span className="ml-2 text-xs text-green-600 font-semibold">Copied!</span>
-                )}
-              </div>
-            </div>
+    <div className="min-h-screen bg-gray-50 flex">
+      {/* Sidebar */}
+      <aside
+        className={`fixed top-0 left-0 z-40 h-screen w-64 bg-white border-r border-gray-200 transition-transform ${
+          isSidebarOpen ? "translate-x-0" : "-translate-x-full"
+        } lg:translate-x-0`}
+      >
+        <div className="flex flex-col h-full">
+          {/* Logo / App Name */}
+          <div className="flex items-center justify-center h-16 border-b border-gray-200">
+            <span className="text-xl font-bold text-indigo-600">My Profile</span>
           </div>
-        </div> */}
-
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Sidebar */}
-          <div className="lg:col-span-1">
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <div className="flex flex-col items-center">
-                <Image
-                  src={mappedUserData.avatar}
-                  alt={`${mappedUserData.name}'s profile picture`}
-                  width={120}
-                  height={120}
-                  className="w-30 h-30 rounded-full object-cover mb-4"
-                />
-                <h2 className="text-lg font-semibold text-gray-900">{mappedUserData.name}</h2>
-                <p className="text-sm text-gray-500">{mappedUserData.email}</p>
-                <p className="text-xs text-gray-400">Joined {mappedUserData.joinDate}</p>
-              </div>
-
-              <nav className="mt-8 space-y-1">
+          {/* Navigation */}
+          <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
+            {sidebarItems.map((item) => {
+              const isActive = activeTab === item.key;
+              return (
                 <button
-                  onClick={() => setActiveTab("profile")}
-                  className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg ${
-                    activeTab === "profile"
+                  key={item.key}
+                  onClick={() => setActiveTab(item.key)}
+                  className={`flex items-center gap-3 w-full px-4 py-2 rounded-lg transition-colors text-left ${
+                    isActive
                       ? "bg-indigo-50 text-indigo-600"
                       : "text-gray-600 hover:bg-gray-50"
                   }`}
                 >
-                  <User className="h-5 w-5" />
-                  Profile Information
+                  <item.icon className="h-5 w-5" />
+                  <span>{item.label}</span>
                 </button>
-                <button
-                  onClick={() => setActiveTab("referrals")}
-                  className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg ${
-                    activeTab === "referrals"
-                      ? "bg-indigo-50 text-indigo-600"
-                      : "text-gray-600 hover:bg-gray-50"
-                  }`}
-                >
-                  <DollarSign className="h-5 w-5" />
-                  Affiliate
-                </button>
-                <button
-                  onClick={() => setActiveTab("orders")}
-                  className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg ${
-                    activeTab === "orders"
-                      ? "bg-indigo-50 text-indigo-600"
-                      : "text-gray-600 hover:bg-gray-50"
-                  }`}
-                >
-                  <BookOpen className="h-5 w-5" />
-                  My Orders
-                </button>
-                <button
-                  onClick={() => setActiveTab("wishlist")}
-                  className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg ${
-                    activeTab === "wishlist"
-                      ? "bg-indigo-50 text-indigo-600"
-                      : "text-gray-600 hover:bg-gray-50"
-                  }`}
-                >
-                  <Heart className="h-5 w-5" />
-                  Wishlist
-                </button>
-                <button
-                  onClick={() => setActiveTab("settings")}
-                  className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg ${
-                    activeTab === "settings"
-                      ? "bg-indigo-50 text-indigo-600"
-                      : "text-gray-600 hover:bg-gray-50"
-                  }`}
-                >
-                  <Settings className="h-5 w-5" />
-                  Settings
-                </button>
-              </nav>
-            </div>
-          </div>
-
-          {/* Main Content */}
-          <div className="lg:col-span-3">
-            {activeTab === "profile" && <ProfileInfo userData={mappedUserData} />}
-            {activeTab === "referrals" && (
-              affiliateLoading ? (
-                <Loader/>
-              ) : affiliateError ? (
-                <div className="min-h-[200px] flex items-center justify-center text-red-500">{affiliateError}</div>
-              ) : affiliateDashboard ? (
-                <ReferralEarnings 
-                  affiliateDashboard={affiliateDashboard} 
-                  refreshAffiliateDashboard={() => {
-                    setAffiliateLoading(true);
-                    setAffiliateError(null);
-                    api.user.getAffiliateDashboard()
-                      .then((res) => setAffiliateDashboard(res.data))
-                      .catch((err) => setAffiliateError(err.message || "Failed to load affiliate dashboard"))
-                      .finally(() => setAffiliateLoading(false));
-                  }}
-                />
-              ) : null
-            )}
-            {activeTab === "orders" && <ProfileOrders />}
-            {activeTab === "wishlist" && <ProfileWishlist />}
-            {activeTab === "settings" && <ProfileSettings />}
-          </div>
+              );
+            })}
+          </nav>
         </div>
-      </div>
+      </aside>
+
+      {/* Mobile Sidebar Toggle */}
+      <button
+        onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+        className="fixed top-4 left-4 z-50 p-2 rounded-lg bg-white shadow-sm lg:hidden"
+      >
+        {isSidebarOpen ? (
+          <X className="h-6 w-6 text-gray-600" />
+        ) : (
+          <Menu className="h-6 w-6 text-gray-600" />
+        )}
+      </button>
+
+      {/* Main Content */}
+      <main className="flex-1 min-h-screen transition-all lg:ml-64">
+        <div className="p-8">
+          <PageHeader title="My Profile" />
+          <p className="text-sm text-gray-500 mb-8">
+            Manage your account settings and preferences
+          </p>
+          {/* Main Content Tabs */}
+          {activeTab === "profile" && <ProfileInfo userData={mappedUserData} />}
+          {activeTab === "referrals" && (
+            affiliateLoading ? (
+              <Loader/>
+            ) : affiliateError ? (
+              <div className="min-h-[200px] flex items-center justify-center text-red-500">{affiliateError}</div>
+            ) : affiliateDashboard ? (
+              <ReferralEarnings 
+                affiliateDashboard={affiliateDashboard} 
+                refreshAffiliateDashboard={() => {
+                  setAffiliateLoading(true);
+                  setAffiliateError(null);
+                  api.user.getAffiliateDashboard()
+                    .then((res) => setAffiliateDashboard(res.data))
+                    .catch((err) => setAffiliateError(err.message || "Failed to load affiliate dashboard"))
+                    .finally(() => setAffiliateLoading(false));
+                }}
+              />
+            ) : null
+          )}
+          {activeTab === "orders" && <ProfileOrders />}
+          {activeTab === "wishlist" && <ProfileWishlist />}
+          {activeTab === "settings" && <ProfileSettings />}
+        </div>
+      </main>
     </div>
   );
 } 

@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
-import { DollarSign, Users, TrendingUp, ArrowUpRight, Share2 } from "lucide-react";
+import { useState, useEffect } from "react";
+import { DollarSign, Users, TrendingUp, ArrowUpRight, Share2, Copy } from "lucide-react";
 import { api } from "@/services/api";
 import { toast } from "react-hot-toast";
+import Image from "next/image";
 
 interface ReferralEarningsProps {
   affiliateDashboard: any;
@@ -15,6 +16,9 @@ export default function ReferralEarnings({ affiliateDashboard, refreshAffiliateD
   const [niche, setNiche] = useState("");
   const [reason, setReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [affiliateLinks, setAffiliateLinks] = useState<any[]>([]);
+  const [affiliateLinksLoading, setAffiliateLinksLoading] = useState(false);
+  const [affiliateLinksError, setAffiliateLinksError] = useState<string | null>(null);
   const data = affiliateDashboard || {};
   console.log("data: ", data)
   const isAffiliate = data.is_affiliate;
@@ -182,54 +186,334 @@ export default function ReferralEarnings({ affiliateDashboard, refreshAffiliateD
   // If affiliate, show dashboard
   const stats = data.stats || {};
   const tableAnalysis = data.tableAnalysis || [];
+  console.log("Table analysis: ", tableAnalysis)
+
+  // Tabs state
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'products' | 'payouts'>('dashboard');
+  // Sub-sub-tab state for payouts
+  const [payoutTab, setPayoutTab] = useState<'all' | 'pending' | 'paid'>('all');
+
+  // Fetch affiliate links when products tab is active
+  useEffect(() => {
+    if (activeTab === 'products' && affiliateLinks.length === 0 && !affiliateLinksLoading) {
+      setAffiliateLinksLoading(true);
+      setAffiliateLinksError(null);
+      api.user.getAffiliateLinks()
+        .then((res: any) => {
+          if (res.success) {
+            setAffiliateLinks(res.data || []);
+          } else {
+            setAffiliateLinksError(res.message || "Failed to load affiliate links");
+          }
+        })
+        .catch((err) => setAffiliateLinksError(err.message || "Failed to load affiliate links"))
+        .finally(() => setAffiliateLinksLoading(false));
+    }
+  }, [activeTab, affiliateLinks.length, affiliateLinksLoading]);
+
+  // Promoted products from API
+  const [copiedLinkId, setCopiedLinkId] = useState<string | null>(null);
+  const promotedProducts = affiliateLinks.map((link: any) => ({
+    id: link.id,
+    name: link.product.name,
+    image: link.product.displayImages?.[0]?.secure_url || '/placeholder.png',
+    commission: link.product.commission,
+    earningPerSale: (link.product.sellingPrice * parseInt(link.product.commission)) / 100,
+    earnings: link.commission,
+    clicks: link.clicks,
+    sales: link.orders,
+    status: link.product.status === 'active' ? 'Active' : 'Paused',
+    shareableLink: `${window.location.origin}/products/${link.productId}?ref=${link.slug}`,
+  }));
+
+  const handleCopyLink = (link: string, id: string) => {
+    navigator.clipboard.writeText(link);
+    setCopiedLinkId(id);
+    setTimeout(() => setCopiedLinkId(null), 1500);
+  };
+
+  // Mock commission payouts data
+  const commissionPayouts = [
+    {
+      id: 'PAYOUT-001',
+      amount: 5000,
+      date: '2024-06-01',
+      status: 'Paid',
+      method: 'Bank Transfer',
+      reference: 'TXN123456',
+    },
+    {
+      id: 'PAYOUT-002',
+      amount: 3000,
+      date: '2024-06-10',
+      status: 'Pending',
+      method: 'Bank Transfer',
+      reference: 'TXN123457',
+    },
+    {
+      id: 'PAYOUT-003',
+      amount: 7000,
+      date: '2024-05-20',
+      status: 'Paid',
+      method: 'PayPal',
+      reference: 'TXN123458',
+    },
+    {
+      id: 'PAYOUT-004',
+      amount: 2000,
+      date: '2024-06-12',
+      status: 'Pending',
+      method: 'Bank Transfer',
+      reference: 'TXN123459',
+    },
+  ];
 
   return (
     <div className="space-y-6">
-      {/* Stats Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">Total Earned</p>
-              <p className="text-2xl font-semibold text-gray-900">₦{stats.totalEarned ?? 0}</p>
-            </div>
-            <div className="p-3 bg-green-50 rounded-lg">
-              <DollarSign className="h-6 w-6 text-green-600" />
-            </div>
-          </div>
-        </div>
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">Total Purchases</p>
-              <p className="text-2xl font-semibold text-gray-900">{stats.totalPurchases ?? 0}</p>
-            </div>
-            <div className="p-3 bg-blue-50 rounded-lg">
-              <Users className="h-6 w-6 text-blue-600" />
-            </div>
-          </div>
-        </div>
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">Total Withdrawn</p>
-              <p className="text-2xl font-semibold text-gray-900">₦{stats.totalWithdrawn ?? 0}</p>
-            </div>
-            <div className="p-3 bg-yellow-50 rounded-lg">
-              <DollarSign className="h-6 w-6 text-yellow-600" />
-            </div>
-          </div>
-        </div>
+      {/* Tabs */}
+      <div className="flex gap-2 border-b border-gray-200 mb-6">
+        <button
+          className={`px-4 py-2 text-sm font-semibold rounded-t-lg transition-all duration-150 focus:outline-none ${
+            activeTab === 'dashboard'
+              ? 'bg-white border border-b-0 border-gray-200 text-indigo-700 shadow-sm'
+              : 'bg-gray-50 text-gray-500 hover:text-indigo-600'
+          }`}
+          onClick={() => setActiveTab('dashboard')}
+        >
+          Dashboard
+        </button>
+        <button
+          className={`px-4 py-2 text-sm font-semibold rounded-t-lg transition-all duration-150 focus:outline-none ${
+            activeTab === 'products'
+              ? 'bg-white border border-b-0 border-gray-200 text-indigo-700 shadow-sm'
+              : 'bg-gray-50 text-gray-500 hover:text-indigo-600'
+          }`}
+          onClick={() => setActiveTab('products')}
+        >
+          Promoted Products
+        </button>
+        <button
+          className={`px-4 py-2 text-sm font-semibold rounded-t-lg transition-all duration-150 focus:outline-none ${
+            activeTab === 'payouts'
+              ? 'bg-white border border-b-0 border-gray-200 text-indigo-700 shadow-sm'
+              : 'bg-gray-50 text-gray-500 hover:text-indigo-600'
+          }`}
+          onClick={() => setActiveTab('payouts')}
+        >
+          Commission Payouts
+        </button>
       </div>
-      {/* Table Analysis Placeholder */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Analysis</h3>
-        {tableAnalysis.length === 0 ? (
-          <p className="text-gray-500">No analysis data available.</p>
-        ) : (
-          <pre>{JSON.stringify(tableAnalysis, null, 2)}</pre>
-        )}
-      </div>
+
+      {/* Tab Content */}
+      {activeTab === 'dashboard' && (
+        <>
+          {/* Stats Overview */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-500">Total Earned</p>
+                  <p className="text-2xl font-semibold text-gray-900">₦{stats.totalEarned ?? 0}</p>
+                </div>
+                <div className="p-3 bg-green-50 rounded-lg">
+                  <DollarSign className="h-6 w-6 text-green-600" />
+                </div>
+              </div>
+            </div>
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-500">Total Purchases</p>
+                  <p className="text-2xl font-semibold text-gray-900">{stats.totalPurchases ?? 0}</p>
+                </div>
+                <div className="p-3 bg-blue-50 rounded-lg">
+                  <Users className="h-6 w-6 text-blue-600" />
+                </div>
+              </div>
+            </div>
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-500">Total Withdrawn</p>
+                  <p className="text-2xl font-semibold text-gray-900">₦{stats.totalWithdrawn ?? 0}</p>
+                </div>
+                <div className="p-3 bg-yellow-50 rounded-lg">
+                  <DollarSign className="h-6 w-6 text-yellow-600" />
+                </div>
+              </div>
+            </div>
+          </div>
+          {/* Table Analysis Placeholder */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Analysis</h3>
+            {tableAnalysis.length === 0 ? (
+              <p className="text-gray-500">No analysis data available.</p>
+            ) : (
+              <pre>{JSON.stringify(tableAnalysis, null, 2)}</pre>
+            )}
+          </div>
+        </>
+      )}
+      {activeTab === 'products' && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-bold text-gray-900">Products You're Promoting</h3>
+            <button
+              className="inline-flex items-center gap-1 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-medium shadow transition-colors text-sm"
+              // TODO: Add onClick handler to navigate to hot products page
+            >
+              Explore Hot <span role="img" aria-label="hot">🥵</span> Products
+            </button>
+          </div>
+          
+          {affiliateLinksLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+            </div>
+          ) : affiliateLinksError ? (
+            <div className="text-center text-red-500 py-8">{affiliateLinksError}</div>
+          ) : promotedProducts.length === 0 ? (
+            <div className="text-center text-gray-500 py-8">No promoted products found.</div>
+          ) : (
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-2 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Image</th>
+                  <th className="px-4 py-2 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Product</th>
+                  <th className="px-4 py-2 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Commission %</th>
+                  <th className="px-4 py-2 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Earning/Sale</th>
+                  <th className="px-4 py-2 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Overall Earnings</th>
+                  <th className="px-4 py-2 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Clicks</th>
+                  <th className="px-4 py-2 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Sales</th>
+                  <th className="px-4 py-2 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Status</th>
+                  <th className="px-4 py-2 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Share Link</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-100">
+                {promotedProducts.map((p: any) => (
+                  <tr key={p.id}>
+                    <td className="px-4 py-2">
+                      <div className="w-14 h-20 relative rounded overflow-hidden border border-gray-200">
+                        <Image src={p.image} alt={p.name} fill className="object-cover rounded" />
+                      </div>
+                    </td>
+                    <td className="px-4 py-2 font-medium text-gray-900">{p.name}</td>
+                    <td className="px-4 py-2 text-gray-700">{p.commission}%</td>
+                    <td className="px-4 py-2 text-gray-700">₦{p.earningPerSale}</td>
+                    <td className="px-4 py-2 text-gray-700 font-semibold">₦{p.earnings}</td>
+                    <td className="px-4 py-2 text-gray-700">{p.clicks}</td>
+                    <td className="px-4 py-2 text-gray-700">{p.sales}</td>
+                    <td className="px-4 py-2">
+                      <span className={`inline-block px-2 py-1 rounded text-xs font-semibold ${
+                        p.status === 'Active'
+                          ? 'bg-green-100 text-green-700'
+                          : 'bg-yellow-100 text-yellow-700'
+                      }`}>
+                        {p.status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-2">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-xs bg-indigo-50 px-2 py-1 rounded select-all truncate max-w-[120px]" title={p.shareableLink}>{p.shareableLink}</span>
+                        <button
+                          onClick={() => handleCopyLink(p.shareableLink, p.id)}
+                          className="p-1.5 rounded-lg bg-indigo-100 hover:bg-indigo-200 transition-colors"
+                          title="Copy shareable link"
+                        >
+                          <Copy className="h-4 w-4 text-indigo-600" />
+                        </button>
+                        {copiedLinkId === p.id && (
+                          <span className="text-xs text-green-600 font-semibold ml-1">Copied!</span>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
+      {activeTab === 'payouts' && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <h3 className="text-lg font-bold text-gray-900 mb-4">Commission Payouts</h3>
+          {/* Sub-sub-tabs */}
+          <div className="flex gap-2 mb-4">
+            <button
+              className={`px-3 py-1 text-sm font-semibold rounded transition-all duration-150 focus:outline-none ${
+                payoutTab === 'all'
+                  ? 'bg-indigo-100 text-indigo-700'
+                  : 'bg-gray-100 text-gray-500 hover:text-indigo-600'
+              }`}
+              onClick={() => setPayoutTab('all')}
+            >
+              All
+            </button>
+            <button
+              className={`px-3 py-1 text-sm font-semibold rounded transition-all duration-150 focus:outline-none ${
+                payoutTab === 'pending'
+                  ? 'bg-indigo-100 text-indigo-700'
+                  : 'bg-gray-100 text-gray-500 hover:text-indigo-600'
+              }`}
+              onClick={() => setPayoutTab('pending')}
+            >
+              Pending
+            </button>
+            <button
+              className={`px-3 py-1 text-sm font-semibold rounded transition-all duration-150 focus:outline-none ${
+                payoutTab === 'paid'
+                  ? 'bg-indigo-100 text-indigo-700'
+                  : 'bg-gray-100 text-gray-500 hover:text-indigo-600'
+              }`}
+              onClick={() => setPayoutTab('paid')}
+            >
+              Paid
+            </button>
+          </div>
+          {/* Table */}
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-4 py-2 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Payout ID</th>
+                <th className="px-4 py-2 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Amount</th>
+                <th className="px-4 py-2 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Date</th>
+                <th className="px-4 py-2 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Status</th>
+                <th className="px-4 py-2 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Method</th>
+                <th className="px-4 py-2 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Reference</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-100">
+              {commissionPayouts
+                .filter(p =>
+                  payoutTab === 'all' ? true : payoutTab === 'pending' ? p.status === 'Pending' : p.status === 'Paid'
+                )
+                .map((p) => (
+                  <tr key={p.id}>
+                    <td className="px-4 py-2 font-medium text-gray-900">{p.id}</td>
+                    <td className="px-4 py-2 text-gray-700">₦{p.amount}</td>
+                    <td className="px-4 py-2 text-gray-700">{p.date}</td>
+                    <td className="px-4 py-2">
+                      <span className={`inline-block px-2 py-1 rounded text-xs font-semibold ${
+                        p.status === 'Paid'
+                          ? 'bg-green-100 text-green-700'
+                          : 'bg-yellow-100 text-yellow-700'
+                      }`}>
+                        {p.status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-2 text-gray-700">{p.method}</td>
+                    <td className="px-4 py-2 text-gray-700">{p.reference}</td>
+                  </tr>
+                ))}
+            </tbody>
+          </table>
+          {commissionPayouts.filter(p =>
+            payoutTab === 'all' ? true : payoutTab === 'pending' ? p.status === 'Pending' : p.status === 'Paid'
+          ).length === 0 && (
+            <div className="text-center text-gray-500 py-8">No payouts found.</div>
+          )}
+        </div>
+      )}
     </div>
   );
 } 
