@@ -285,7 +285,7 @@ export default function CustomersPage() {
         };
       });
       closeEditModal();
-    } catch (e) {
+    } catch {
       // handle error
       alert("Failed to update user");
     } finally {
@@ -310,7 +310,7 @@ export default function CustomersPage() {
         };
       });
       closePartialModal();
-    } catch (e) {
+    } catch {
       alert("Failed to update partial %");
     } finally {
       setEditLoading(false);
@@ -954,7 +954,7 @@ export default function CustomersPage() {
                   max={100}
                   value={newPartialPayment}
                   onChange={e => {
-                    let val = e.target.value.replace(/^0+/, '');
+                    const val = e.target.value.replace(/^0+/, '');
                     let num = Number(val);
                     if (!val || isNaN(num) || num < 1) num = 1;
                     if (num > 100) num = 100;

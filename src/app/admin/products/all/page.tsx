@@ -49,7 +49,7 @@ export default function AllProductsPage() {
 
   useEffect(() => {
     api.admin.fetchMetadata().then(res => {
-      setCategoriesMeta(res.data.categories.map((c: any) => ({ value: c.id, label: c.name })));
+      setCategoriesMeta(res.data.categories.map((c: { id: string; name: string }) => ({ value: c.id, label: c.name })));
     });
   }, []);
 
@@ -80,8 +80,8 @@ export default function AllProductsPage() {
         response.data.productsTable.products || [],
         response.data.productsTable.pagination.totalPages || 1
       );
-    } catch (err: any) {
-      setError(err.message || "Failed to fetch products");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to fetch products");
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
@@ -90,7 +90,6 @@ export default function AllProductsPage() {
 
   useEffect(() => {
     fetchProducts(currentPage);
-    // eslint-disable-next-line
   }, [currentPage]);
 
   const handleForceRefresh = () => {

@@ -5,8 +5,15 @@ import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
 import Image from "next/image";
 
+interface Category {
+  name: string;
+  description?: string;
+  image: string;
+  count: string;
+}
+
 interface CategoriesProps {
-  categories: any[];
+  categories: Category[];
 }
 
 export default function Categories({ categories = [] }: CategoriesProps) {

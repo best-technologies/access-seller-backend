@@ -1,4 +1,4 @@
-import { BarChart3, User, Eye, MoreVertical } from "lucide-react";
+import { BarChart3 } from "lucide-react";
 import type { AffiliateOverview } from '@/types/admin/dashboard/dashboard';
 
 interface OverviewTabProps {
@@ -8,37 +8,7 @@ interface OverviewTabProps {
 }
 
 export default function OverviewTab({ timeframe, onTimeframeChange, overview }: OverviewTabProps) {
-  const getSourceColor = (source: string) => {
-    switch (source) {
-      case "WhatsApp":
-        return "bg-green-100 text-green-800";
-      case "Facebook":
-        return "bg-blue-100 text-blue-800";
-      case "Instagram":
-        return "bg-pink-100 text-pink-800";
-      case "Email":
-        return "bg-purple-100 text-purple-800";
-      case "Direct":
-        return "bg-gray-100 text-gray-800";
-      default:
-        return "bg-gray-100 text-gray-800";
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "Completed":
-        return "bg-green-100 text-green-800";
-      case "Pending":
-        return "bg-yellow-100 text-yellow-800";
-      case "Expired":
-        return "bg-red-100 text-red-800";
-      case "Cancelled":
-        return "bg-gray-100 text-gray-800";
-      default:
-        return "bg-gray-100 text-gray-800";
-    }
-  };
+  
 
   return (
     <div className="space-y-6">

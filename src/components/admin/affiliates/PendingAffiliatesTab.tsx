@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { api } from '@/services/api';
 import Loader from '@/components/Loader';
-import { MoreVertical } from 'lucide-react';
 import { ActionMenu } from './AllAffiliatesTab';
+import Image from 'next/image';
 
 interface Affiliate {
   id: string;
@@ -17,7 +17,7 @@ interface Affiliate {
     phone_number?: string;
   };
   notes?: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 function getInitials(name: string) {
@@ -86,7 +86,15 @@ export default function PendingAffiliatesTab() {
                 >
                   <td className="px-6 py-3 flex items-center gap-3">
                     {a.avatarUrl ? (
-                      <img src={a.avatarUrl} alt={a.name} className="h-8 w-8 rounded-full object-cover border" />
+                      <Image
+                        src={a.avatarUrl}
+                        alt={a.name}
+                        width={32}
+                        height={32}
+                        className="h-8 w-8 rounded-full object-cover border"
+                        style={{ width: 32, height: 32 }}
+                        unoptimized
+                      />
                     ) : (
                       <span className="h-8 w-8 flex items-center justify-center rounded-full bg-indigo-100 text-indigo-700 font-bold border text-xs">
                         {getInitials(a.name)}

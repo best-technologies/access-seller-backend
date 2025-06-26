@@ -81,7 +81,6 @@ interface ClassificationSectionProps {
 
 const ClassificationSection: React.FC<ClassificationSectionProps> = ({
   book,
-  setBook,
   filteredOptions,
   dropdownRefs,
   dropdownStates,

@@ -3,12 +3,11 @@
 import { useState } from "react";
 import KPICards from "@/components/admin/affiliates/KPICards";
 import NavigationTabs from "@/components/admin/affiliates/NavigationTabs";
-import OverviewTab from "@/components/admin/affiliates/OverviewTab";
 import LeaderboardTab from "@/components/admin/affiliates/LeaderboardTab";
 import PayoutsTab from "@/components/admin/affiliates/PayoutsTab";
 import EventsTab from "@/components/admin/affiliates/EventsTab";
 import AnalyticsTab from "@/components/admin/affiliates/AnalyticsTab";
-import AffiliateSettingsModal, { AffiliateSettings } from "@/components/modals/ReferralSettingsModal";
+import AffiliateSettingsModal from "@/components/modals/ReferralSettingsModal";
 import useSWR from 'swr';
 import { api } from '@/services/api';
 import type { AffiliateDashboardResponse } from '@/types/admin/dashboard/dashboard';
@@ -30,7 +29,7 @@ export default function AffiliatesPage() {
   };
 
   // SWR hook with 5 min cache
-  const { data, error, isLoading, mutate } = useSWR<AffiliateDashboardResponse>(
+  const { data, error, isLoading } = useSWR<AffiliateDashboardResponse>(
     'admin/affiliates-dashboard',
     fetchAffiliateDashboard,
     { dedupingInterval: 300000, revalidateOnFocus: false }

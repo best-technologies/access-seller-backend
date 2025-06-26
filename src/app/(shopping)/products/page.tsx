@@ -1,16 +1,13 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { 
   Filter, 
   Search,
-  Star, 
   Heart, 
   ShoppingCart,
-  Truck,
-  Clock,
   Book,
   BookOpen,
   Grid3X3,
@@ -18,7 +15,6 @@ import {
   Eye,
   Check,
   Zap,
-  Award,
   TrendingUp,
   Users,
   Calendar,
@@ -30,27 +26,25 @@ import { useWishlist } from "@/hooks/useWishlist";
 import toast from "react-hot-toast";
 import { api } from '@/services/api';
 import Loader from "@/components/Loader";
-import type { BrowseProductsResponse } from '@/types/product';
+import type { BrowseProduct, BrowseCategory, BrowseFormat } from '@/types/product';
 import { PageLoader } from "@/components/ui/loader";
 
 export default function ProfessionalProductsPage() {
-  const [selectedCategory, setSelectedCategory] = useState("all");
+  const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [products, setProducts] = useState<any[]>([]);
+  const [products, setProducts] = useState<BrowseProduct[]>([]);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
-  const [sortBy, setSortBy] = useState("featured");
-  const [viewMode, setViewMode] = useState("grid");
+  const [sortBy, setSortBy] = useState<string>("featured");
+  const [viewMode, setViewMode] = useState<string>("grid");
   const [showFilters, setShowFilters] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [browseData, setBrowseData] = useState<BrowseProductsResponse | null>(null);
+  const [formats, setFormats] = useState<BrowseFormat[]>([]);
+  const [categories, setCategories] = useState<BrowseCategory[]>([]);
+  const [selectedFormats, setSelectedFormats] = useState<string[]>([]);
   const { cart, addToCart, removeFromCart } = useCart();
   const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
-  const [selectedFormats, setSelectedFormats] = useState<string[]>([]);
-  const [formats, setFormats] = useState<any[]>([]);
-  const [categories, setCategories] = useState<any[]>([]);
-  const loaderRef = useRef<HTMLDivElement>(null);
 
   // Fetch products for a given page
   const fetchProducts = async (pageToFetch = 1) => {
@@ -62,7 +56,6 @@ export default function ProfessionalProductsPage() {
         setFormats(response.data.formats || []);
         setCategories(response.data.categories || []);
         setHasMore(response.data.hasMore);
-        setBrowseData(response);
         if (pageToFetch === 1) {
           setProducts(response.data.products);
         } else {
@@ -94,12 +87,12 @@ export default function ProfessionalProductsPage() {
     fetchProducts(1);
   };
 
-  const toggleWishlist = (product: any) => {
+  const toggleWishlist = (product: BrowseProduct) => {
     const productId = String(product.id);
     
     if (isInWishlist(productId)) {
       removeFromWishlist(productId);
-      toast.success(`${product.title} removed from wishlist`);
+      toast.success(`${product.product_name} removed from wishlist`);
     } else {
       addToWishlist({
         id: String(product.id),
@@ -110,14 +103,14 @@ export default function ProfessionalProductsPage() {
         category: product.format,
         isNew: product.is_new
       });
-      toast.success(`${product.title} added to wishlist`);
+      toast.success(`${product.product_name} added to wishlist`);
     }
   };
 
   const isInCart = (productId: string) => cart.some(item => item.productId === productId);
 
   // Icon mapping for backend icon strings
-  const iconMap: Record<string, any> = {
+  const iconMap: Record<string, React.ComponentType<React.SVGProps<SVGSVGElement>>> = {
     BookOpen,
     Book,
     Zap,
@@ -128,15 +121,9 @@ export default function ProfessionalProductsPage() {
     TrendingUp,
   };
 
-  const selectedCategoryObj = categories.find(cat => cat.id === selectedCategory);
-  const filteredProducts = products.filter(product => {
+  const filteredProducts = products.filter((product: BrowseProduct) => {
     if (selectedCategory !== "all") {
       if (!product.categories?.some((cat: { id: string }) => cat.id === selectedCategory)) {
-        return false;
-      }
-    }
-    if (selectedFormats.length > 0) {
-      if (!product.formats?.some((f: { name: string }) => selectedFormats.includes(f.name))) {
         return false;
       }
     }
@@ -355,7 +342,7 @@ export default function ProfessionalProductsPage() {
             <div className="flex-1">
               {viewMode === "grid" ? (
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                  {filteredProducts.map((product) => (
+                  {filteredProducts.map((product: BrowseProduct) => (
                     <div
                       key={product.id}
                       className="group bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md hover:scale-[1.02] transition-all duration-200"
@@ -381,17 +368,7 @@ export default function ProfessionalProductsPage() {
                               <button
                                 onClick={e => {
                                   e.preventDefault();
-                                  isInWishlist(String(product.id))
-                                    ? removeFromWishlist(String(product.id))
-                                    : addToWishlist({
-                                        id: String(product.id),
-                                        title: product.product_name,
-                                        author: product.author,
-                                        price: product.selling_price,
-                                        image: typeof product.display_picture === 'string' ? product.display_picture : '/placeholder.png',
-                                        category: product.format,
-                                        isNew: product.is_new
-                                      });
+                                  toggleWishlist(product);
                                 }}
                                 className={`p-2 rounded-full transition-colors shadow-sm ${
                                   isInWishlist(String(product.id))
@@ -425,32 +402,34 @@ export default function ProfessionalProductsPage() {
                               {product.format}
                             </span>
                           </div>
-                          <h3 className="font-medium text-gray-900 text-xs mb-1 line-clamp-2 group-hover:text-indigo-600 transition-colors">
+                          <h3 className="font-semibold text-gray-900 text-sm mb-1 truncate">
                             {product.product_name}
                           </h3>
                           <p className="text-xs text-gray-600 mb-1">by {product.author}</p>
                           <div className="flex items-center gap-2 mb-2">
                             <span className="text-base font-bold text-gray-900">₦{product.selling_price}</span>
-                            {product.nomral_price && (
-                              <span className="text-xs text-gray-500 line-through">₦{product.nomral_price}</span>
-                            )}
+                            {product.nomral_price ? (
+                              <div className="text-sm text-gray-500 line-through">₦{product.nomral_price}</div>
+                            ) : null}
                             <button
                               onClick={e => {
                                 e.preventDefault();
-                                isInCart(String(product.id))
-                                  ? removeFromCart(String(product.id))
-                                  : addToCart({
-                                      productId: String(product.id),
-                                      quantity: 1,
-                                      price: product.selling_price,
-                                      sellingPrice: product.selling_price,
-                                      normalPrice: product.nomral_price ?? product.selling_price,
-                                      product: {
-                                        name: product.product_name,
-                                        image: typeof product.display_picture === 'string' ? product.display_picture : '/placeholder.png',
-                                        category: product.format
-                                      }
-                                    });
+                                if (isInCart(String(product.id))) {
+                                  removeFromCart(String(product.id));
+                                } else {
+                                  addToCart({
+                                    productId: String(product.id),
+                                    quantity: 1,
+                                    price: product.selling_price,
+                                    sellingPrice: product.selling_price,
+                                    normalPrice: product.nomral_price ?? product.selling_price,
+                                    product: {
+                                      name: product.product_name,
+                                      image: typeof product.display_picture === 'string' ? product.display_picture : '/placeholder.png',
+                                      category: product.format
+                                    }
+                                  });
+                                }
                               }}
                               className={`p-2 rounded-full transition-colors shadow-sm ml-1 ${
                                 isInCart(String(product.id))
@@ -470,7 +449,7 @@ export default function ProfessionalProductsPage() {
               ) : (
                 /* Compact List View */
                 <div className="space-y-3">
-                  {filteredProducts.map((product) => (
+                  {filteredProducts.map((product: BrowseProduct) => (
                     <div
                       key={product.id}
                       className="group bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-all"
@@ -518,9 +497,9 @@ export default function ProfessionalProductsPage() {
                             <div className="flex flex-col items-end gap-3">
                               <div className="text-right">
                                 <div className="text-lg font-bold text-gray-900">₦{product.selling_price}</div>
-                                {product.nomral_price && (
+                                {product.nomral_price ? (
                                   <div className="text-sm text-gray-500 line-through">₦{product.nomral_price}</div>
-                                )}
+                                ) : null}
                               </div>
 
                               <div className="flex items-center gap-1.5">
@@ -538,9 +517,12 @@ export default function ProfessionalProductsPage() {
                                   <Heart className="h-3.5 w-3.5" />
                                 </button>
                                 <button
-                                  onClick={() => isInCart(String(product.id))
-                                    ? removeFromCart(String(product.id))
-                                    : addToCart({
+                                  onClick={e => {
+                                    e.preventDefault();
+                                    if (isInCart(String(product.id))) {
+                                      removeFromCart(String(product.id));
+                                    } else {
+                                      addToCart({
                                         productId: String(product.id),
                                         quantity: 1,
                                         price: product.selling_price,
@@ -551,7 +533,9 @@ export default function ProfessionalProductsPage() {
                                           image: product.display_picture || undefined,
                                           category: product.format
                                         }
-                                      })}
+                                      });
+                                    }
+                                  }}
                                   className={`px-3 py-1.5 rounded text-sm font-medium transition-all ${
                                     isInCart(String(product.id))
                                       ? 'bg-green-500 text-white'

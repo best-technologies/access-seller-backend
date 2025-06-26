@@ -3,8 +3,7 @@ import { DashboardResponse } from '@/types/admin/dashboard/dashboard';
 import type { ProductsResponse } from '@/types/admin/products/products';
 import type { CustomersResponse } from '@/types/admin/customers/customers';
 import axios, { AxiosError, AxiosInstance } from 'axios';
-import type { BrowseProductsResponse } from '@/types/product';
-import { toast } from 'react-hot-toast';
+import type { BrowseProductsResponse, Product } from '@/types/product';
 import { PromoCodeVerifyResponse } from '@/types/admin/discounts/discount';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
@@ -94,14 +93,14 @@ export interface AffiliateAccessResponse {
     is_affiliate: boolean;
     affiliate_status: 'not_affiliate' | 'awaiting_approval' | 'rejected' | 'approved';
     createdAt: string | null;
-    affiliate: any; // Replace 'any' with a more specific type if available
+    affiliate: Record<string, unknown>; // Use a more specific type if available
     stats: {
       totalPurchases: number;
       totalEarned: number;
       totalWithdrawn: number;
       pendingWithdrawals: number;
     };
-    tableAnalysis: any[]; // Replace 'any' with a more specific type if available
+    tableAnalysis: unknown[]; // Use a more specific type if available
   };
 }
 
@@ -227,10 +226,10 @@ export const api = {
       console.log('[API] Browse products response:', response);
       return response as unknown as BrowseProductsResponse;
     },
-    getSingleProduct: async (id: string): Promise<any> => {
+    getSingleProduct: async (id: string): Promise<Product> => {
       // Fetch a single product by id
       const response = await axiosInstance.get(`/products/${id}`);
-      return response;
+      return response.data as Product;
     },
   },
 

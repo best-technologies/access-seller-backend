@@ -1,4 +1,4 @@
-import { User, Zap, MoreVertical } from "lucide-react";
+import { Zap } from "lucide-react";
 import type { AffiliatePayout } from '@/types/admin/dashboard/dashboard';
 
 interface PayoutsTabProps {

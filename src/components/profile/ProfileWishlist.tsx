@@ -1,22 +1,23 @@
 "use client";
 
 import Image from "next/image";
-import { Trash2, ShoppingCart } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import { useWishlist } from "@/hooks/useWishlist";
 import { useCart } from "@/hooks/useCart";
 import toast from "react-hot-toast";
+import type { WishlistItem } from "@/context/WishlistContext";
 
 export default function ProfileWishlist() {
   const { wishlist, removeFromWishlist } = useWishlist();
   const { addToCart } = useCart();
 
-  const handleAddToCart = (item: any) => {
+  const handleAddToCart = (item: WishlistItem) => {
     addToCart({
       productId: item.id,
       quantity: 1,
       price: item.price,
-      sellingPrice: item.sellingPrice ?? item.price,
-      normalPrice: item.normalPrice ?? item.originalPrice ?? item.price,
+      sellingPrice: item.price,
+      normalPrice: item.originalPrice ?? item.price,
       product: {
         name: item.title,
         image: item.image,

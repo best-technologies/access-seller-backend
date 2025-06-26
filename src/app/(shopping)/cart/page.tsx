@@ -72,7 +72,6 @@ export default function ProfessionalCartPage() {
     (total, item) => total + (Number(item.sellingPrice) * Number(item.quantity)),
     0
   );
-  const originalCost = selectedItems.reduce((total, item) => total + ((item.normalPrice ?? item.sellingPrice) * item.quantity), 0);
   const savings = 0; // You can enhance this if you store originalPrice
   const shipping = subtotal > 5000000 ? 0 : 7.99;
   const promoDiscount = promoApplied ? subtotal * (promoDiscountPercent / 100) : 0;
@@ -89,7 +88,7 @@ export default function ProfessionalCartPage() {
     try {
       // Prepare order data
       const orderData = {
-        items: selectedItems.map((item: any) => ({
+        items: selectedItems.map((item: typeof cart[0]) => ({
           productId: item.productId,
           quantity: item.quantity,
           price: item.price,
@@ -156,20 +155,21 @@ export default function ProfessionalCartPage() {
         return;
       }
       const res = await api.discount.verifyPromoCode(promoCode, productId);
-      const result = res.data;
-      if (result.discountPercent) {
+      const result = res.data as { discountPercent?: string | number };
+      const discountPercent = result.discountPercent ? Number(result.discountPercent) : 0;
+      if (discountPercent) {
         setPromoApplied(true);
-        setPromoDiscountPercent(Number(result.discountPercent));
-        toast.success(`🎉 Promo code applied! You get ${result.discountPercent}% off.`);
+        setPromoDiscountPercent(discountPercent);
+        toast.success(`🎉 Promo code applied! You get ${discountPercent}% off.`);
       } else {
         setPromoApplied(false);
         setPromoDiscountPercent(0);
         toast.error("Promo code is invalid.");
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       setPromoApplied(false);
       setPromoDiscountPercent(0);
-      toast.error(error?.message || "Failed to verify promo code.");
+      toast.error(error instanceof Error ? error.message : "Failed to verify promo code.");
     } finally {
       setIsLoading(false);
     }

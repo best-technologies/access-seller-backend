@@ -78,14 +78,6 @@ export default function AdditionalDetailsSection({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isGenreDropdownOpen, genreDropdownRef, setIsGenreDropdownOpen, setGenreSearch]);
 
-  const ageRatingOptions = [
-    { value: '', label: 'Select Age Rating' },
-    { value: 'all-ages', label: 'All Ages', description: 'Suitable for everyone' },
-    { value: 'children', label: 'Children (0-12)', description: 'Designed for young readers' },
-    { value: 'teen', label: 'Teen (13-17)', description: 'Young adult content' },
-    { value: 'adult', label: 'Adult (18+)', description: 'Mature content' },
-  ];
-
   const validateISBN = (isbn: string) => {
     const clean = isbn.replace(/[-\s]/g, '');
     return clean.length === 10 || clean.length === 13;

@@ -138,12 +138,14 @@ export default function EditBookModal({
   const genreRef = useRef<HTMLDivElement>(null);
   const languageRef = useRef<HTMLDivElement>(null);
   const formatRef = useRef<HTMLDivElement>(null);
-  const dropdownRefs = {
+
+  // Memoize dropdownRefs to avoid changing on every render
+  const dropdownRefs = useMemo(() => ({
     category: categoryRef,
     genre: genreRef,
     language: languageRef,
     format: formatRef
-  };
+  }), []);
 
   // Metadata state
   const [metadata, setMetadata] = useState<MetadataResponse['data'] | null>(null);
@@ -161,12 +163,12 @@ export default function EditBookModal({
     }
   }, [isOpen]);
 
-  // Map backend data to dropdown format
-  const categories = metadata?.categories.map(c => ({ value: c.id, label: c.name })) || [];
-  const genres = metadata?.genres.map(g => ({ value: g.name, label: g.name })) || [];
-  const languages = metadata?.languages.map(l => ({ value: l.name, label: l.name })) || [];
-  const formats = metadata?.formats.map(f => ({ value: f.name, label: f.name })) || [];
-  const ageRatings = metadata?.ageRatings.map(a => ({ value: a.name, label: a.name, description: '' })) || [];
+  // Memoize categories, genres, languages, formats
+  const categories = useMemo(() => metadata?.categories.map(c => ({ value: c.id, label: c.name })) || [], [metadata]);
+  const genres = useMemo(() => metadata?.genres.map(g => ({ value: g.name, label: g.name })) || [], [metadata]);
+  const languages = useMemo(() => metadata?.languages.map(l => ({ value: l.name, label: l.name })) || [], [metadata]);
+  const formats = useMemo(() => metadata?.formats.map(f => ({ value: f.name, label: f.name })) || [], [metadata]);
+  const ageRatings = useMemo(() => metadata?.ageRatings.map(a => ({ value: a.name, label: a.name, description: '' })) || [], [metadata]);
 
   // Memoized filtered options
   const filteredOptions = useMemo(() => ({
@@ -260,7 +262,7 @@ export default function EditBookModal({
       await onUpdate(book);
       handleReset();
       onClose();
-    } catch (error) {
+    } catch {
       setFormState(prev => ({ 
         ...prev, 
         errors: { submit: 'Failed to update book. Please try again.' }
@@ -277,7 +279,7 @@ export default function EditBookModal({
     if (form) {
       form.requestSubmit();
     } else {
-      const syntheticEvent = new Event('submit') as any;
+      const syntheticEvent = new Event('submit') as unknown as React.FormEvent<HTMLFormElement>;
       syntheticEvent.preventDefault = () => {};
       await handleSubmit(syntheticEvent);
     }

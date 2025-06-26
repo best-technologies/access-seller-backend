@@ -15,7 +15,7 @@ import PricingInventorySection from './addBook/PricingInventorySection';
 import ClassificationSection from './addBook/ClassificationSection';
 import AdditionalDetailsSection from './addBook/AdditionalDetailsSection';
 import MediaPublisherSection from './addBook/MediaPublisherSection';
-import { api, MetadataResponse } from '@/services/api';
+import { MetadataResponse } from '@/services/api';
 
 // Enhanced Book interface with better typing
 export interface Book {
@@ -151,18 +151,18 @@ export default function AddBookModal({
   const genreRef = useRef<HTMLDivElement>(null);
   const languageRef = useRef<HTMLDivElement>(null);
   const formatRef = useRef<HTMLDivElement>(null);
-  const dropdownRefs = {
+  const dropdownRefs = useMemo(() => ({
     category: categoryRef,
     genre: genreRef,
     language: languageRef,
     format: formatRef
-  };
+  }), []);
 
   // Map backend data to dropdown format
-  const categories = metadata?.categories.map(c => ({ value: c.id, label: c.name })) || [];
-  const genres = metadata?.genres.map(g => ({ value: g.id, label: g.name })) || [];
-  const languages = metadata?.languages.map(l => ({ value: l.id, label: l.name })) || [];
-  const formats = metadata?.formats.map(f => ({ value: f.id, label: f.name })) || [];
+  const categories = useMemo(() => metadata?.categories.map(c => ({ value: c.id, label: c.name })) || [], [metadata]);
+  const genres = useMemo(() => metadata?.genres.map(g => ({ value: g.id, label: g.name })) || [], [metadata]);
+  const languages = useMemo(() => metadata?.languages.map(l => ({ value: l.id, label: l.name })) || [], [metadata]);
+  const formats = useMemo(() => metadata?.formats.map(f => ({ value: f.id, label: f.name })) || [], [metadata]);
   const ageRatings = metadata?.ageRatings.map(a => ({ value: a.name, label: a.name, description: '' })) || [];
 
   // Memoized filtered options
@@ -286,8 +286,10 @@ export default function AddBookModal({
       form.requestSubmit();
     } else {
       // Fallback: call handleSubmit directly
-      const syntheticEvent = new Event('submit') as any;
-      syntheticEvent.preventDefault = () => {};
+      const syntheticEvent = {
+        preventDefault: () => {},
+        // Add any other properties if needed by handleSubmit
+      } as React.FormEvent<HTMLFormElement>;
       await handleSubmit(syntheticEvent);
     }
   }, [handleSubmit]);

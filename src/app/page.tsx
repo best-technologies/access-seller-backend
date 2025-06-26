@@ -12,11 +12,32 @@ import { useEffect, useState } from 'react';
 import { api } from '@/services/api';
 import Loader from "@/components/Loader";
 
-export default function Home() {
-  const HOMEPAGE_CACHE_KEY = 'homepage_products_cache';
-  const HOMEPAGE_CACHE_TIME = 60 * 60 * 1000; // 1 hour
+// Types for homepage featured books and categories
+interface HomepageBook {
+  id: string;
+  book_name: string;
+  author: string;
+  description: string;
+  selling_price: number;
+  normal_price: number;
+  display_image?: string;
+  cover_image?: string;
+  category?: { name: string }[];
+}
 
-  const [homepageData, setHomepageData] = useState<any>(null);
+interface HomepageCategory {
+  id: string;
+  name: string;
+  description?: string;
+  total_books: number;
+  display_image?: string;
+}
+
+const HOMEPAGE_CACHE_KEY = 'homepage_products_cache';
+const HOMEPAGE_CACHE_TIME = 60 * 60 * 1000; // 1 hour
+
+export default function Home() {
+  const [homepageData, setHomepageData] = useState<unknown>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -57,29 +78,68 @@ export default function Home() {
 
   if (loading) return <Loader/>;
 
-  // Map API data to UI component shape
-  const mapBook = (book: any) => ({
-    id: book.id || book.book_name + (book.author || ''),
-    title: book.book_name,
-    author: book.author,
-    desc: book.description,
-    price: book.selling_price,
-    originalPrice: book.normal_price,
-    image: book.display_image || book.cover_image || '/images/book-images/profit-first.png', // fallback
-    category: Array.isArray(book.category) && book.category.length > 0 ? book.category[0].name : '',
-    // Add more fields as needed
-  });
-  const mapCategory = (cat: any) => ({
-    id: cat.id,
-    name: cat.name,
-    description: cat.description,
-    count: cat.total_books + ' Books',
-    image: cat.display_image,
-  });
+  // Inline Book type from FeaturedBooks/NewArrivals
+  type HomeBook = {
+    id: number;
+    title: string;
+    author: string;
+    desc: string;
+    price: string;
+    originalPrice?: string;
+    rating: number;
+    reviews: number;
+    image: string;
+    category: string;
+    badge?: 'Bestseller' | 'Trending' | 'Hot' | "Editor's Choice";
+    discount?: number;
+    isNew?: boolean;
+    sellingPrice?: string;
+    normalPrice?: string;
+  };
+  // Inline Category type from Categories
+  type HomeCategory = {
+    name: string;
+    description?: string;
+    image: string;
+    count: string;
+  };
 
-  const featuredBooks = (homepageData?.featured || []).map(mapBook);
-  const newArrivals = (homepageData?.newArrivals || []).map(mapBook);
-  const categories = (homepageData?.popularCategories || []).map(mapCategory);
+  const mapBook = (book: HomepageBook, idx: number): HomeBook => {
+    return {
+      id: idx, // Use index as fallback if id is not a number
+      title: book.book_name,
+      author: book.author,
+      desc: book.description,
+      price: String(book.selling_price),
+      originalPrice: book.normal_price ? String(book.normal_price) : undefined,
+      rating: 0,
+      reviews: 0,
+      image: book.display_image || book.cover_image || '/images/book-images/profit-first.png',
+      category: Array.isArray(book.category) && book.category.length > 0 ? book.category[0].name : '',
+    };
+  };
+  const mapCategory = (cat: HomepageCategory): HomeCategory => {
+    return {
+      name: cat.name,
+      description: cat.description,
+      image: cat.display_image || '/images/book-images/profit-first.png',
+      count: (cat.total_books || 0) + ' Books',
+    };
+  };
+
+  // Type guard for homepageData
+  const getHomepageField = <T,>(key: string, fallback: T): T => {
+    if (homepageData && typeof homepageData === 'object' && homepageData !== null && key in homepageData) {
+      // @ts-expect-error: dynamic access
+      return homepageData[key] as T;
+    }
+    return fallback;
+  };
+
+  const featuredBooks = getHomepageField<HomepageBook[]>('featured', []).map(mapBook);
+  const newArrivals = getHomepageField<HomepageBook[]>('newArrivals', []).map(mapBook);
+  const categories = getHomepageField<HomepageCategory[]>('popularCategories', []).map(mapCategory);
+  const availableCategories = getHomepageField<HomepageCategory[]>('available_categories', []);
 
   console.log("Homepage data: ", homepageData)
 
@@ -91,7 +151,7 @@ export default function Home() {
       {/* Featured Section with Background */}
       <section className="bg-gradient-to-b from-white to-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10">
-        <FeaturedBooks books={featuredBooks} available_categories={homepageData?.available_categories || []} />
+        <FeaturedBooks books={featuredBooks} available_categories={availableCategories} />
         </div>
       </section>
 

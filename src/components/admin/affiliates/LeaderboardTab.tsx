@@ -1,4 +1,4 @@
-import { Search, Download, User, Crown, Eye, Wallet, Share2, Filter, Calendar, TrendingUp } from "lucide-react";
+import { Search, Download, Filter, Calendar, TrendingUp } from "lucide-react";
 import type { AffiliateLeaderboardEntry } from '@/types/admin/dashboard/dashboard';
 
 interface LeaderboardTabProps {

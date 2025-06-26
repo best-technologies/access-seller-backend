@@ -1,4 +1,3 @@
-import { MapPin, TrendingUp, BarChart3, PieChart } from "lucide-react";
 import type { AffiliateAnalytics } from '@/types/admin/dashboard/dashboard';
 
 interface AnalyticsTabProps {

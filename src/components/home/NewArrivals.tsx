@@ -7,8 +7,23 @@ import { useRef } from "react";
 import Image from "next/image";
 import { useCart } from "@/hooks/useCart";
 
+interface Book {
+  id: number;
+  title: string;
+  author: string;
+  desc: string;
+  price: string;
+  originalPrice?: string;
+  rating?: number;
+  reviews?: number;
+  image: string;
+  releaseDate?: string;
+  sellingPrice?: string;
+  normalPrice?: string;
+}
+
 interface NewArrivalsProps {
-  books: any[];
+  books: Book[];
 }
 
 export default function NewArrivals({ books = [] }: NewArrivalsProps) {
@@ -56,55 +71,57 @@ export default function NewArrivals({ books = [] }: NewArrivalsProps) {
 
           {/* Grid Layout for Mobile, Scrollable for Desktop */}
           <div className="flex overflow-x-auto pb-6 gap-3 px-4 sm:px-0 sm:gap-4 sm:snap-x sm:snap-mandatory sm:scrollbar-hide">
-            {books.map((book) => (
-              <Card key={book.id} className="group relative flex-none w-[140px] sm:w-[180px] overflow-hidden border-none shadow-lg hover:shadow-xl transition-all duration-300 snap-start">
-                <div className="aspect-[3/4] w-full bg-gray-100 relative overflow-hidden">
-                  <div className="relative w-full h-full">
-                    <Image 
-                      src={book.image} 
-                      alt={book.title}
-                      fill
-                      className="object-cover group-hover:scale-105 transition-transform duration-300"
-                    />
-                  </div>
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                  <div className="absolute top-1 left-1 sm:top-2 sm:left-2 flex items-center gap-0.5 px-1 sm:px-1.5 py-0.5 bg-white/90 rounded-full text-[8px] sm:text-[10px] font-medium text-indigo-600">
-                    <Clock className="w-2 h-2 sm:w-2.5 sm:h-2.5" />
-                    {book.releaseDate}
-                  </div>
-                </div>
-                
-                <CardContent className="p-1.5 sm:p-2">
-                  <div className="flex items-start justify-between gap-1">
-                    <div>
-                      <h3 className="font-semibold text-[10px] sm:text-xs mb-0.5 line-clamp-1">{book.title}</h3>
-                      <p className="text-[8px] sm:text-[10px] text-gray-500 mb-0.5">{book.author}</p>
-                      <p className="text-[8px] sm:text-[10px] text-gray-600 line-clamp-2 mb-1">{book.desc}</p>
+            {books.map((b) => {
+              return (
+                <Card key={b.id} className="group relative flex-none w-[140px] sm:w-[180px] overflow-hidden border-none shadow-lg hover:shadow-xl transition-all duration-300 snap-start">
+                  <div className="aspect-[3/4] w-full bg-gray-100 relative overflow-hidden">
+                    <div className="relative w-full h-full">
+                      <Image 
+                        src={b.image} 
+                        alt={b.title}
+                        fill
+                        className="object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
                     </div>
-                    <div className="flex-shrink-0">
-                      <span className="text-xs sm:text-sm font-bold text-indigo-600">₦{Number(book.price).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}</span>
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                    <div className="absolute top-1 left-1 sm:top-2 sm:left-2 flex items-center gap-0.5 px-1 sm:px-1.5 py-0.5 bg-white/90 rounded-full text-[8px] sm:text-[10px] font-medium text-indigo-600">
+                      <Clock className="w-2 h-2 sm:w-2.5 sm:h-2.5" />
+                      {b.releaseDate}
                     </div>
                   </div>
                   
-                  <Button className="w-full bg-indigo-600 hover:bg-indigo-700 text-white rounded-full py-0.5 h-5 sm:h-6 text-[8px] sm:text-[10px]"
-                    onClick={() => addToCart({
-                      productId: String(book.id),
-                      quantity: 1,
-                      price: Number(book.price),
-                      sellingPrice: Number(book.sellingPrice ?? book.price),
-                      normalPrice: Number(book.normalPrice ?? book.originalPrice ?? book.price),
-                      product: {
-                        name: book.title,
-                        image: book.image,
-                        category: undefined // No category in newBooks, can be added if available
-                      }
-                    })}
-                  >
-                    Add to Cart
-                  </Button>
-                </CardContent>
-              </Card>
-            ))}
+                  <CardContent className="p-1.5 sm:p-2">
+                    <div className="flex items-start justify-between gap-1">
+                      <div>
+                        <h3 className="font-semibold text-[10px] sm:text-xs mb-0.5 line-clamp-1">{b.title}</h3>
+                        <p className="text-[8px] sm:text-[10px] text-gray-500 mb-0.5">{b.author}</p>
+                        <p className="text-[8px] sm:text-[10px] text-gray-600 line-clamp-2 mb-1">{b.desc}</p>
+                      </div>
+                      <div className="flex-shrink-0">
+                        <span className="text-xs sm:text-sm font-bold text-indigo-600">₦{Number(b.price).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}</span>
+                      </div>
+                    </div>
+                    
+                    <Button className="w-full bg-indigo-600 hover:bg-indigo-700 text-white rounded-full py-0.5 h-5 sm:h-6 text-[8px] sm:text-[10px]"
+                      onClick={() => addToCart({
+                        productId: String(b.id),
+                        quantity: 1,
+                        price: Number(b.price),
+                        sellingPrice: Number(b.sellingPrice ?? b.price),
+                        normalPrice: Number(b.normalPrice ?? b.originalPrice ?? b.price),
+                        product: {
+                          name: b.title,
+                          image: b.image,
+                          category: undefined // No category in newBooks, can be added if available
+                        }
+                      })}
+                    >
+                      Add to Cart
+                    </Button>
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
 
           {/* Gradient Fade Effect - Hidden on Mobile */}

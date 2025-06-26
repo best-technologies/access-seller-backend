@@ -2,14 +2,13 @@
 
 import { useEffect, useState } from "react";
 import KPICards from "@/components/admin/dashboard/KPICards";
-import ChartsSection from "@/components/admin/dashboard/ChartsSection";
 import RecentOrders from "@/components/admin/dashboard/RecentOrders";
 import TopProducts from "@/components/admin/dashboard/TopProducts";
 import Notifications from "@/components/admin/dashboard/Notifications";
 import { Download, RefreshCw, Calendar } from "lucide-react";
 import { api } from "@/services/api";
 import type { DashboardResponse } from "@/types/admin/dashboard/dashboard";
-import type { DashboardOrder, DashboardNotification, DashboardProduct } from "@/types/admin/dashboard/dashboard";
+import type { DashboardProduct } from "@/types/admin/dashboard/dashboard";
 import { recentOrders, notifications } from '@/data/admin/dashboard/mockData';
 
 const DASHBOARD_CACHE_KEY = "admin_dashboard_cache";
@@ -149,9 +148,6 @@ export default function AdminDashboard() {
 
       {/* KPI Cards */}
       <KPICards kpis={dashboardData?.dashboard.kpis || []} />
-
-      {/* Charts Section */}
-      {/* <ChartsSection salesData={dashboardData?.dashboard.salesData || { labels: [], sales: [], revenue: [], orders: [] }} /> */}
 
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

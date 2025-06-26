@@ -1,6 +1,6 @@
-import { X, ChevronDown, DollarSign } from 'lucide-react';
+import { ChevronDown, DollarSign } from 'lucide-react';
 import { Book } from '../AddBookModal';
-import { useState, useRef, useEffect } from 'react';
+import { useState } from 'react';
 
 interface CommissionState {
   isCustom: boolean;
@@ -24,8 +24,6 @@ interface Props {
 export default function PricingInventorySection({
   book,
   setBook,
-  commissionState,
-  setCommissionState,
   commissionOptions,
   errors = {}
 }: Props) {
@@ -55,42 +53,6 @@ export default function PricingInventorySection({
     }
   };
 
-  const handleCustomCommissionChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    const numValue = parseFloat(value);
-    
-    // Allow empty string or valid percentage (0-100)
-    if (value === '' || (!isNaN(numValue) && numValue >= 0 && numValue <= 100)) {
-      setCommissionState({
-        isCustom: true,
-        customValue: value,
-        warning: '',
-      });
-      setBook({ ...book, referralCommission: numValue || 0 });
-    }
-  };
-
-  const resetCustomCommission = () => {
-    setCommissionState({
-      isCustom: false,
-      customValue: '',
-      warning: '',
-    });
-    setBook({ ...book, referralCommission: 0 });
-  };
-
-  const handleCommissionSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const value = parseInt(e.target.value);
-    if (value === -1) {
-      setCommissionState({
-        isCustom: true,
-        customValue: '',
-        warning: '',
-      });
-    } else {
-      setBook({ ...book, referralCommission: value });
-    }
-  };
 
   return (
     <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200 transition-all hover:shadow-md">

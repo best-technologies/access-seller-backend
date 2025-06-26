@@ -17,12 +17,10 @@ export default function PromosCommissionsPage() {
   const [promoType, setPromoType] = useState<'global' | 'selected'>('global');
   const [promoCode, setPromoCode] = useState("");
   const [promoDiscount, setPromoDiscount] = useState("");
-  const [promoProducts, setPromoProducts] = useState<string[]>([]);
 
   // Commission State
   const [commissionType, setCommissionType] = useState<'general' | 'selected'>('general');
   const [commissionPercent, setCommissionPercent] = useState("");
-  const [commissionProducts, setCommissionProducts] = useState<string[]>([]);
 
   const [promoCodes, setPromoCodes] = useState(mockPromoCodes);
 

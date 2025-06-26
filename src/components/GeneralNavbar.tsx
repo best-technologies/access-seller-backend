@@ -18,7 +18,7 @@ import {
   Heart,
   ArrowLeft,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+
 
 export default function GeneralNavbar() {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);

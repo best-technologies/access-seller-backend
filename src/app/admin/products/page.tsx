@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import {
-  Search,
   Plus,
   MoreVertical,
   Edit,
@@ -12,12 +11,11 @@ import {
   Tag,
   DollarSign,
   ShoppingBag,
-  ChevronDown,
 } from "lucide-react";
 import AddBookModal from "@/components/modals/AddBookModal";
 import SuccessModal from "@/components/modals/SuccessModal";
 import Loader from "@/components/Loader";
-import { api } from "@/services/api";
+import { api, type MetadataResponse } from "@/services/api";
 import { formatAmount } from "@/lib/utils";
 import type { ProductsResponse, Product } from "@/types/admin/products/products";
 import type { Book } from "@/components/modals/AddBookModal";
@@ -70,7 +68,7 @@ function getCachedMetadata() {
   }
 }
 
-function setCachedMetadata(data: any) {
+function setCachedMetadata(data: MetadataResponse['data']) {
   if (typeof window === "undefined") return;
   localStorage.setItem(
     METADATA_CACHE_KEY,
@@ -91,7 +89,7 @@ export default function ProductsPage() {
   const [categorySearch, setCategorySearch] = useState("");
   const [categoriesMeta, setCategoriesMeta] = useState<{ value: string, label: string }[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>("");
-  const [metadata, setMetadata] = useState<any>(null);
+  const [metadata, setMetadata] = useState<MetadataResponse['data'] | null>(null);
   const [editingBook, setEditingBook] = useState<Book | null>(null);
   const [editingBookId, setEditingBookId] = useState<string | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -135,17 +133,17 @@ export default function ProductsPage() {
     if (!forceRefresh) {
       const cached = getCachedMetadata();
       if (cached) {
-        setCategoriesMeta(cached.categories.map((c: any) => ({ value: c.id, label: c.name })));
+        setCategoriesMeta(cached.categories.map((c: { id: string; name: string }) => ({ value: c.id, label: c.name })));
         setMetadata(cached);
         return;
       }
     }
     try {
       const res = await api.admin.fetchMetadata();
-      setCategoriesMeta(res.data.categories.map((c: any) => ({ value: c.id, label: c.name })));
+      setCategoriesMeta(res.data.categories.map((c: { id: string; name: string }) => ({ value: c.id, label: c.name })));
       setMetadata(res.data);
       setCachedMetadata(res.data);
-    } catch (err) {
+    } catch {
       // Optionally handle error
     }
   };
@@ -163,11 +161,6 @@ export default function ProductsPage() {
   };
 
   const handleMetadataRefresh = () => fetchMetadata(true);
-
-  // Helper to map names to IDs
-  function getIds(names: string[], metaArr: { id: string, name: string }[]) {
-    return names.map(name => metaArr.find(m => m.name === name)?.id).filter(Boolean);
-  }
 
   function transformBookForBackend(book: Book) {
     return {
@@ -230,15 +223,15 @@ export default function ProductsPage() {
   function productToBook(product: Product): Book {
     return {
       name: product.bookName || '',
-      description: (product as any).description || '',
+      description: (product as { description?: string }).description || '',
       qty: String(product.stock ?? ''),
-      sellingPrice: String(product.sellingPrice ?? ''),
-      normalPrice: String(product.normalPrice ?? ''),
+      sellingPrice: String((product as { sellingPrice?: string | number }).sellingPrice ?? ''),
+      normalPrice: String((product as { normalPrice?: string | number }).normalPrice ?? ''),
       category: product.categories?.map(c => c.id) || [],
-      language: (product as any).language || [],
-      format: (product as any).format || [],
-      genre: (product as any).genre || [],
-      rated: (product as any).rated || '',
+      language: (product as { language?: string[] }).language || [],
+      format: (product as { format?: string[] }).format || [],
+      genre: (product as { genre?: string[] }).genre || [],
+      rated: (product as { rated?: string }).rated || '',
       display_images: [], // You may want to handle images separately
       isbn: product.isbn || '',
       publisher: product.publishedBy || '',
@@ -312,7 +305,7 @@ export default function ProductsPage() {
   useEffect(() => {
     // Reset to first page if filters/search change and current page is out of range
     if (currentPage > totalPages) setCurrentPage(1);
-  }, [searchQuery, selectedCategory, totalPages]);
+  }, [searchQuery, selectedCategory, totalPages, currentPage]);
 
   const renderCategoryCell = (book: Product) => {
     const categories = Array.isArray(book.categories) ? book.categories : [];
@@ -668,7 +661,7 @@ export default function ProductsPage() {
           setIsAddBookOptionsModalOpen(false);
           setIsAddBookModalOpen(true);
         }}
-        onFileUpload={async (file) => {
+        onFileUpload={async () => {
           // TODO: Implement bulk upload logic here
           setIsAddBookOptionsModalOpen(false);
         }}

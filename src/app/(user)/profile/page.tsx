@@ -1,16 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Image from "next/image";
+import type { User } from '@/services/api';
 import { 
-  User,
   BookOpen,
   Heart,
   Settings,
   DollarSign,
-  Copy,
   Menu,
-  X
+  X,
+  User as UserIcon
 } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import ProfileInfo from "@/components/profile/ProfileInfo";
@@ -22,19 +21,18 @@ import { api } from "@/services/api";
 import Loader from "@/components/Loader";
 
 export default function ProfilePage() {
-  const [userData, setUserData] = useState<any>(null);
+  const [userData, setUserData] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("profile");
-  const [copied, setCopied] = useState<{ type: null | "code" | "link" }>({ type: null });
-  const [affiliateDashboard, setAffiliateDashboard] = useState<any>(null);
+  const [affiliateDashboard, setAffiliateDashboard] = useState<Record<string, unknown> | null>(null);
   const [affiliateLoading, setAffiliateLoading] = useState(false);
   const [affiliateError, setAffiliateError] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   // Sidebar navigation items
   const sidebarItems = [
-    { key: "profile", label: "Profile Information", icon: User },
+    { key: "profile", label: "Profile Information", icon: UserIcon },
     { key: "referrals", label: "Affiliate", icon: DollarSign },
     { key: "orders", label: "My Orders", icon: BookOpen },
     { key: "wishlist", label: "Wishlist", icon: Heart },
@@ -47,8 +45,8 @@ export default function ProfilePage() {
         setLoading(true);
         const response = await api.user.getProfile();
         setUserData(response.data);
-      } catch (err: any) {
-        setError(err.message || "Failed to load profile");
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : "Failed to load profile");
       } finally {
         setLoading(false);
       }
@@ -67,12 +65,6 @@ export default function ProfilePage() {
     }
   }, [activeTab, affiliateDashboard, affiliateLoading]);
 
-  const handleCopy = (value: string, type: "code" | "link") => {
-    navigator.clipboard.writeText(value);
-    setCopied({ type });
-    setTimeout(() => setCopied({ type: null }), 1500);
-  };
-
   if (loading) return <Loader/>;
   if (error) return <div className="min-h-screen flex items-center justify-center text-red-500">{error}</div>;
   if (!userData) return null;
@@ -81,17 +73,17 @@ export default function ProfilePage() {
   const mappedUserData = {
     name: `${userData.first_name} ${userData.last_name}`,
     email: userData.email,
-    phone: userData.phone_number || "",
-    address: userData.address || "",
-    joinDate: userData.joined_date || "",
+    phone: (userData as { phone_number?: string }).phone_number || "",
+    address: (userData as { address?: string }).address || "",
+    joinDate: (userData as { joined_date?: string }).joined_date || "",
     avatar: userData.profile_picture || "/images/icons/media.svg",
     stats: {
-      orders: userData.stats?.totalOrders ?? 0,
+      orders: (userData as { stats?: { totalOrders?: number } }).stats?.totalOrders ?? 0,
       wishlist: 0,
       reviews: 0,
     },
-    referralCode: userData.referralCode || "",
-    referralLink: userData.referralLink || ""
+    referralCode: (userData as { referralCode?: string }).referralCode || "",
+    referralLink: (userData as { referralLink?: string }).referralLink || ""
   };
 
   if (activeTab === "referrals") {

@@ -5,8 +5,6 @@ import {
   Wallet,
   Clock,
   AlertCircle,
-  Crown,
-  Star,
   TrendingUp,
   CheckCircle
 } from "lucide-react";

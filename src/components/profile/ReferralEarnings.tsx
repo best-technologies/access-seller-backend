@@ -1,31 +1,50 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { DollarSign, Users, TrendingUp, ArrowUpRight, Share2, Copy } from "lucide-react";
+import { DollarSign, Users, Copy } from "lucide-react";
 import { api } from "@/services/api";
 import { toast } from "react-hot-toast";
 import Image from "next/image";
 
 interface ReferralEarningsProps {
-  affiliateDashboard: any;
+  affiliateDashboard: Record<string, unknown>;
   refreshAffiliateDashboard: () => void;
 }
 
+type AffiliateLink = {
+  id: string;
+  productId: string;
+  slug: string;
+  clicks: number;
+  orders: number;
+  commission: number;
+  product: {
+    name: string;
+    displayImages?: Array<{ secure_url: string }>;
+    commission: number;
+    sellingPrice: number;
+    status: string;
+  };
+};
+
 export default function ReferralEarnings({ affiliateDashboard, refreshAffiliateDashboard }: ReferralEarningsProps) {
+  // All hooks must be called unconditionally
   const [showModal, setShowModal] = useState(false);
   const [niche, setNiche] = useState("");
   const [reason, setReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [affiliateLinks, setAffiliateLinks] = useState<any[]>([]);
+  const [affiliateLinks, setAffiliateLinks] = useState<AffiliateLink[]>([]);
   const [affiliateLinksLoading, setAffiliateLinksLoading] = useState(false);
   const [affiliateLinksError, setAffiliateLinksError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'products' | 'payouts'>('dashboard');
+  const [payoutTab, setPayoutTab] = useState<'all' | 'pending' | 'paid'>('all');
+  const [copiedLinkId, setCopiedLinkId] = useState<string | null>(null);
+
+  // Data extraction
   const data = affiliateDashboard || {};
-  console.log("data: ", data)
-  const isAffiliate = data.is_affiliate;
-  const affiliateStatus = data.affiliate_status;
-  const createdAt = data.created_at;
-  // console.log("Affiliate status: ", affiliateStatus)
-  // console.log("is Affiliate status: ", isAffiliate)
+  const isAffiliate = data.is_affiliate as boolean;
+  const affiliateStatus = data.affiliate_status as string;
+  const createdAt = data.created_at as string;
   // Helper for 3-day check
   let canContactSupport = false;
   if (createdAt) {
@@ -50,16 +69,22 @@ export default function ReferralEarnings({ affiliateDashboard, refreshAffiliateD
       } else {
         toast.error(res.message || "Failed to send request");
       }
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || err.message || "Failed to send request");
+    } catch (err: unknown) {
+      if (err && typeof err === 'object' && 'message' in err) {
+        toast.error((err as { message?: string }).message || "Failed to send request");
+      } else {
+        toast.error("Failed to send request");
+      }
     } finally {
       setSubmitting(false);
     }
   };
 
+  // Render affiliate status UI conditionally, but always call hooks
+  let affiliateStatusUI: React.ReactNode = null;
   if (!isAffiliate) {
     if (affiliateStatus === "not_affiliate") {
-      return (
+      affiliateStatusUI = (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 flex flex-col items-center justify-center text-center">
           <h2 className="text-lg font-semibold text-gray-900 mb-2">You are not an affiliate yet</h2>
           <p className="text-gray-600 mb-4">Become an affiliate to earn commissions by referring others.</p>
@@ -110,9 +135,8 @@ export default function ReferralEarnings({ affiliateDashboard, refreshAffiliateD
           )}
         </div>
       );
-    }
-    if (affiliateStatus === "awaiting_approval") {
-      return (
+    } else if (affiliateStatus === "awaiting_approval") {
+      affiliateStatusUI = (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 flex flex-col items-center justify-center text-center">
           <h2 className="text-lg font-semibold text-gray-900 mb-2">Affiliate Request Awaiting Approval</h2>
           <p className="text-gray-600 mb-4">Your request to become an affiliate is being reviewed. You will be notified once a decision is made.</p>
@@ -127,9 +151,8 @@ export default function ReferralEarnings({ affiliateDashboard, refreshAffiliateD
           )}
         </div>
       );
-    }
-    if (affiliateStatus === "rejected") {
-      return (
+    } else if (affiliateStatus === "rejected") {
+      affiliateStatusUI = (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 flex flex-col items-center justify-center text-center">
           <h2 className="text-lg font-semibold text-red-600 mb-2">Affiliate Request Rejected</h2>
           <p className="text-gray-600 mb-4">Your request to become an affiliate was rejected. You may update your information and request again.</p>
@@ -184,41 +207,43 @@ export default function ReferralEarnings({ affiliateDashboard, refreshAffiliateD
   }
 
   // If affiliate, show dashboard
-  const stats = data.stats || {};
-  const tableAnalysis = data.tableAnalysis || [];
+  const stats = (data.stats as Record<string, unknown>) || {};
+  const tableAnalysis = (data.tableAnalysis as Array<Record<string, unknown>>) || [];
   console.log("Table analysis: ", tableAnalysis)
 
-  // Tabs state
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'products' | 'payouts'>('dashboard');
-  // Sub-sub-tab state for payouts
-  const [payoutTab, setPayoutTab] = useState<'all' | 'pending' | 'paid'>('all');
-
   // Fetch affiliate links when products tab is active
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (activeTab === 'products' && affiliateLinks.length === 0 && !affiliateLinksLoading) {
       setAffiliateLinksLoading(true);
       setAffiliateLinksError(null);
       api.user.getAffiliateLinks()
-        .then((res: any) => {
-          if (res.success) {
-            setAffiliateLinks(res.data || []);
+        .then((res) => {
+          const result = res as unknown as { success: boolean; data: AffiliateLink[]; message?: string };
+          if (result.success) {
+            setAffiliateLinks(result.data || []);
           } else {
-            setAffiliateLinksError(res.message || "Failed to load affiliate links");
+            setAffiliateLinksError(result.message || "Failed to load affiliate links");
           }
         })
-        .catch((err) => setAffiliateLinksError(err.message || "Failed to load affiliate links"))
+        .catch((err: unknown) => {
+          if (err && typeof err === 'object' && 'message' in err) {
+            setAffiliateLinksError((err as { message?: string }).message || "Failed to load affiliate links");
+          } else {
+            setAffiliateLinksError("Failed to load affiliate links");
+          }
+        })
         .finally(() => setAffiliateLinksLoading(false));
     }
-  }, [activeTab, affiliateLinks.length, affiliateLinksLoading]);
+  }, [activeTab, affiliateLinks.length]);
 
   // Promoted products from API
-  const [copiedLinkId, setCopiedLinkId] = useState<string | null>(null);
-  const promotedProducts = affiliateLinks.map((link: any) => ({
+  const promotedProducts = affiliateLinks.map((link) => ({
     id: link.id,
     name: link.product.name,
     image: link.product.displayImages?.[0]?.secure_url || '/placeholder.png',
     commission: link.product.commission,
-    earningPerSale: (link.product.sellingPrice * parseInt(link.product.commission)) / 100,
+    earningPerSale: (link.product.sellingPrice * Number(link.product.commission)) / 100,
     earnings: link.commission,
     clicks: link.clicks,
     sales: link.orders,
@@ -268,6 +293,8 @@ export default function ReferralEarnings({ affiliateDashboard, refreshAffiliateD
     },
   ];
 
+  if (affiliateStatusUI) return affiliateStatusUI;
+
   return (
     <div className="space-y-6">
       {/* Tabs */}
@@ -313,7 +340,7 @@ export default function ReferralEarnings({ affiliateDashboard, refreshAffiliateD
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-500">Total Earned</p>
-                  <p className="text-2xl font-semibold text-gray-900">₦{stats.totalEarned ?? 0}</p>
+                  <p className="text-2xl font-semibold text-gray-900">₦{(stats.totalEarned as number) ?? 0}</p>
                 </div>
                 <div className="p-3 bg-green-50 rounded-lg">
                   <DollarSign className="h-6 w-6 text-green-600" />
@@ -324,7 +351,7 @@ export default function ReferralEarnings({ affiliateDashboard, refreshAffiliateD
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-500">Total Purchases</p>
-                  <p className="text-2xl font-semibold text-gray-900">{stats.totalPurchases ?? 0}</p>
+                  <p className="text-2xl font-semibold text-gray-900">{(stats.totalPurchases as number) ?? 0}</p>
                 </div>
                 <div className="p-3 bg-blue-50 rounded-lg">
                   <Users className="h-6 w-6 text-blue-600" />
@@ -335,7 +362,7 @@ export default function ReferralEarnings({ affiliateDashboard, refreshAffiliateD
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-500">Total Withdrawn</p>
-                  <p className="text-2xl font-semibold text-gray-900">₦{stats.totalWithdrawn ?? 0}</p>
+                  <p className="text-2xl font-semibold text-gray-900">₦{(stats.totalWithdrawn as number) ?? 0}</p>
                 </div>
                 <div className="p-3 bg-yellow-50 rounded-lg">
                   <DollarSign className="h-6 w-6 text-yellow-600" />
@@ -346,7 +373,7 @@ export default function ReferralEarnings({ affiliateDashboard, refreshAffiliateD
           {/* Table Analysis Placeholder */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Analysis</h3>
-            {tableAnalysis.length === 0 ? (
+            {(tableAnalysis as Array<Record<string, unknown>>).length === 0 ? (
               <p className="text-gray-500">No analysis data available.</p>
             ) : (
               <pre>{JSON.stringify(tableAnalysis, null, 2)}</pre>
@@ -357,7 +384,7 @@ export default function ReferralEarnings({ affiliateDashboard, refreshAffiliateD
       {activeTab === 'products' && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-bold text-gray-900">Products You're Promoting</h3>
+            <h3 className="text-lg font-bold text-gray-900">Products You are Promoting</h3>
             <button
               className="inline-flex items-center gap-1 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-medium shadow transition-colors text-sm"
               // TODO: Add onClick handler to navigate to hot products page
@@ -390,7 +417,7 @@ export default function ReferralEarnings({ affiliateDashboard, refreshAffiliateD
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-100">
-                {promotedProducts.map((p: any) => (
+                {promotedProducts.map((p) => (
                   <tr key={p.id}>
                     <td className="px-4 py-2">
                       <div className="w-14 h-20 relative rounded overflow-hidden border border-gray-200">
@@ -414,7 +441,7 @@ export default function ReferralEarnings({ affiliateDashboard, refreshAffiliateD
                     </td>
                     <td className="px-4 py-2">
                       <div className="flex items-center gap-2">
-                        <span className="font-mono text-xs bg-indigo-50 px-2 py-1 rounded select-all truncate max-w-[120px]" title={p.shareableLink}>{p.shareableLink}</span>
+                        <span className="font-mono text-xs bg-indigo-50 px-2 py-1 rounded select-all truncate max-w-[120px]" title={p.shareableLink}>{String(p.shareableLink).replace("'", "&apos;")}</span>
                         <button
                           onClick={() => handleCopyLink(p.shareableLink, p.id)}
                           className="p-1.5 rounded-lg bg-indigo-100 hover:bg-indigo-200 transition-colors"

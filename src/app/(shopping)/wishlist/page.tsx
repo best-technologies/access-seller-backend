@@ -12,7 +12,6 @@ import {
   Award,
   Eye,
   Share2,
-  Filter,
   SortAsc,
   Grid3X3,
   List
@@ -24,6 +23,7 @@ import { useWishlist } from "@/hooks/useWishlist";
 import { useCart } from "@/hooks/useCart";
 import toast from "react-hot-toast";
 import Navbar from "@/components/home/Navbar";
+import type { WishlistItem } from "@/context/WishlistContext";
 
 export default function WishlistPage() {
   const { wishlist, removeFromWishlist, clearWishlist } = useWishlist();
@@ -31,13 +31,13 @@ export default function WishlistPage() {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [sortBy, setSortBy] = useState<"date" | "price" | "name">("date");
 
-  const handleAddToCart = (item: any) => {
+  const handleAddToCart = (item: WishlistItem) => {
     addToCart({
       productId: item.id,
       quantity: 1,
       price: item.price,
-      sellingPrice: item.sellingPrice ?? item.price,
-      normalPrice: item.normalPrice ?? item.originalPrice ?? item.price,
+      sellingPrice: item.price,
+      normalPrice: item.originalPrice ?? item.price,
       product: {
         name: item.title,
         image: item.image,
@@ -177,7 +177,7 @@ export default function WishlistPage() {
                   <SortAsc className="w-4 h-4 text-gray-500" />
                   <select
                     value={sortBy}
-                    onChange={(e) => setSortBy(e.target.value as any)}
+                    onChange={(e) => setSortBy(e.target.value as "date" | "price" | "name")}
                     className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   >
                     <option value="date">Newest First</option>

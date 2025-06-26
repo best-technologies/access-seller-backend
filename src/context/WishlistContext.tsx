@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from "react";
 
-interface WishlistItem {
+export interface WishlistItem {
   id: string;
   title: string;
   author: string;
@@ -37,7 +37,7 @@ export const WishlistProvider = ({ children }: { children: ReactNode }) => {
       try {
         const parsedWishlist = JSON.parse(stored);
         // Migrate existing wishlist items that don't have addedAt field
-        const migratedWishlist = parsedWishlist.map((item: any, index: number) => {
+        const migratedWishlist = parsedWishlist.map((item: WishlistItem, index: number) => {
           if (!item.addedAt) {
             // For existing items without addedAt, use a timestamp that puts older items first
             // This ensures existing items appear in the order they were originally added
