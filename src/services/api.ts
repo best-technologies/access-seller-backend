@@ -144,19 +144,27 @@ export const api = {
     login: (email: string, password: string): Promise<LoginResponse> =>
       axiosInstance.post('/auth/sign-in', { email, password }),
 
+    // register: (data: RegistrationData): Promise<RegisterResponse> =>
+    //   axiosInstance.post('/auth/signup', {
+    //     email: data.email,
+    //     password: data.password,
+    //     firstName: data.firstName,
+    //     lastName: data.lastName,
+    //     middleName: data.middleName,
+    //     phone: data.phone,
+    //     gender: data.gender,
+    //     country: data.country,
+    //     referral_code: data.referralCode,
+    //     updates_opt_in: data.updatesOptIn,
+    //     agreeToTerms: data.agreeToTerms,
+    //   }),
+
     register: (data: RegistrationData): Promise<RegisterResponse> =>
-      axiosInstance.post('/auth/signup', {
+      axiosInstance.post('/auth/register', {
         email: data.email,
         password: data.password,
         firstName: data.firstName,
         lastName: data.lastName,
-        middleName: data.middleName,
-        phone: data.phone,
-        gender: data.gender,
-        country: data.country,
-        referral_code: data.referralCode,
-        updates_opt_in: data.updatesOptIn,
-        agreeToTerms: data.agreeToTerms,
       }),
 
     verifyOTP: (otp: string, email: string) =>
