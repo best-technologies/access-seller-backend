@@ -6,7 +6,12 @@ import axios, { AxiosError, AxiosInstance } from 'axios';
 import type { BrowseProductsResponse, Product } from '@/types/product';
 import { PromoCodeVerifyResponse } from '@/types/admin/discounts/discount';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+let API_URL;
+if(process.env.node_env === "development") {
+  API_URL = "localhost:3000"
+} else {
+  API_URL = process.env.NEXT_PUBLIC_API_URL;
+}
 
 // Create axios instance with default config
 const axiosInstance: AxiosInstance = axios.create({

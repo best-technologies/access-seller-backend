@@ -226,7 +226,7 @@ function RegisterForm() {
                   <div className="text-sm text-center text-gray-600">
                     Already have an account?{" "}
                     <Link
-                      href="/login"
+                      href="/auth/login"
                       className="text-indigo-600 hover:text-indigo-700 font-medium hover:underline"
                     >
                       Sign in
