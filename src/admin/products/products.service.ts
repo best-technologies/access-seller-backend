@@ -1183,4 +1183,66 @@ export class ProductsService {
     //         throw new BadRequestException('Failed to parse file: ' + error.message);
     //     }
     // }
+
+    async getProductsWithCommission(page: number = 1, limit: number = 10) {
+        console.log(colors.cyan('Fetching products with commission > 0...'));
+        const skip = (page - 1) * limit;
+        // Prisma does not support direct numeric comparison on string fields, so filter in JS after query
+        const products = await this.prisma.product.findMany({
+            skip,
+            take: limit,
+            where: {
+                commission: { not: null },
+            },
+            include: {
+                categories: { select: { id: true, name: true } },
+                formats: { select: { id: true, name: true } },
+            },
+            orderBy: { createdAt: 'desc' }
+        });
+        // Filter products with commission > 0
+        const filtered = products.filter(p => {
+            const num = Number(p.commission);
+            return !isNaN(num) && num > 0;
+        });
+        // Map to ProductResponseDto
+        const result = filtered.map(product => ({
+            id: product.id,
+            name: product.name,
+            description: product.description ?? undefined,
+            sellingPrice: product.sellingPrice,
+            normalPrice: product.normalPrice,
+            stock: product.stock,
+            images: Array.isArray(product.displayImages) ? product.displayImages.map((img: any) => img.secure_url) : [],
+            categoryId: product.categories && product.categories[0] ? product.categories[0].id : '',
+            storeId: product.storeId ?? '',
+            commission: product.commission ? Number(product.commission) : 0,
+            isActive: product.isActive,
+            status: product.status,
+            isbn: product.isbn ?? undefined,
+            format: product.formats ? product.formats.map(f => f.name) : [],
+            publisher: product.publisher ?? undefined,
+            author: product.author ?? undefined,
+            pages: product.pages ?? undefined,
+            language: [], // Not included in this query
+            genre: [], // Not included in this query
+            publishedDate: product.publishedDate ?? undefined,
+            createdAt: product.createdAt,
+            updatedAt: product.updatedAt,
+            store: undefined,
+            category: product.categories && product.categories[0] ? {
+                id: product.categories[0].id,
+                name: product.categories[0].name
+            } : undefined
+        }));
+        return new ApiResponse(true, 'Products with commission > 0 fetched', {
+            products: result,
+            pagination: {
+                currentPage: page,
+                totalPages: Math.ceil(filtered.length / limit),
+                totalItems: filtered.length,
+                itemsPerPage: limit
+            }
+        });
+    }
 } 

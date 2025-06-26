@@ -3,6 +3,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import * as colors from "colors";
 import { ApiResponse } from 'src/shared/helper-functions/response';
 import { requestAffiliatePermissionDto } from './dto/afiliate.dto';
+import { RequestCommissionPayoutDto, CommissionPayoutResponseDto } from './dto/commission-payout.dto';
+import { AffiliateStatus } from '@prisma/client';
 
 @Injectable()
 export class UserService {
@@ -195,5 +197,179 @@ export class UserService {
       console.log(colors.red('Error fetching affiliate dashboard'), error);
       return new ApiResponse(false, 'Failed to fetch affiliate dashboard.');
     }
+  }
+
+  async generateAffiliateLink(userId: string, productId: string) {
+    console.log(colors.cyan("generating affiliate link"));
+    try {
+        // Check if user is an approved/active affiliate
+        const affiliate = await this.prisma.affiliate.findUnique({ where: { userId } });
+        if (!affiliate || !(affiliate.status === AffiliateStatus.approved || affiliate.status === AffiliateStatus.active)) {
+            console.log(colors.red('User is not an approved or active affiliate.'));
+            return {
+                success: false,
+                message: 'User is not an approved or active affiliate.',
+                data: null
+            };
+        } 
+        // Check if product exists
+        const product = await this.prisma.product.findUnique({ where: { id: productId } });
+        if (!product) {
+            console.log(colors.red('Product not found.'));
+            return {
+                success: false,
+                message: 'Product not found.',
+                data: null
+            };
+        }
+        // Check if link already exists for this user-product
+        const existing = await this.prisma.affiliateLink.findUnique({ where: { userId_productId: { userId, productId } } });
+        if (existing) {
+            console.log(colors.yellow('Affiliate link already exists.'));
+            return {
+                success: true,
+                message: 'Affiliate link already exists.', 
+                data: existing 
+            };
+        }
+        // Generate a unique slug
+        let slug = `${userId.slice(0, 6)}-${productId.slice(0, 6)}-${Math.random()
+            .toString(36)
+            .substring(2, 7)}`;
+
+        // Still check for uniqueness (though very unlikely to need this)
+        let i = 1;
+        while (await this.prisma.affiliateLink.findUnique({ where: { slug } })) {
+            slug = `${userId.slice(0, 6)}-${productId.slice(0, 6)}-${Math.random()
+                .toString(36)
+                .substring(2, 7)}-${i++}`;
+        }
+        // Create the link
+        const link = await this.prisma.affiliateLink.create({
+            data: {
+                userId,
+                productId,
+                slug
+            }
+        });
+        // Construct shareable link
+        const baseUrl = process.env.BASE_URL?.replace(/\/$/, '') || 'http://localhost:3000';
+        const productSlug = product.id;
+        const shareableLink = `${baseUrl}/product/${productSlug}?ref=${link.slug}`;
+        console.log(colors.green('Affiliate link generated successfully.'));
+        return {
+            success: true,
+            message: 'Affiliate link generated successfully.',
+            data: {
+                ...link,
+                shareableLink
+            }
+        };
+    } catch (error) {
+        console.log(colors.red('Error generating affiliate link:'), error);
+        return {
+            success: false, 
+            message: 'Failed to generate affiliate link.',
+            data: null,
+            error: error?.message || error
+        };
+    }
+}
+
+  async getAffiliateLinksForUser(user: any) {
+    console.log(colors.cyan('[user-service] Fetching affiliate links for user...'));
+    try {
+        // Get user from email
+        const existingUser = await this.prisma.user.findFirst({ 
+            where: { email: user.email } 
+        });
+        
+        if (!existingUser) {
+            return {
+                success: false,
+                message: 'User not found.',
+                data: null
+            };
+        }
+
+        const links = await this.prisma.affiliateLink.findMany({
+            where: { userId: existingUser.id },
+            include: {
+                product: {
+                    select: {
+                        id: true,
+                        name: true,
+                        displayImages: true,
+                        commission: true,
+                        status: true,
+                        sellingPrice: true
+                    } 
+                }
+            }
+        });
+      
+        console.log(colors.green(`Total of ${links.length} Affiliate links fetched successfully.`));
+        return {
+            success: true,
+            message: 'Affiliate links fetched successfully.',
+            data: links
+        };
+    } catch (error) {
+        console.log(colors.red('Error fetching affiliate links:'), error);
+        return {
+            success: false,
+            message: 'Failed to fetch affiliate links.',
+            data: null,
+            error: error?.message || error
+        };
+    }
+}
+
+  /**
+   * User requests a commission payout
+   */
+  async requestCommissionPayout(user: any, dto: RequestCommissionPayoutDto) {
+    // Validate user
+    const existingUser = await this.prisma.user.findFirst({ where: { email: user.email } });
+    if (!existingUser) {
+      return new ApiResponse(false, 'User not found.');
+    }
+    // Calculate total pending commission
+    const pendingAgg = await this.prisma.commission.aggregate({
+      _sum: { amount: true },
+      where: { userId: existingUser.id, status: 'pending' }
+    });
+    const pendingAmount = Number(pendingAgg._sum.amount || 0);
+    if (dto.amount > pendingAmount) {
+      return new ApiResponse(false, 'Requested amount exceeds pending commission.');
+    }
+    // Generate unique reference
+    const reference = `PAYOUT-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+    // Create payout request
+    const payout = await this.prisma.commissionPayout.create({
+      data: {
+        userId: existingUser.id,
+        amount: dto.amount,
+        method: dto.method,
+        reference,
+        status: 'pending',
+      }
+    });
+    return new ApiResponse(true, 'Commission payout requested.', payout);
+  }
+
+  /**
+   * Get user's commission payout history
+   */
+  async getCommissionPayoutHistory(user: any) {
+    const existingUser = await this.prisma.user.findFirst({ where: { email: user.email } });
+    if (!existingUser) {
+      return new ApiResponse(false, 'User not found.');
+    }
+    const payouts = await this.prisma.commissionPayout.findMany({
+      where: { userId: existingUser.id },
+      orderBy: { requestedAt: 'desc' }
+    });
+    return new ApiResponse(true, 'Commission payout history fetched.', payouts);
   }
 }

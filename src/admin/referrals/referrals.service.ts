@@ -401,11 +401,16 @@ export class ReferralsService {
                 };
             }
             // Generate a unique slug
-            let baseSlug = slugify(`${affiliate.userName}-${product.name}`, { lower: true, strict: true });
-            let slug = baseSlug;
+            let slug = `${userId.slice(0, 6)}-${productId.slice(0, 6)}-${Math.random()
+                .toString(36)
+                .substring(2, 7)}`;
+
+            // Still check for uniqueness (though very unlikely to need this)
             let i = 1;
             while (await this.prisma.affiliateLink.findUnique({ where: { slug } })) {
-                slug = `${baseSlug}-${i++}`;
+                slug = `${userId.slice(0, 6)}-${productId.slice(0, 6)}-${Math.random()
+                    .toString(36)
+                    .substring(2, 7)}-${i++}`;
             }
             // Create the link
             const link = await this.prisma.affiliateLink.create({
@@ -577,6 +582,39 @@ export class ReferralsService {
             return {
                 success: false,
                 message: 'Failed to fetch affiliate link for user and product.',
+                data: null,
+                error: error?.message || error
+            };
+        }
+    }
+
+    /**
+     * Fetch all commission payouts (admin)
+     */
+    async fetchAllCommissionPayouts() {
+        try {
+            const payouts = await this.prisma.commissionPayout.findMany({
+                orderBy: { requestedAt: 'desc' },
+                include: {
+                    user: {
+                        select: {
+                            id: true,
+                            first_name: true,
+                            last_name: true,
+                            email: true
+                        }
+                    }
+                }
+            });
+            return {
+                success: true,
+                message: 'Commission payouts fetched successfully.',
+                data: payouts
+            };
+        } catch (error) {
+            return {
+                success: false,
+                message: 'Failed to fetch commission payouts.',
                 data: null,
                 error: error?.message || error
             };

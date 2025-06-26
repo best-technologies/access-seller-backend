@@ -76,5 +76,10 @@ export class ReferralsController {
     ) {
         const userId = req.user.id;
         return this.referralsService.getAffiliateLinkForUserAndProduct(userId, productId);
-    } 
+    }
+
+    @Get('commission-payouts')
+    async fetchAllCommissionPayouts() {
+        return this.referralsService.fetchAllCommissionPayouts();
+    }
 } 

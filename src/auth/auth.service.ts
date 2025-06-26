@@ -350,6 +350,88 @@ export class AuthService {
                 this.prisma.cartItem.count({ where: { cart: { userId: existing_user.id } } })
             ]);
 
+            // Fetch promoted products if user is an affiliate
+            let promoted_products: any[] = [];
+            if (existing_user.isAffiliate) {
+                // Get all affiliate links for this user, including product
+                const affiliateLinks = await this.prisma.affiliateLink.findMany({
+                    where: { userId: existing_user.id },
+                    include: { product: true }
+                });
+                // For each link, gather stats
+                promoted_products = await Promise.all(affiliateLinks.map(async (link) => {
+                    // Product image (first image if available)
+                    let product_image: string | null = null;
+                    if (link.product && link.product.displayImages) {
+                        try {
+                            let images: any = link.product.displayImages;
+                            if (typeof images === 'string') {
+                                images = JSON.parse(images);
+                            }
+                            if (Array.isArray(images) && images.length > 0) {
+                                if (typeof images[0] === 'string') {
+                                    product_image = images[0];
+                                } else if (images[0].secure_url) {
+                                    product_image = images[0].secure_url;
+                                }
+                            }
+                        } catch (e) {
+                            product_image = null;
+                        }
+                    }
+                    // Commission per sale (from product.commission, fallback to 0)
+                    let affiliate_commission = 0;
+                    if (link.product && link.product.commission) {
+                        affiliate_commission = parseFloat(link.product.commission) || 0;
+                    }
+                    // All time earning for this product (sum of commissions for this user and product)
+                    const all_time_earning_agg = await this.prisma.commission.aggregate({
+                        _sum: { amount: true },
+                        where: { userId: existing_user.id, order: { items: { some: { productId: link.productId } } } }
+                    });
+                    const all_time_earning = Number(all_time_earning_agg._sum.amount || 0);
+                    // Sales (number of orders for this user and product)
+                    const sales = await this.prisma.order.count({
+                        where: {
+                            commissions: { some: { userId: existing_user.id } },
+                            items: { some: { productId: link.productId } }
+                        }
+                    });
+                    // Earning per sale (average commission per sale)
+                    const earning_per_sale = sales > 0 ? all_time_earning / sales : 0;
+                    // Status (from product.status)
+                    const status = link.product ? link.product.status : 'unknown';
+                    // Affiliate link (shareable)
+                    const baseUrl = process.env.BASE_URL?.replace(/\/$/, '') || 'http://localhost:3000';
+                    const affiliate_link = `${baseUrl}/products/${link.productId}?ref=${link.slug}`;
+                    return {
+                        product_image,
+                        product_name: link.product ? link.product.name : '',
+                        affiliate_commission,
+                        earning_per_sale,
+                        all_time_earning, 
+                        sales,
+                        status,
+                        affiliate_link
+                    };
+                }));
+            }
+
+            // Fetch commission payouts for the user
+            const commission_payouts = await this.prisma.commissionPayout.findMany({
+                where: { userId: existing_user.id },
+                orderBy: { requestedAt: 'desc' },
+                select: {
+                    id: true,
+                    amount: true,
+                    status: true,
+                    method: true,
+                    reference: true,
+                    requestedAt: true,
+                    paidAt: true
+                }
+            });
+
             const formatted_user_response = {
                 id: existing_user.id,
                 email: existing_user.email,
@@ -366,7 +448,17 @@ export class AuthService {
                 stats: {
                     totalOrders,
                     totalCartItems
-                }
+                },
+                promoted_products,
+                commission_payouts: commission_payouts.map(p => ({
+                    payout_id: p.id,
+                    amount: p.amount,
+                    status: p.status,
+                    method: p.method,
+                    reference: p.reference,
+                    requestedAt: p.requestedAt,
+                    paidAt: p.paidAt
+                }))
             }
 
             console.log(colors.magenta("User successfully retrieved"))

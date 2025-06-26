@@ -224,15 +224,16 @@ model User {
   updatedAt             DateTime        @updatedAt
 
   // Relations
-  store          Store?          @relation(fields: [store_id], references: [id])
-  orders         Order[]
-  cart           Cart?
-  referrals_made Referral[]      @relation("Referrer")
-  referredBy     Referral[]      @relation("Referred")
-  commissions    Commission[]
-  referralCode   ReferralCode?
-  Affiliate      Affiliate?
-  AffiliateLink  AffiliateLink[]
+  store            Store?             @relation(fields: [store_id], references: [id])
+  orders           Order[]
+  cart             Cart?
+  referrals_made   Referral[]         @relation("Referrer")
+  referredBy       Referral[]         @relation("Referred")
+  commissions      Commission[]
+  referralCode     ReferralCode?
+  Affiliate        Affiliate?
+  AffiliateLink    AffiliateLink[]
+  CommissionPayout CommissionPayout[]
 }
 
 model Product {
@@ -507,4 +508,17 @@ model AffiliateLink {
   commission Float    @default(0)
 
   @@unique([userId, productId])
+}
+
+model CommissionPayout {
+  id          String    @id @default(cuid())
+  userId      String
+  amount      Float
+  status      String    @default("pending") // pending, paid, rejected, cancelled
+  method      String // e.g. "bank", "wallet", "paypal"
+  reference   String    @unique
+  requestedAt DateTime  @default(now())
+  paidAt      DateTime?
+
+  user User @relation(fields: [userId], references: [id])
 }
