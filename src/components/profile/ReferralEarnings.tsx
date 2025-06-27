@@ -212,7 +212,6 @@ export default function ReferralEarnings({ affiliateDashboard, refreshAffiliateD
   console.log("Table analysis: ", tableAnalysis)
 
   // Fetch affiliate links when products tab is active
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (activeTab === 'products' && affiliateLinks.length === 0 && !affiliateLinksLoading) {
       setAffiliateLinksLoading(true);
@@ -235,7 +234,7 @@ export default function ReferralEarnings({ affiliateDashboard, refreshAffiliateD
         })
         .finally(() => setAffiliateLinksLoading(false));
     }
-  }, [activeTab, affiliateLinks.length]);
+  }, [activeTab, affiliateLinks.length, affiliateLinksLoading]);
 
   // Promoted products from API
   const promotedProducts = affiliateLinks.map((link) => ({

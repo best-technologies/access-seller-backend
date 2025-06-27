@@ -68,3 +68,34 @@ export interface BrowseProduct {
   categories: { id: string; name: string }[];
   formats: { id: string; name: string }[];
 }
+
+export interface ProductUI {
+  id: string;
+  title: string;
+  description: string;
+  price: number;
+  originalPrice?: number;
+  amountSaved?: number;
+  stock: number;
+  images: string[];
+  category: string;
+  categoryId?: string;
+  commission?: number;
+  isActive?: boolean;
+  status?: string;
+  isbn?: string;
+  publisher?: string;
+  format?: string[];
+  availableFormats?: string[];
+  language?: string[];
+  genre?: string[];
+  createdAt?: string;
+  updatedAt?: string;
+  features?: string[];
+  rating?: number;
+  reviews?: number;
+  specifications?: Record<string, string>;
+  isNew?: boolean;
+  author?: string;
+  discount?: number;
+}
