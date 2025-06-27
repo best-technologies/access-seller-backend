@@ -171,6 +171,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
 
         handleAuthStateChange(true, userProfile.data);
+        const redirectUrl = typeof window !== 'undefined' ? localStorage.getItem('postAuthRedirect') : null;
+        if (redirectUrl) {
+          localStorage.removeItem('postAuthRedirect');
+          router.replace(redirectUrl);
+          return response.message || 'Login successful';
+        }
         router.replace('/');
         return response.message || 'Login successful';
       }

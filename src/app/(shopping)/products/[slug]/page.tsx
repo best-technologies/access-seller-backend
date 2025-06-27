@@ -25,6 +25,7 @@ import ProductInfo from '@/components/product/ProductInfo';
 import QuantitySelector from '@/components/product/QuantitySelector';
 import ProductSpecifications from '@/components/product/ProductSpecifications';
 import ShippingModal from '@/components/product/ShippingModal';
+import { formatAmount } from "@/lib/utils";
 
 type User = UserBase & { phone?: string };
 
@@ -102,6 +103,10 @@ export default function ProductDetailPage() {
   const [linkCopied, setLinkCopied] = useState(false);
   const { user, isAuthenticated } = useAuth();
   const typedUser = user as User | null;
+  const [showOrderComplete, setShowOrderComplete] = useState(false);
+  const [showCreateAccountPrompt, setShowCreateAccountPrompt] = useState(false);
+  const [isCreatingAccount, setIsCreatingAccount] = useState(false);
+  const [showAccountCreated, setShowAccountCreated] = useState(false);
 
   // Extract product ID from slug
   const slug = params?.slug as string;
@@ -326,6 +331,27 @@ export default function ProductDetailPage() {
     }
 
     setIsProcessingPayment(true);
+    setShowOrderComplete(false);
+
+    // Debug log to check price and quantity types
+    console.log('Debug:', { price: product?.price, quantity, typeOfPrice: typeof product?.price, typeOfQuantity: typeof quantity });
+    // Prepare the data to send to backend
+    const backendData = {
+      productId: product?.id ?? '',
+      firstName: shippingForm.firstName,
+      lastName: shippingForm.lastName,
+      email: shippingForm.email,
+      phoneNumber: shippingForm.phone,
+      state: shippingForm.state,
+      city: shippingForm.city,
+      houseAddress: shippingForm.houseAddress,
+      fullShippingAddress: shippingForm.address,
+      referralSlug: referralData && typeof referralData === 'object' && 'refId' in referralData ? referralData.refId : '',
+      quantity,
+      totalAmount: (Number(String(product?.price).replace(/,/g, '')) || 0) * (Number(quantity) || 0),
+      proceed: true
+    };
+    console.log('Prepared backendData:', backendData);
 
     // Prepare order data
     const orderData = {
@@ -342,21 +368,16 @@ export default function ProductDetailPage() {
       referral: String(referralData ?? ''),
       timestamp: new Date().toISOString()
     };
-
     console.log('Processing affiliate order:', orderData);
-
-    // Simulate payment processing
     setTimeout(() => {
       setIsProcessingPayment(false);
       setShowShippingModal(false);
       setShippingForm({ firstName: '', lastName: '', email: '', phone: '', state: '', city: '', houseAddress: '', address: '' });
-      
-      // Show success message
-      toast.success('🎉 Order successfully paid! Thank you for your purchase.');
-      
+      setShowOrderComplete(true);
+      if (!isAuthenticated) setShowCreateAccountPrompt(true);
+      // toast.success('🎉 Order successfully paid! Thank you for your purchase.');
       // Here you would typically send the orderData to your backend
       // api.orders?.createAffiliateOrder?.(orderData);
-      
     }, 2000);
   };
 
@@ -598,6 +619,74 @@ export default function ProductDetailPage() {
         toast={toast.error}
         stock={product?.stock ?? 0}
       />
+      {showOrderComplete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full text-center border border-gray-200">
+            <div className="flex flex-col items-center gap-4">
+              <div className="bg-green-100 rounded-full p-4 mb-2">
+                <svg className="w-10 h-10 text-green-600" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+              </div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">Order Completed!</h2>
+              <p className="text-gray-700 mb-4">Thank you for your purchase. Your order has been placed successfully.</p>
+              {isAuthenticated ? (
+                <>
+                  <button className="w-full py-2 rounded-lg bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition" onClick={() => router.push('/orders')}>Go to My Orders</button>
+                  <p className="text-xs text-gray-500 mt-2">You can track your order and get updates in your account dashboard.</p>
+                </>
+              ) : (
+                <>
+                  <div className="w-full flex flex-col gap-2 mb-4">
+                    <button className="w-full py-2 rounded-lg bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition" onClick={() => router.push(`/auth/login?redirect=${encodeURIComponent(window.location.href)}`)}>Log In to Track Order</button>
+                    <button className="w-full py-2 rounded-lg bg-purple-600 text-white font-semibold hover:bg-purple-700 transition" onClick={() => router.push(`/auth/register?redirect=${encodeURIComponent(window.location.href)}`)}>Register for an Account</button>
+                    <button className="w-full py-2 rounded-lg bg-gray-100 text-gray-700 font-semibold hover:bg-gray-200 transition" onClick={() => setShowOrderComplete(false)}>Continue as Guest</button>
+                  </div>
+                  <p className="text-xs text-gray-500">You can track your order and get updates if you log in or register. Otherwise, check your email for order details.</p>
+                  {/* Prompt to create account with shipping email */}
+                  {showCreateAccountPrompt && shippingForm.email && (
+                    <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+                      <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-sm w-full text-center border border-gray-200">
+                        {!isCreatingAccount && !showAccountCreated && (
+                          <>
+                            <h3 className="text-lg font-bold text-gray-900 mb-2">Create an account?</h3>
+                            <p className="mb-4 text-gray-700">Would you like to create an account with <span className="font-semibold">{shippingForm.email}</span>?</p>
+                            <div className="flex flex-col gap-2">
+                              <button className="w-full py-2 rounded-lg bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition" onClick={() => {
+                                setIsCreatingAccount(true);
+                                setTimeout(() => {
+                                  setIsCreatingAccount(false);
+                                  setShowAccountCreated(true);
+                                }, 2000);
+                              }}>Yes, Create Account</button>
+                              <button className="w-full py-2 rounded-lg bg-gray-100 text-gray-700 font-semibold hover:bg-gray-200 transition" onClick={() => setShowCreateAccountPrompt(false)}>No, Thanks</button>
+                            </div>
+                          </>
+                        )}
+                        {isCreatingAccount && (
+                          <div className="flex flex-col items-center justify-center py-8">
+                            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600 mb-4"></div>
+                            <p className="text-base font-semibold text-gray-900">Creating your account...</p>
+                          </div>
+                        )}
+                        {showAccountCreated && (
+                          <>
+                            <div className="bg-green-100 rounded-full p-3 mb-2 mx-auto w-fit">
+                              <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                            </div>
+                            <h3 className="text-lg font-bold text-gray-900 mb-2">Account Created!</h3>
+                            <p className="mb-4 text-gray-700">Account successfully created. Please check <span className="font-semibold">{shippingForm.email}</span> for your password. You can now log in to view your orders.</p>
+                            <button className="w-full py-2 rounded-lg bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition" onClick={() => { setShowAccountCreated(false); setShowCreateAccountPrompt(false); setShowOrderComplete(false); }}>Close</button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+              <button className="mt-4 text-sm text-indigo-600 hover:underline" onClick={() => setShowOrderComplete(false)}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, Suspense } from "react";
-import { useRouter } from "next/navigation";
+import { useState, Suspense, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -33,6 +33,7 @@ const formSchema = z.object({
 
 function RegisterForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -46,6 +47,13 @@ function RegisterForm() {
       confirmPassword: "",
     },
   });
+
+  useEffect(() => {
+    const redirect = searchParams.get('redirect');
+    if (redirect) {
+      localStorage.setItem('postAuthRedirect', redirect);
+    }
+  }, [searchParams]);
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     try {
@@ -64,6 +72,13 @@ function RegisterForm() {
         throw new Error(response.message || "Something went wrong");
       }
 
+      const redirectUrl = localStorage.getItem('postAuthRedirect');
+      if (redirectUrl) {
+        localStorage.removeItem('postAuthRedirect');
+        router.replace(redirectUrl);
+        return;
+      }
+
       router.push("/login?registered=true");
     } catch (error) {
       setError(error instanceof Error ? error.message : "Something went wrong");
@@ -71,6 +86,12 @@ function RegisterForm() {
       setIsLoading(false);
     }
   }
+
+  const handleRegisterButtonClick = () => {
+    if (!searchParams.get('redirect') && !localStorage.getItem('postAuthRedirect')) {
+      localStorage.setItem('postAuthRedirect', window.location.href);
+    }
+  };
 
   return (
     <div className="min-h-screen flex">
@@ -213,6 +234,7 @@ function RegisterForm() {
                     type="submit"
                     className="w-full bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg py-2.5 text-sm font-medium transition-colors"
                     disabled={isLoading}
+                    onClick={handleRegisterButtonClick}
                   >
                     {isLoading ? (
                       <div className="flex items-center justify-center gap-2">

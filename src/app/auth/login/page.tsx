@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -20,6 +20,7 @@ import { BookOpen, Lock, Mail, Eye, EyeOff } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { ButtonLoader } from "@/components/ui/loader";
 import toast from "react-hot-toast";
+import { useSearchParams, useRouter } from 'next/navigation';
 
 const formSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
@@ -31,6 +32,8 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const searchParams = useSearchParams();
+  const router = useRouter();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -39,6 +42,13 @@ export default function LoginPage() {
       password: "",
     },
   });
+
+  useEffect(() => {
+    const redirect = searchParams.get('redirect');
+    if (redirect) {
+      localStorage.setItem('postAuthRedirect', redirect);
+    }
+  }, [searchParams]);
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     try {
@@ -55,6 +65,14 @@ export default function LoginPage() {
       // Show success message from backend
       toast.success(successMessage);
       
+      // After successful login, check for postAuthRedirect
+      const redirectUrl = localStorage.getItem('postAuthRedirect');
+      if (redirectUrl) {
+        localStorage.removeItem('postAuthRedirect');
+        router.replace(redirectUrl);
+        return;
+      }
+      
     } catch (error) {
       console.error('Login Error:', error);
       const errorMessage = error instanceof Error ? error.message : "Something went wrong. Please try again.";
@@ -64,6 +82,12 @@ export default function LoginPage() {
       setIsLoading(false);
     }
   }
+
+  const handleLoginButtonClick = () => {
+    if (!searchParams.get('redirect') && !localStorage.getItem('postAuthRedirect')) {
+      localStorage.setItem('postAuthRedirect', window.location.href);
+    }
+  };
 
   return (
     <div className="min-h-screen flex">
@@ -148,6 +172,7 @@ export default function LoginPage() {
                     type="submit"
                     className="w-full bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg py-2.5 text-sm font-medium transition-colors"
                     disabled={isLoading}
+                    onClick={handleLoginButtonClick}
                   >
                     {isLoading ? <ButtonLoader /> : "Sign in"}
                   </Button>
