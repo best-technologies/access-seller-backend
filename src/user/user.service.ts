@@ -252,10 +252,18 @@ export class UserService {
                 slug
             }
         });
+
+        let base_url: string;
+        if(process.env.NODE_ENV === "development") {
+          base_url = process.env.FRONTEND_BASE_URL_DEV || ""
+        } else {
+          base_url = process.env.FRONTEND_BASE_URL_PROD || ""
+        }
+
         // Construct shareable link
         const baseUrl = process.env.BASE_URL?.replace(/\/$/, '') || 'http://localhost:3000';
         const productSlug = product.id;
-        const shareableLink = `${baseUrl}/product/${productSlug}?ref=${link.slug}`;
+        const shareableLink = `${baseUrl}/products/${productSlug}?ref=${link.slug}`;
         console.log(colors.green('Affiliate link generated successfully.'));
         return {
             success: true,
