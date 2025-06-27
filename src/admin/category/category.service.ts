@@ -8,6 +8,7 @@ import { CreateGenreDto } from './dto/create-genre.dto';
 import { CreateLanguageDto } from './dto/create-language.dto';
 import { CreateFormatDto } from './dto/create-format.dto';
 import { CreateAgeRatingDto } from './dto/create-age-rating.dto';
+import { formatDate } from 'src/shared/helper-functions/formatter';
 
 @Injectable()
 export class CategoryService {
@@ -75,12 +76,17 @@ export class CategoryService {
         let storeId = '';
         if (userEmail) {
             const user: User | null = await this.prisma.user.findUnique({ where: { email: userEmail } });
-            const store: Store | null = await this.prisma.store.findUnique({ where: { email: userEmail } });
-            if (user && store) {
-                adminName = user.first_name + ' ' + user.last_name;
-                adminEmail = user.email;
-                storeId = store.id
+            if (user && user.store_id) {
+                const store: Store | null = await this.prisma.store.findUnique({ where: { id: user.store_id } });
+                if (store) {
+                    adminName = user.first_name + ' ' + user.last_name;
+                    adminEmail = user.email;
+                    storeId = store.id;
+                }
             }
+        }
+        if (!storeId) {
+            throw new BadRequestException('No valid store found for this user.');
         }
         try {
             // Check for duplicate
@@ -339,18 +345,34 @@ export class CategoryService {
                 this.getAllFormats(),
                 this.getAllAgeRatings()
             ]);
+
+            
+
             const categoriesData = categoriesRes.data && typeof categoriesRes.data === 'object' ? categoriesRes.data as { categories?: any[] } : {};
             const genresData = genresRes.data && typeof genresRes.data === 'object' ? genresRes.data as { genres?: any[] } : {};
             const languagesData = languagesRes.data && typeof languagesRes.data === 'object' ? languagesRes.data as { languages?: any[] } : {};
             const formatsData = formatsRes.data && typeof formatsRes.data === 'object' ? formatsRes.data as { formats?: any[] } : {};
             const ageRatingsData = ageRatingsRes.data && typeof ageRatingsRes.data === 'object' ? ageRatingsRes.data as { ageRatings?: any[] } : {};
-            return new ApiResponse(true, 'Fetched all metadata', {
-                categories: (categoriesData.categories || []).map((c: any) => ({ id: c.id, name: this.capitalizeFirstLetter(c.name) })),
+
+            const formattedResponse = {
+                categories: (categoriesData.categories || []).map((c: any) => ({
+                    id: c.id,
+                    name: this.capitalizeFirstLetter(c.name),
+                    description: this.capitalizeFirstLetter(c.description),
+                    storeId: c.storeId,
+                    isActive: c.isActive,
+                    createdAt: formatDate(c.createdAt),
+                    updatedAt: formatDate(c.updatedAt),
+                    createdByName: c.createdByName,
+                    createdByEmail: c.createdByEmail
+                })),
                 genres: (genresData.genres || []).map((g: any) => ({ id: g.id, name: this.capitalizeFirstLetter(g.name) })),
                 languages: (languagesData.languages || []).map((l: any) => ({ id: l.id, name: this.capitalizeFirstLetter(l.name) })),
                 formats: (formatsData.formats || []).map((f: any) => ({ id: f.id, name: this.capitalizeFirstLetter(f.name) })),
                 ageRatings: (ageRatingsData.ageRatings || []).map((a: any) => ({ id: a.id, name: this.capitalizeFirstLetter(a.name) }))
-            });
+            };
+
+            return new ApiResponse(true, 'Fetched all metadata', formattedResponse);
         } catch (error) {
             console.log(colors.red('Error fetching all metadata'), error);
             return new ApiResponse(false, 'Error fetching all metadata');

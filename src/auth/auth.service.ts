@@ -13,7 +13,6 @@ import * as crypto from "crypto"
 import { Prisma, StoreStatus } from '@prisma/client';
 import { ApiResponse } from 'src/shared/helper-functions/response';
 import { OnboardStoreDTO } from 'src/shared/dto/store.dto';
-import { first } from 'rxjs';
 
 interface CloudinaryUploadResult {
     secure_url: string;
@@ -265,44 +264,29 @@ export class AuthService {
             });
 
             // Generate a unique referral code and URL for the new user
-            let uniqueCode: string;
-            let uniqueUrl: string;
-            while (true) {
-                // You can use a better generator if you want
-                uniqueCode = (newUser.first_name.substring(0, 3) + newUser.last_name.substring(0, 3) + Math.floor(Math.random() * 100000)).toLowerCase();
-                uniqueUrl = `https://access-slr.com/ref/${uniqueCode}`;
-                const exists = await this.prisma.referralCode.findUnique({ where: { code: uniqueCode } });
-                if (!exists) break;
-            }
-            await this.prisma.referralCode.create({
-                data: {
-                    code: uniqueCode,
-                    url: uniqueUrl,
-                    userId: newUser.id,
-                }
-            });
+            
 
             // Handle referral logic if referral_code is provided
-            if (payload.referral_code) {
-                // Find the referrer by referral code
-                const referrer = await this.prisma.referralCode.findUnique({
-                    where: { code: payload.referral_code },
-                    include: { user: true }
-                });
-                if (referrer && referrer.user) {
-                    // Create a Referral record
-                    await this.prisma.referral.create({
-                        data: {
-                            referrerId: referrer.user.id,
-                            referredId: newUser.id,
-                            code: payload.referral_code,
-                            productId: '',
-                        }
-                    });
-                } else {
-                    console.log(colors.yellow('Invalid referral code provided, skipping referral linkage.'));
-                }
-            }
+            // if (payload.referral_code) {
+            //     // Find the referrer by referral code
+            //     const referrer = await this.prisma.referralCode.findUnique({
+            //         where: { code: payload.referral_code },
+            //         include: { user: true }
+            //     });
+            //     if (referrer && referrer.user) {
+            //         // Create a Referral record
+            //         await this.prisma.referral.create({
+            //             data: {
+            //                 referrerId: referrer.user.id,
+            //                 referredId: newUser.id,
+            //                 code: payload.referral_code,
+            //                 productId: '',
+            //             }
+            //         });
+            //     } else {
+            //         console.log(colors.yellow('Invalid referral code provided, skipping referral linkage.'));
+            //     }
+            // }
 
             const userResponse = {
                 id: newUser.id,
@@ -312,6 +296,7 @@ export class AuthService {
                 createdAt: newUser.createdAt,
             };
 
+            console.log(colors.magenta("New User Registerd"))
             return new ApiResponse(
                 true,
                 "User registered successfully",
@@ -644,7 +629,8 @@ export class AuthService {
 
         let uploadedFiles: CloudinaryUploadResult[] = [];
         try {
-            const defaultPassword = `${dto.name.slice(0, 3).toLowerCase().replace(/\s+/g, '')}/sm/${dto.phone.slice(-4)}`;
+            // const defaultPassword = `${dto.name.slice(0, 3).toLowerCase().replace(/\s+/g, '')}/sm/${dto.phone.slice(-4)}`;
+            const defaultPassword = "maximus123"
 
             uploadedFiles = await this.cloudinaryService.uploadToCloudinary(files);
 
@@ -655,7 +641,8 @@ export class AuthService {
             // create a new store in the database
             const store = await this.prisma.store.create({
                 data: {
-                    name: dto.name.toLowerCase(),
+                    first_name: dto.name.toLowerCase(),
+                    last_name: dto.name.toLowerCase(),
                     email: dto.email.toLowerCase(),
                     phone: dto.phone,
                     address: dto.address.toLowerCase(),
@@ -688,10 +675,10 @@ export class AuthService {
                 data: {
                     email: dto.email.toLowerCase(),
                     password: hashedPassword,
-                    role: "inventory_manager",
+                    role: "admin",
                     store_id: store.id,
-                    first_name: "Store",
-                    last_name: "Manager",
+                    first_name: "manager",
+                    last_name: "store",
                     phone_number: dto.phone
                 }
             });
@@ -732,7 +719,7 @@ export class AuthService {
 
             const formatted_response = {
                 id: store.id,
-                name: store.name,
+                name: store.first_name,
                 email: store.email,
                 address: store.address,
                 documents: {

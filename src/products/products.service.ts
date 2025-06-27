@@ -228,7 +228,7 @@ export class ProductsService {
           total_sold: totalSold,
           selling_price: formatAmount(product.sellingPrice),
           nomral_price: formatAmount(product.normalPrice),
-          format: product.BookFormat || null,
+          format: product.formats ? product.formats.map(f => f.name) : [],
 
         };
       }));
@@ -260,7 +260,7 @@ export class ProductsService {
         const product = await this.prisma.product.findUnique({
             where: { id },
             include: {
-                store: { select: { id: true, name: true, email: true } },
+                store: { select: { id: true, first_name: true, last_name: true, email: true } },
                 categories: { select: { id: true, name: true } },
                 languages: { select: { id: true, name: true } },
                 genres: { select: { id: true, name: true } },
@@ -299,7 +299,7 @@ export class ProductsService {
             updatedAt: formatDateWithoutTime(product.updatedAt),
             store: product.store ? {
                 id: product.store.id,
-                name: product.store.name,
+                name: product.store.first_name + ' ' + product.store.last_name,
                 email: product.store.email
             } : undefined,
             category: product.categories && product.categories[0] ? {

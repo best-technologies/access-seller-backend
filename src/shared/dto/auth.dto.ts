@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsString, IsArray, IsEmail } from "class-validator";
+import { IsNotEmpty, IsString, IsArray, IsEmail, IsOptional } from "class-validator";
 import { string } from "joi";
 
 export class OnboardSchoolDto {
@@ -67,7 +67,8 @@ export class RegisterDto {
     @IsString()
     password: string
 
-    
+    @IsString()
+    @IsOptional()
     referral_code: string
 }
 

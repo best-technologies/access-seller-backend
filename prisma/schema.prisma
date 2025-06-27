@@ -159,7 +159,8 @@ enum AffiliateStatus {
 
 model Store {
   id          String      @id @default(cuid())
-  name        String
+  first_name  String
+  last_name   String
   description String?
   email       String      @unique
   phone       String
