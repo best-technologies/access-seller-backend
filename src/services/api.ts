@@ -6,12 +6,14 @@ import axios, { AxiosError, AxiosInstance } from 'axios';
 import type { BrowseProductsResponse, Product } from '@/types/product';
 import { PromoCodeVerifyResponse } from '@/types/admin/discounts/discount';
 
-let API_URL;
-if(process.env.node_env === "development") {
-  API_URL = "localhost:3000"
-} else {
-  API_URL = process.env.NEXT_PUBLIC_API_URL;
+let API_URL: string = "";
+if(process.env.NODE_ENV === "development") {
+  API_URL = "http://localhost:2000/api/v1"
+} else if (process.env.NODE_ENV === "production") {
+  API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 }
+
+// const API_URL = "http://localhost:2000/api/v1"
 
 // Create axios instance with default config
 const axiosInstance: AxiosInstance = axios.create({
@@ -121,6 +123,79 @@ export interface MetadataResponse {
   };
 }
 
+export interface AddCategoryReponse {
+  success: boolean;
+  message: string;
+  data: {
+    id: string,
+    name: string,
+    description: string,
+    storeId: string,
+    isActive: true,
+    createdAt: string,
+    updatedAt: string,
+    createdByName: string,
+    createdByEmail: string
+}
+}
+
+export interface AddGenreResponse {
+  success: boolean;
+  message: string;
+  data: {
+    id: string,
+    name: string,
+    description?: string,
+    isActive?: boolean,
+    createdAt?: string,
+    updatedAt?: string,
+    createdByName?: string,
+    createdByEmail?: string
+  }
+}
+
+export interface AddLanguageResponse {
+  success: boolean;
+  message: string;
+  data: {
+    id: string,
+    name: string,
+    isActive?: boolean,
+    createdAt?: string,
+    updatedAt?: string,
+    createdByName?: string,
+    createdByEmail?: string
+  }
+}
+
+export interface AddFormatResponse {
+  success: boolean;
+  message: string;
+  data: {
+    id: string,
+    name: string,
+    isActive?: boolean,
+    createdAt?: string,
+    updatedAt?: string,
+    createdByName?: string,
+    createdByEmail?: string
+  }
+}
+
+export interface AddAgeRatingResponse {
+  success: boolean;
+  message: string;
+  data: {
+    id: string,
+    name: string,
+    isActive?: boolean,
+    createdAt?: string,
+    updatedAt?: string,
+    createdByName?: string,
+    createdByEmail?: string
+  }
+}
+
 // Token management - to be used by auth context
 export const tokenManager = {
   get: () => {
@@ -147,6 +222,7 @@ export const tokenManager = {
 export const api = { 
   auth: {
     login: (email: string, password: string): Promise<LoginResponse> =>
+      
       axiosInstance.post('/auth/sign-in', { email, password }),
 
     // register: (data: RegistrationData): Promise<RegisterResponse> =>
@@ -317,7 +393,6 @@ export const api = {
     },
     fetchMetadata: async (): Promise<MetadataResponse> => {
       const response = await axiosInstance.get('/admin/metadata/all');
-      console.log("Meta data: ", response)
       return response as unknown as MetadataResponse;
     },
     getAffiliateDashboard: async (): Promise<import('@/types/admin/dashboard/dashboard').AffiliateDashboardResponse> => {
@@ -334,6 +409,26 @@ export const api = {
       // Sends a PUT request to update affiliate status
       const response = await axiosInstance.put(`/admin/affiliates/${id}/status`, { status });
       return response;
+    },
+    addCategory: async (name: string, description: string): Promise<AddCategoryReponse> => {
+      const response = await axiosInstance.post("/admin/category/add-new", { name, description });
+      return response as unknown as AddCategoryReponse;
+    },
+    addGenre: async (name: string, description?: string): Promise<AddGenreResponse> => {
+      const response = await axiosInstance.post("/admin/genres/add-new", { name, description });
+      return response as unknown as AddGenreResponse;
+    },
+    addLanguage: async (name: string): Promise<AddLanguageResponse> => {
+      const response = await axiosInstance.post("/admin/languages/add-new", { name });
+      return response as unknown as AddLanguageResponse;
+    },
+    addFormat: async (name: string, description?: string): Promise<AddFormatResponse> => {
+      const response = await axiosInstance.post("/admin/formats/add-new", { name, description });
+      return response as unknown as AddFormatResponse;
+    },
+    addAgeRating: async (name: string): Promise<AddAgeRatingResponse> => {
+      const response = await axiosInstance.post("/admin/age-ratings/add-new", { name });
+      return response as unknown as AddAgeRatingResponse;
     },
   },
 

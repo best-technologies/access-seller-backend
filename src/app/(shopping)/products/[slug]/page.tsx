@@ -124,7 +124,7 @@ export default function ProductDetailPage() {
         console.log('Affiliate referral detected:', referralInfo);
       }
     }
-  }, [productId, product]);
+  }, [productId]);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -226,7 +226,7 @@ export default function ProductDetailPage() {
         setError("Book Not Found");
       })
       .finally(() => setLoading(false));
-  }, [productId, product]);
+  }, [productId]);
 
   // Check if affiliate link already exists for this product
   useEffect(() => {

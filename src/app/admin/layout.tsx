@@ -47,6 +47,11 @@ const sidebarItems = [
     icon: Currency,
     href: "/admin/promos-commissions"
   },
+  {
+    title: "Meta Data",
+    icon: Settings,
+    href: "/admin/metadata"
+  },
   // {
   //   title: "Analytics",
   //   icon: BarChart3,

@@ -170,17 +170,14 @@ export default function ProductsPage() {
       normalPrice: Number(book.normalPrice),
       sellingPrice: Number(book.sellingPrice),
       categoryIds: book.category, // already IDs
-      languageIds: book.language, // names for display
-      genreIds: book.genre, // names for display
-      formatIds: book.format, // names for display
+      languageIds: book.language, // already IDs
+      genreIds: book.genre, // already IDs
+      formatIds: book.format, // already IDs
       rated: book.rated,
       isbn: book.isbn,
       publisher: book.publisher,
       commission: String(book.referralCommission),
       coverImage: book.display_images && book.display_images.length > 0 ? book.display_images[0] : undefined,
-      // languageIds: metadata ? getIds(book.language, metadata.languages) : [],
-      // genreIds: metadata ? getIds(book.genre, metadata.genres) : [],
-      // formatIds: metadata ? getIds(book.format, metadata.formats) : [],
     };
   }
 
@@ -191,19 +188,27 @@ export default function ProductsPage() {
     setError(null);
     try {
       const payload = transformBookForBackend(book);
+      console.log("Transformed payload: ", payload);
+      
       const formData = new FormData();
       Object.entries(payload).forEach(([key, value]) => {
         if (value === undefined || value === null) return;
         if (Array.isArray(value)) {
-          value.forEach((v) => {
-            if (v !== undefined && v !== null) formData.append(`${key}`, String(v));
-          });
+          // Send arrays as JSON strings as backend expects
+          formData.append(key, JSON.stringify(value));
         } else if (key === 'coverImage' && value instanceof File) {
           formData.append(key, value);
         } else {
           formData.append(key, String(value));
         }
       });
+      
+      // Debug: Log FormData contents
+      console.log("FormData contents:");
+      for (const [key, value] of formData.entries()) {
+        console.log(`${key}: ${value}`);
+      }
+      
       const response = await api.admin.products.create(formData) as { success: boolean; message?: string };
       if (!response.success) throw new Error(response.message || "Failed to create book");
       setIsSuccessModalOpen(true);
@@ -251,19 +256,27 @@ export default function ProductsPage() {
     setError(null);
     try {
       const payload = transformBookForBackend(updatedBook);
+      console.log("Update - Transformed payload: ", payload);
+      
       const formData = new FormData();
       Object.entries(payload).forEach(([key, value]) => {
         if (value === undefined || value === null) return;
         if (Array.isArray(value)) {
-          value.forEach((v) => {
-            if (v !== undefined && v !== null) formData.append(`${key}`, String(v));
-          });
+          // Send arrays as JSON strings as backend expects
+          formData.append(key, JSON.stringify(value));
         } else if (key === 'coverImage' && value instanceof File) {
           formData.append(key, value);
         } else {
           formData.append(key, String(value));
         }
       });
+      
+      // Debug: Log FormData contents
+      console.log("Update - FormData contents:");
+      for (const [key, value] of formData.entries()) {
+        console.log(`${key}: ${value}`);
+      }
+      
       await api.admin.products.update(editingBookId, formData);
       setIsEditModalOpen(false);
       setEditingBook(null);
