@@ -23,13 +23,6 @@ const statusColors: Record<OrderStatus, string> = {
   delivered: "bg-green-100 text-green-800"
 };
 
-const statusIcons: Record<OrderStatus, typeof CheckCircle2> = {
-  pending: Clock,
-  processing: Clock,
-  shipped: Clock,
-  delivered: CheckCircle2
-};
-
 interface OrderData {
   id: string;
   firstName: string;
@@ -60,9 +53,7 @@ export default function OrderDetailsPage() {
       setLoading(true);
       api.paystack.getOrderById(orderId)
         .then((res) => {
-          const result = res as unknown as { success: boolean; data?: OrderData; message?: string };
-          console.log("Ai single orders page: ", result.data)
-          console.log("response status backend: ", result.success)
+          const result = res.data as { success: boolean; data?: OrderData; message?: string };
           if (result.success && result.data) {
             setOrder(result.data);
           } else {

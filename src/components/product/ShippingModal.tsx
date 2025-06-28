@@ -1,8 +1,8 @@
 import React from "react";
 import { X } from "lucide-react";
-import { StateWidget, LGAWidget } from "@todak2000/nigeria-state-lga-react-component";
 import { Button } from "@/components/ui/button";
 import OrderSummary from "./OrderSummary";
+import NigeriaStateSelector from "@/components/ui/NigeriaStateSelector";
 
 interface ShippingForm {
   firstName: string;
@@ -156,23 +156,13 @@ export default function ShippingModal({
                 />
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-800 mb-2">State *</label>
-                  <StateWidget
-                    setState={state => setShippingForm((prev: ShippingForm) => ({ ...prev, state, city: '' }))}
-                    className="w-full"
-                    selectStyle={{ width: '100%', padding: 12, borderRadius: 8, border: '1px solid #d1d5db', background: '#f9fafb', color: '#222', fontSize: '1rem' }}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-800 mb-2">City *</label>
-                  <LGAWidget
-                    state={shippingForm.state}
-                    setLGAState={city => setShippingForm((prev: ShippingForm) => ({ ...prev, city }))}
-                    className="w-full"
-                    selectStyle={{ width: '100%', padding: 12, borderRadius: 8, border: '1px solid #d1d5db', background: '#f9fafb', color: '#222', fontSize: '1rem' }}
-                  />
-                </div>
+                <NigeriaStateSelector
+                  selectedState={shippingForm.state}
+                  onStateChange={state => setShippingForm((prev: ShippingForm) => ({ ...prev, state, city: '' }))}
+                  selectedLGA={shippingForm.city}
+                  onLGAChange={city => setShippingForm((prev: ShippingForm) => ({ ...prev, city }))}
+                  className="col-span-2"
+                />
               </div>
               <div>
                 <label className="block text-sm font-semibold text-gray-800 mb-2">House Address *</label>

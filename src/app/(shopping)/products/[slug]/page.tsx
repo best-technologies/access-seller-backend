@@ -18,14 +18,12 @@ import { api } from '@/services/api';
 import Loader from "@/components/Loader";
 import { useAuth } from "@/context/AuthContext";
 import type { Product as ProductApi } from '@/types/product';
-import "@todak2000/nigeria-state-lga-react-component/build/index.css";
 import type { User as UserBase } from '@/services/api';
 import ProductImages from '@/components/product/ProductImages';
 import ProductInfo from '@/components/product/ProductInfo';
 import QuantitySelector from '@/components/product/QuantitySelector';
 import ProductSpecifications from '@/components/product/ProductSpecifications';
 import ShippingModal from '@/components/product/ShippingModal';
-import { formatAmount } from "@/lib/utils";
 import { PaymentVerificationLoader } from '@/components/Loader';
 
 type User = UserBase & { phone?: string };
@@ -77,6 +75,12 @@ type AffiliateLink = {
   };
 };
 
+interface PaymentVerificationResponse {
+  success: boolean;
+  data?: { id: string };
+  message?: string;
+}
+
 export default function ProductDetailPage() {
   const params = useParams();
   const [selectedImage, setSelectedImage] = useState(0);
@@ -109,7 +113,7 @@ export default function ProductDetailPage() {
   const [isCreatingAccount, setIsCreatingAccount] = useState(false);
   const [showAccountCreated, setShowAccountCreated] = useState(false);
   const [verifyingPayment, setVerifyingPayment] = useState(false);
-  const [paymentVerified, setPaymentVerified] = useState<null | { success: boolean; data?: any; message?: string }>(null);
+  const [paymentVerified, setPaymentVerified] = useState<PaymentVerificationResponse | null>(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
 
   // Extract product ID from slug
@@ -238,7 +242,7 @@ export default function ProductDetailPage() {
         setError("Book Not Found");
       })
       .finally(() => setLoading(false));
-  }, [productId]);
+  }, [productId, product]);
 
   // Check if affiliate link already exists for this product
   useEffect(() => {
@@ -350,23 +354,24 @@ export default function ProductDetailPage() {
       city: shippingForm.city,
       houseAddress: shippingForm.houseAddress,
       fullShippingAddress: shippingForm.address,
-      referralSlug: referralData && typeof referralData === 'object' && 'refId' in referralData ? referralData.refId : '',
+      referralSlug: (referralData && typeof referralData === 'object' && 'refId' in referralData ? String(referralData.refId) : ''),
       quantity,
       totalAmount: (Number(String(product?.price).replace(/,/g, '')) || 0) * (Number(quantity) || 0),
       callbackUrl: typeof window !== 'undefined' ? window.location.href : ''
     };
     // Send to backend and log response
     try {
-      const paystackResponse: any = await api.paystack.affiliateInitialisePayment(backendData);
+      const paystackResponse = await api.paystack.affiliateInitialisePayment(backendData);
       console.log('Paystack affiliate payment response:', paystackResponse);
+      const responseData = paystackResponse.data;
       if (
-        paystackResponse &&
-        paystackResponse.success &&
-        paystackResponse.data &&
-        paystackResponse.data.paystackResponse &&
-        paystackResponse.data.paystackResponse.authorization_url
+        responseData &&
+        responseData.success &&
+        responseData.data &&
+        responseData.data.paystackResponse &&
+        responseData.data.paystackResponse.authorization_url
       ) {
-        window.location.href = paystackResponse.data.paystackResponse.authorization_url;
+        window.location.href = responseData.data.paystackResponse.authorization_url;
         return;
       }
     } catch (err) {
@@ -454,11 +459,12 @@ export default function ProductDetailPage() {
       if (reference) {
         setVerifyingPayment(true);
         api.paystack.verifyPaystackFunding(reference)
-          .then((res: any) => {
-            setPaymentVerified(res);
+          .then((res) => {
+            const responseData = res.data as PaymentVerificationResponse;
+            setPaymentVerified(responseData);
             setShowPaymentModal(true);
           })
-          .catch((err: any) => {
+          .catch((err: { message?: string }) => {
             setPaymentVerified({ success: false, message: err?.message || 'Payment verification failed' });
             setShowPaymentModal(true);
           })
@@ -754,7 +760,7 @@ export default function ProductDetailPage() {
                       <div className="flex flex-col gap-2">
                         <button className="w-full py-2 rounded-lg bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition" onClick={() => {
                           if (paymentVerified?.data?.id) {
-                            router.push(`/orders-referral/${paymentVerified.data.id}`);
+                            router.push(`/orders/${paymentVerified.data.id}`);
                           }
                         }}>View Order Details</button>
                         <button className="w-full py-2 rounded-lg bg-gray-100 text-gray-700 font-semibold hover:bg-gray-200 transition" onClick={() => setShowPaymentModal(false)}>Close</button>

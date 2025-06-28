@@ -441,7 +441,21 @@ export const api = {
   },
 
   paystack: {
-    affiliateInitialisePayment: async (data: any) => {
+    affiliateInitialisePayment: async (data: {
+      productId: string;
+      firstName: string;
+      lastName: string;
+      email: string;
+      phoneNumber: string;
+      state: string;
+      city: string;
+      houseAddress: string;
+      fullShippingAddress: string;
+      referralSlug: string;
+      quantity: number;
+      totalAmount: number;
+      callbackUrl: string;
+    }) => {
       // Sends backendData to /paystack/affiliate-initialise-paystack-payment
       return axiosInstance.post('/paystack/affiliate-initialise-paystack-payment', data);
     },
