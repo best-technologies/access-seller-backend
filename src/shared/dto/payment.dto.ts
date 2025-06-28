@@ -1,4 +1,4 @@
-import { IsArray, IsNumber, IsString, IsOptional, ValidateNested } from 'class-validator';
+import { IsArray, IsNumber, IsString, IsOptional, ValidateNested, IsNotEmpty } from 'class-validator';
 import { Type } from 'class-transformer';
 
 class PaymentItemDto {
@@ -34,3 +34,51 @@ export class PaymentDataDto {
   @IsString()
   email?: string;
 } 
+
+export class affiliateInitiatePaystackPayment {
+  @IsString()
+  productId:string;
+
+  @IsString()
+  firstName: string;
+
+  @IsString()
+  lastName: string;
+
+  @IsString()
+  email: string;
+
+  @IsString()
+  phoneNumber: string;
+
+  @IsString()
+  state?: string;
+
+  @IsString()
+  city: string;
+
+  @IsString()
+  houseAddress: string
+
+  @IsString()
+  fullShippingAddress: string
+
+  @IsString()
+  referralSlug?: string
+
+  @IsOptional()
+  @IsString()
+  callbackUrl?: string;
+
+  @IsNumber()
+  quantity: number
+
+  @IsNumber()
+  totalAmount: number
+} 
+
+export class verifyPaystackPaymentDto {
+    @IsString()
+    @IsNotEmpty()
+    reference: string;
+}
