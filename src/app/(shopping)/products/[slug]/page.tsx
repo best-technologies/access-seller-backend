@@ -26,6 +26,7 @@ import QuantitySelector from '@/components/product/QuantitySelector';
 import ProductSpecifications from '@/components/product/ProductSpecifications';
 import ShippingModal from '@/components/product/ShippingModal';
 import { formatAmount } from "@/lib/utils";
+import { PaymentVerificationLoader } from '@/components/Loader';
 
 type User = UserBase & { phone?: string };
 
@@ -107,6 +108,9 @@ export default function ProductDetailPage() {
   const [showCreateAccountPrompt, setShowCreateAccountPrompt] = useState(false);
   const [isCreatingAccount, setIsCreatingAccount] = useState(false);
   const [showAccountCreated, setShowAccountCreated] = useState(false);
+  const [verifyingPayment, setVerifyingPayment] = useState(false);
+  const [paymentVerified, setPaymentVerified] = useState<null | { success: boolean; data?: any; message?: string }>(null);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
 
   // Extract product ID from slug
   const slug = params?.slug as string;
@@ -334,7 +338,7 @@ export default function ProductDetailPage() {
     setShowOrderComplete(false);
 
     // Debug log to check price and quantity types
-    console.log('Debug:', { price: product?.price, quantity, typeOfPrice: typeof product?.price, typeOfQuantity: typeof quantity });
+    // console.log('Debug:', { price: product?.price, quantity, typeOfPrice: typeof product?.price, typeOfQuantity: typeof quantity });
     // Prepare the data to send to backend
     const backendData = {
       productId: product?.id ?? '',
@@ -349,9 +353,25 @@ export default function ProductDetailPage() {
       referralSlug: referralData && typeof referralData === 'object' && 'refId' in referralData ? referralData.refId : '',
       quantity,
       totalAmount: (Number(String(product?.price).replace(/,/g, '')) || 0) * (Number(quantity) || 0),
-      proceed: true
+      callbackUrl: typeof window !== 'undefined' ? window.location.href : ''
     };
-    console.log('Prepared backendData:', backendData);
+    // Send to backend and log response
+    try {
+      const paystackResponse: any = await api.paystack.affiliateInitialisePayment(backendData);
+      console.log('Paystack affiliate payment response:', paystackResponse);
+      if (
+        paystackResponse &&
+        paystackResponse.success &&
+        paystackResponse.data &&
+        paystackResponse.data.paystackResponse &&
+        paystackResponse.data.paystackResponse.authorization_url
+      ) {
+        window.location.href = paystackResponse.data.paystackResponse.authorization_url;
+        return;
+      }
+    } catch (err) {
+      console.error('Error sending to Paystack affiliate endpoint:', err);
+    }
 
     // Prepare order data
     const orderData = {
@@ -426,6 +446,27 @@ export default function ProductDetailPage() {
     }
   }, [showShippingModal, isAuthenticated, typedUser]);
 
+  // Payment verification on redirect
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const reference = urlParams.get('reference') || urlParams.get('trxref');
+      if (reference) {
+        setVerifyingPayment(true);
+        api.paystack.verifyPaystackFunding(reference)
+          .then((res: any) => {
+            setPaymentVerified(res);
+            setShowPaymentModal(true);
+          })
+          .catch((err: any) => {
+            setPaymentVerified({ success: false, message: err?.message || 'Payment verification failed' });
+            setShowPaymentModal(true);
+          })
+          .finally(() => setVerifyingPayment(false));
+      }
+    }
+  }, []);
+
   if (loading) {
     return <Loader/>;
   }
@@ -447,6 +488,10 @@ export default function ProductDetailPage() {
   }
 
   console.log("originalPrice:", product.originalPrice, "price:", product.price);
+
+  if (verifyingPayment) {
+    return <PaymentVerificationLoader message="We are verifying your payment with Paystack. Please wait..." />;
+  }
 
   return (
     <>
@@ -683,6 +728,50 @@ export default function ProductDetailPage() {
                 </>
               )}
               <button className="mt-4 text-sm text-indigo-600 hover:underline" onClick={() => setShowOrderComplete(false)}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Payment Verified Modal */}
+      {showPaymentModal && paymentVerified && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full text-center border border-gray-200">
+            <div className="flex flex-col items-center gap-4">
+              {paymentVerified.success ? (
+                <>
+                  <div className="bg-green-100 rounded-full p-4 mb-2">
+                    <svg className="w-10 h-10 text-green-600" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                  </div>
+                  <h2 className="text-2xl font-bold text-gray-900 mb-2">Payment Received!</h2>
+                  {isAuthenticated ? (
+                    <>
+                      <p className="text-gray-700 mb-4">Your payment has been received and your order is being processed. You can check the status of your order in your dashboard.</p>
+                      <button className="w-full py-2 rounded-lg bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition" onClick={() => router.push('/orders')}>View My Orders</button>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-gray-700 mb-4">Your payment has been received and your order is being processed. You will receive notifications and updates at the email you provided during checkout.</p>
+                      <div className="flex flex-col gap-2">
+                        <button className="w-full py-2 rounded-lg bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition" onClick={() => {
+                          if (paymentVerified?.data?.id) {
+                            router.push(`/orders-referral/${paymentVerified.data.id}`);
+                          }
+                        }}>View Order Details</button>
+                        <button className="w-full py-2 rounded-lg bg-gray-100 text-gray-700 font-semibold hover:bg-gray-200 transition" onClick={() => setShowPaymentModal(false)}>Close</button>
+                      </div>
+                    </>
+                  )}
+                </>
+              ) : (
+                <>
+                  <div className="bg-red-100 rounded-full p-4 mb-2">
+                    <svg className="w-10 h-10 text-red-600" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                  </div>
+                  <h2 className="text-2xl font-bold text-gray-900 mb-2">Payment Verification Failed</h2>
+                  <p className="text-gray-700 mb-4">{paymentVerified.message || 'We could not verify your payment. Please contact support if you have been debited.'}</p>
+                  <button className="w-full py-2 rounded-lg bg-gray-100 text-gray-700 font-semibold hover:bg-gray-200 transition" onClick={() => setShowPaymentModal(false)}>Close</button>
+                </>
+              )}
             </div>
           </div>
         </div>

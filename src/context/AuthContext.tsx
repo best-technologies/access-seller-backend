@@ -34,7 +34,6 @@ const AuthContext = createContext<AuthContextType & { handleAuthStateChange: (au
 // List of protected routes that require authentication
 const PROTECTED_ROUTES = [
   '/profile',
-  '/orders',
   '/settings',
   '/admin',
   '/dashboard'

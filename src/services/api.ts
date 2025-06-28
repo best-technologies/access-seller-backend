@@ -438,5 +438,20 @@ export const api = {
       console.log("[API call] Response: ", response);
       return response as unknown as PromoCodeVerifyResponse;
     },
-  }
+  },
+
+  paystack: {
+    affiliateInitialisePayment: async (data: any) => {
+      // Sends backendData to /paystack/affiliate-initialise-paystack-payment
+      return axiosInstance.post('/paystack/affiliate-initialise-paystack-payment', data);
+    },
+    verifyPaystackFunding: async (reference: string) => {
+      // Calls /paystack/verify-paystack-funding with the reference or trxref
+      return axiosInstance.post('/paystack/verify-paystack-funding', { reference });
+    },
+    getOrderById: async (id: string) => {
+      // Calls /paystack/order/:id to fetch order details
+      return axiosInstance.get(`/paystack/order/${id}`);
+    },
+  },
 }
