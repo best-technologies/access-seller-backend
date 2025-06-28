@@ -62,15 +62,26 @@ function LoginForm() {
       // The context handles: API call, token storage, state management, and routing
       const successMessage = await login(values.email, values.password);
       
-      // Show success message from backend
-      toast.success(successMessage);
+      console.log('Login response message:', successMessage);
+      console.log('Current pathname after login:', window.location.pathname);
       
-      // After successful login, check for postAuthRedirect
-      const redirectUrl = localStorage.getItem('postAuthRedirect');
-      if (redirectUrl) {
-        localStorage.removeItem('postAuthRedirect');
-        router.replace(redirectUrl);
-        return;
+      // Check if we're still on the login page (admin users get redirected to OTP)
+      if (window.location.pathname === '/auth/login') {
+        console.log('Still on login page - showing success message for regular user');
+        // Show success message from backend only for regular users
+        toast.success(successMessage);
+        
+        // After successful login, check for postAuthRedirect
+        const redirectUrl = localStorage.getItem('postAuthRedirect');
+        if (redirectUrl) {
+          localStorage.removeItem('postAuthRedirect');
+          router.replace(redirectUrl);
+          return;
+        }
+      } else {
+        console.log('No longer on login page - admin user was redirected');
+        // For admin users, the redirect to OTP page happens in the AuthContext
+        // and we don't need to show a success toast here
       }
       
     } catch (error) {

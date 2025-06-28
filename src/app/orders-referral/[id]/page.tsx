@@ -53,7 +53,7 @@ export default function OrderDetailsPage() {
       setLoading(true);
       api.paystack.getOrderById(orderId)
         .then((res) => {
-          const result = res.data as { success: boolean; data?: OrderData; message?: string };
+          const result = res as unknown as { success: boolean; data?: OrderData; message?: string };
           if (result.success && result.data) {
             setOrder(result.data);
           } else {

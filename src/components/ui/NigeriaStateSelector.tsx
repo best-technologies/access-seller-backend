@@ -108,6 +108,7 @@ export default function NigeriaStateSelector({
   
   const stateRef = useRef<HTMLDivElement>(null);
   const lgaRef = useRef<HTMLDivElement>(null);
+  const prevStateRef = useRef<string>('');
 
   // Click outside handler
   useEffect(() => {
@@ -160,9 +161,10 @@ export default function NigeriaStateSelector({
     }
   }, [selectedState, lgaSearch]);
 
-  // Reset LGA when state changes
+  // Reset LGA when state changes (only when state actually changes)
   useEffect(() => {
-    if (selectedState) {
+    if (selectedState && selectedState !== prevStateRef.current) {
+      prevStateRef.current = selectedState;
       onLGAChange('');
       setLgaSearch('');
     }

@@ -43,6 +43,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
 
@@ -115,32 +116,53 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Initial auth check on mount
   useEffect(() => {
     const initAuth = async () => {
+      if (isLoggingIn) {
+        console.log('Skipping initial auth check - login in progress');
+        setIsLoading(false);
+        return;
+      }
       await checkAuth();
       setIsLoading(false);
     };
     initAuth();
-  }, [checkAuth]);
+  }, [checkAuth, isLoggingIn]);
 
   // Handle navigation based on auth state
   useEffect(() => {
-    if (isLoading) return;
+    if (isLoading || isLoggingIn) return;
 
     const isAuthPage = pathname?.startsWith('/auth');
+    const isOtpPage = pathname?.startsWith('/auth/verify-otp') || pathname?.startsWith('/auth/otp-verification');
     const isProtectedRoute = PROTECTED_ROUTES.some(route => pathname?.startsWith(route));
+
+    console.log('Navigation guard check:', {
+      pathname,
+      isAuthenticated,
+      isLoading,
+      isLoggingIn,
+      isAuthPage,
+      isOtpPage,
+      isProtectedRoute
+    });
 
     // Redirect unauthenticated users from protected routes
     if (!isAuthenticated && isProtectedRoute) {
+      console.log('Redirecting unauthenticated user from protected route to login');
       router.replace('/auth/login');
     } 
-    // Redirect authenticated users away from auth pages
-    else if (isAuthenticated && isAuthPage) {
+    // Redirect authenticated users away from auth pages (except OTP pages)
+    else if (isAuthenticated && isAuthPage && !isOtpPage) {
+      console.log('Redirecting authenticated user away from auth page to home');
       router.replace('/');
     }
-  }, [isAuthenticated, pathname, isLoading, router]);
+  }, [isAuthenticated, pathname, isLoading, isLoggingIn, router]);
 
   ////////////////////////////////////////////////////////////////////////////////    login
   const login = async (email: string, password: string): Promise<string> => {
     try {
+      setIsLoggingIn(true);
+      console.log('Starting login process for:', email);
+      
       const response = await api.auth.login(email, password);
       
       if (!response.success) {
@@ -151,10 +173,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const accessToken = response.data?.access_token;
 
       console.log("Login response: ", response.data)
+      console.log("Role: ", role)
 
       if (role !== "user") {
         // Privileged user: redirect to OTP page and exit
-        router.replace(`/auth/verify-otp?email=${encodeURIComponent(email)}`);
+        // Don't set authentication state to true yet - wait for OTP verification
+        // Use window.location.href for immediate redirect to avoid navigation guard interference
+        const otpUrl = `/auth/verify-otp?email=${encodeURIComponent(email)}&role=${encodeURIComponent(role || 'admin')}`;
+        console.log('Redirecting admin user to OTP page:', otpUrl);
+        window.location.href = otpUrl;
         return response.message || 'OTP sent to email. Please verify to continue.';
       }
 
@@ -185,6 +212,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.error('Login error:', error);
       handleApiError(error as Error);
       throw error;
+    } finally {
+      setIsLoggingIn(false);
     }
   };
 

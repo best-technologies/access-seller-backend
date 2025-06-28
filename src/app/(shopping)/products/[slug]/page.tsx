@@ -242,7 +242,7 @@ export default function ProductDetailPage() {
         setError("Book Not Found");
       })
       .finally(() => setLoading(false));
-  }, [productId, product]);
+  }, [productId]);
 
   // Check if affiliate link already exists for this product
   useEffect(() => {
@@ -359,51 +359,63 @@ export default function ProductDetailPage() {
       totalAmount: (Number(String(product?.price).replace(/,/g, '')) || 0) * (Number(quantity) || 0),
       callbackUrl: typeof window !== 'undefined' ? window.location.href : ''
     };
+    
     // Send to backend and log response
     try {
+      console.log('Sending payment data to backend:', backendData);
       const paystackResponse = await api.paystack.affiliateInitialisePayment(backendData);
       console.log('Paystack affiliate payment response:', paystackResponse);
       const responseData = paystackResponse.data;
-      if (
-        responseData &&
-        responseData.success &&
-        responseData.data &&
-        responseData.data.paystackResponse &&
-        responseData.data.paystackResponse.authorization_url
-      ) {
-        window.location.href = responseData.data.paystackResponse.authorization_url;
-        return;
+      console.log('Response data:', responseData);
+      
+      // Handle different possible response structures
+      let authorizationUrl = null;
+      
+      // Structure 1: responseData.data.paystackResponse.authorization_url
+      if (responseData?.data?.paystackResponse?.authorization_url) {
+        authorizationUrl = responseData.data.paystackResponse.authorization_url;
+      }
+      // Structure 2: responseData.authorization_url (direct)
+      else if (responseData?.authorization_url) {
+        authorizationUrl = responseData.authorization_url;
+      }
+      // Structure 3: responseData.data.authorization_url
+      else if (responseData?.data?.authorization_url) {
+        authorizationUrl = responseData.data.authorization_url;
+      }
+      // Structure 4: responseData.paystackResponse.authorization_url
+      else if (responseData?.paystackResponse?.authorization_url) {
+        authorizationUrl = responseData.paystackResponse.authorization_url;
+      }
+      
+      if (authorizationUrl) {
+        console.log('Redirecting to Paystack:', authorizationUrl);
+        window.location.href = authorizationUrl;
+        return; // Exit early on successful redirect
+      } else {
+        console.log('No authorization URL found in response. Response structure:', {
+          hasResponseData: !!responseData,
+          success: responseData?.success,
+          hasData: !!responseData?.data,
+          hasPaystackResponse: !!responseData?.data?.paystackResponse,
+          hasAuthUrl: !!responseData?.data?.paystackResponse?.authorization_url,
+          directAuthUrl: !!responseData?.authorization_url,
+          dataAuthUrl: !!responseData?.data?.authorization_url,
+          paystackAuthUrl: !!responseData?.paystackResponse?.authorization_url
+        });
+        console.log('Full response for debugging:', JSON.stringify(responseData, null, 2));
+        
+        // If no authorization URL found, show error and stop processing
+        setIsProcessingPayment(false);
+        toast.error('Failed to initialize payment. Please try again.');
+        return; // Exit early on failure
       }
     } catch (err) {
       console.error('Error sending to Paystack affiliate endpoint:', err);
-    }
-
-    // Prepare order data
-    const orderData = {
-      product: {
-        id: product?.id,
-        name: String(product?.title || ''),
-        price: product?.price ?? 0,
-        image: String((product as ProductUI)?.images[0] ?? ''),
-        category: String(product?.category || '')
-      },
-      quantity,
-      totalCost: (product?.price ?? 0) * quantity,
-      shipping: String(shippingForm ?? ''),
-      referral: String(referralData ?? ''),
-      timestamp: new Date().toISOString()
-    };
-    console.log('Processing affiliate order:', orderData);
-    setTimeout(() => {
       setIsProcessingPayment(false);
-      setShowShippingModal(false);
-      setShippingForm({ firstName: '', lastName: '', email: '', phone: '', state: '', city: '', houseAddress: '', address: '' });
-      setShowOrderComplete(true);
-      if (!isAuthenticated) setShowCreateAccountPrompt(true);
-      // toast.success('🎉 Order successfully paid! Thank you for your purchase.');
-      // Here you would typically send the orderData to your backend
-      // api.orders?.createAffiliateOrder?.(orderData);
-    }, 2000);
+      toast.error('Failed to initialize payment. Please try again.');
+      return; // Exit early on error
+    }
   };
 
   const handleGenerateAffiliateLink = async () => {
@@ -460,7 +472,7 @@ export default function ProductDetailPage() {
         setVerifyingPayment(true);
         api.paystack.verifyPaystackFunding(reference)
           .then((res) => {
-            const responseData = res.data as PaymentVerificationResponse;
+            const responseData = res as unknown as PaymentVerificationResponse;
             setPaymentVerified(responseData);
             setShowPaymentModal(true);
           })
@@ -760,7 +772,7 @@ export default function ProductDetailPage() {
                       <div className="flex flex-col gap-2">
                         <button className="w-full py-2 rounded-lg bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition" onClick={() => {
                           if (paymentVerified?.data?.id) {
-                            router.push(`/orders/${paymentVerified.data.id}`);
+                            router.push(`/orders-referral/${paymentVerified.data.id}`);
                           }
                         }}>View Order Details</button>
                         <button className="w-full py-2 rounded-lg bg-gray-100 text-gray-700 font-semibold hover:bg-gray-200 transition" onClick={() => setShowPaymentModal(false)}>Close</button>
