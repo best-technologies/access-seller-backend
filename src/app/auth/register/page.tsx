@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, Suspense, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -18,11 +18,12 @@ import {
 } from "@/components/ui/form";
 import { Card, CardContent } from "@/components/ui/card";
 import { BookOpen, Mail, Lock, User } from "lucide-react";
-import { api } from "@/services/api";
+import { useAuth } from "@/context/AuthContext";
+import toast from "react-hot-toast";
 
 const formSchema = z.object({
-  firstName: z.string().min(2, "First name must be at least 2 characters"),
-  lastName: z.string().min(2, "Last name must be at least 2 characters"),
+  first_name: z.string().min(2, "First name must be at least 2 characters"),
+  last_name: z.string().min(2, "Last name must be at least 2 characters"),
   email: z.string().email("Please enter a valid email address"),
   password: z.string().min(6, "Password must be at least 6 characters"),
   confirmPassword: z.string().min(6, "Password must be at least 6 characters"),
@@ -32,16 +33,16 @@ const formSchema = z.object({
 });
 
 function RegisterForm() {
-  const router = useRouter();
   const searchParams = useSearchParams();
+  const { register } = useAuth();
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      firstName: "",
-      lastName: "",
+      first_name: "",
+      last_name: "",
       email: "",
       password: "",
       confirmPassword: "",
@@ -60,28 +61,20 @@ function RegisterForm() {
       setIsLoading(true);
       setError(null);
 
-      const response = await api.auth.register({
+      await register({
         email: values.email,
         password: values.password,
-        first_name: values.firstName,
-        last_name: values.lastName,
-        agreeToTerms: true, // or get from form if you have a checkbox
+        first_name: values.first_name,
+        last_name: values.last_name,
+        agreeToTerms: true,
       });
 
-      if (!response.success) {
-        throw new Error(response.message || "Something went wrong");
-      }
-
-      const redirectUrl = localStorage.getItem('postAuthRedirect');
-      if (redirectUrl) {
-        localStorage.removeItem('postAuthRedirect');
-        router.replace(redirectUrl);
-        return;
-      }
-
-      router.push("/login?registered=true");
+      toast.success('Account created successfully! Please check your email for verification.');
+      
     } catch (error) {
-      setError(error instanceof Error ? error.message : "Something went wrong");
+      const errorMessage = error instanceof Error ? error.message : "Something went wrong";
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -114,7 +107,7 @@ function RegisterForm() {
                   <div className="flex gap-3">
                     <FormField
                       control={form.control}
-                      name="firstName"
+                      name="first_name"
                       render={({ field }) => (
                         <FormItem className="flex-1">
                           <FormLabel className="text-sm font-medium text-gray-700">
@@ -136,7 +129,7 @@ function RegisterForm() {
                     />
                     <FormField
                       control={form.control}
-                      name="lastName"
+                      name="last_name"
                       render={({ field }) => (
                         <FormItem className="flex-1">
                           <FormLabel className="text-sm font-medium text-gray-700">

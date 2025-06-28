@@ -226,7 +226,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         throw new Error(response.message || 'Registration failed');
       }
 
-      router.replace(`/auth/otp-verification?email=${encodeURIComponent(data.email)}`);
+      router.replace(`/auth/verify-otp?email=${encodeURIComponent(data.email)}`);
     } catch (error) {
       console.error('Registration error:', error);
       throw error;

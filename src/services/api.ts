@@ -244,8 +244,8 @@ export const api = {
       axiosInstance.post('/auth/register', {
         email: data.email,
         password: data.password,
-        firstName: data.first_name,
-        lastName: data.last_name,
+        first_name: data.first_name,
+        last_name: data.last_name,
       }),
 
     verifyOTP: (otp: string, email: string) =>
