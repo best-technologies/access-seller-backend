@@ -7,8 +7,8 @@ import type { User } from '@/services/api';
 interface RegistrationData {
   email: string;
   password: string;
-  firstName: string;
-  lastName: string;
+  first_name: string;
+  last_name: string;
   middleName?: string;
   phone?: string;
   gender?: string;
