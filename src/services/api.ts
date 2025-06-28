@@ -48,8 +48,8 @@ axiosInstance.interceptors.response.use(
 export interface RegistrationData {
   email: string;
   password: string;
-  firstName: string;
-  lastName: string;
+  first_name: string;
+  last_name: string;
   middleName?: string;
   phone?: string;
   gender?: string;
@@ -244,8 +244,8 @@ export const api = {
       axiosInstance.post('/auth/register', {
         email: data.email,
         password: data.password,
-        firstName: data.firstName,
-        lastName: data.lastName,
+        firstName: data.first_name,
+        lastName: data.last_name,
       }),
 
     verifyOTP: (otp: string, email: string) =>

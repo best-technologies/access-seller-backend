@@ -63,8 +63,8 @@ function RegisterForm() {
       const response = await api.auth.register({
         email: values.email,
         password: values.password,
-        firstName: values.firstName,
-        lastName: values.lastName,
+        first_name: values.firstName,
+        last_name: values.lastName,
         agreeToTerms: true, // or get from form if you have a checkbox
       });
 
