@@ -5,6 +5,8 @@ import { ResponseHelper } from "src/shared/helper-functions/response.helpers";
 import { onboardingSchoolAdminNotificationTemplate } from "../email-templates/onboard-mail-admin";
 import { passwordResetTemplate } from "../email-templates/password-reset-template";
 import { loginOtpTemplate } from "../email-templates/login-otp-template";
+import { orderConfirmationBuyerTemplate } from "../email-templates/order-confirmation-buyer";
+import { orderConfirmationAdminTemplate } from "../email-templates/order-confirmation-admin";
 
 // add the interface for the mail to send 
 export interface OnboardingMailPayload {
@@ -52,6 +54,26 @@ interface StoreOnboardingMailData {
         tax_clearance: string | null;
     };
     defaultPassword?: string;
+}
+
+interface OrderConfirmationMailData {
+    orderId: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    orderTotal: string;
+    state: string;
+    city: string;
+    houseAddress: string;
+    trackingNumber?: string;
+    paymentStatus: string;
+    shippingAddress: string;
+    orderCreated: string;
+    updatedAt: string;
+    productName?: string;
+    quantity?: number;
+    commissionAmount?: string;
+    affiliateUserId?: string;
 }
 
 ////////////////////////////////////////////////////////////            Send mail to school owner
@@ -184,7 +206,7 @@ export const sendOnboardingMailToBTechAdmin = async (
   };
 
 export const sendLoginOtpByMail = async ({ email, otp}: SendResetOtpProps): Promise<void> => {
-  console.log(colors.green(`Sending login otp to admin email: ${email}`))
+  console.log(colors.green(`Sending login otp ${otp} to admin email: ${email}`))
 
   try {
     
@@ -342,6 +364,99 @@ export async function sendOnboardingMailToPlatformAdmin(data: StoreOnboardingMai
         console.log(colors.red("Error sending onboarding email to platform admin: "), error);
         throw ResponseHelper.error(
             "Error sending onboarding email",
+            error.message
+        );
+    }
+}
+
+////////////////////////////////////////////////////////////             Send order confirmation to buyer
+export async function sendOrderConfirmationToBuyer(data: OrderConfirmationMailData) {
+    const { email, firstName, lastName, orderId, orderTotal, orderCreated, paymentStatus, trackingNumber, commissionAmount, affiliateUserId } = data;
+
+    try {
+        console.log(colors.yellow(`Sending order confirmation email to buyer: ${email}`));
+
+        // Check if env vars exist
+        if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
+            throw new Error("SMTP credentials missing in environment variables");
+        }
+
+        const transporter = nodemailer.createTransport({
+            service: 'gmail',
+            host: process.env.GOOGLE_SMTP_HOST,
+            port: process.env.GOOGLE_SMTP_PORT ? parseInt(process.env.GOOGLE_SMTP_PORT) : 587,
+            secure: false,
+            auth: {
+                user: process.env.EMAIL_USER,
+                pass: process.env.EMAIL_PASSWORD,
+            },
+        });
+
+        const htmlContent = orderConfirmationBuyerTemplate(data);
+
+        const mailOptions = {
+            from: {
+                name: "Acces-Sellr",
+                address: process.env.EMAIL_USER as string,
+            },
+            to: email,
+            subject: `🎉 Order Confirmed - ${orderId}`,
+            html: htmlContent,
+        };
+
+        await transporter.sendMail(mailOptions);
+        console.log(colors.green(`Order confirmation email sent to buyer: ${email}`));
+    } catch (error) {
+        console.log(colors.red("Error sending order confirmation email to buyer: "), error);
+        throw ResponseHelper.error(
+            "Error sending order confirmation email",
+            error.message
+        );
+    }
+}
+
+////////////////////////////////////////////////////////////             Send order notification to admin
+export async function sendOrderNotificationToAdmin(data: OrderConfirmationMailData) {
+    const { orderId, orderTotal, firstName, lastName, email, trackingNumber, commissionAmount, affiliateUserId } = data;
+
+    try {
+        console.log(colors.yellow("Sending order notification email to admin"));
+
+        // Check if env vars exist
+        if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
+            throw new Error("SMTP credentials missing in environment variables");
+        }
+
+        const transporter = nodemailer.createTransport({
+            service: 'gmail',
+            host: process.env.GOOGLE_SMTP_HOST,
+            port: process.env.GOOGLE_SMTP_PORT ? parseInt(process.env.GOOGLE_SMTP_PORT) : 587,
+            secure: false,
+            auth: {
+                user: process.env.EMAIL_USER,
+                pass: process.env.EMAIL_PASSWORD,
+            },
+        });
+
+        const htmlContent = orderConfirmationAdminTemplate(data);
+        const adminEmail = process.env.ADMIN_EMAIL || "admin@acces-sellr.com";
+
+        const mailOptions = {
+            from: {
+                name: "Acces-Sellr",
+                address: process.env.EMAIL_USER as string,
+            },
+            to: adminEmail,
+            subject: `🛒 New Order Received - ${orderId}`,
+            html: htmlContent,
+        };
+
+        await transporter.sendMail(mailOptions);
+        console.log(colors.green(`Order notification email sent to admin: ${adminEmail}`));
+    } catch (error) {
+        console.log(colors.red("Error sending order notification email to admin: "), error);
+        throw ResponseHelper.error(
+            "Error sending order notification email",
             error.message
         );
     }

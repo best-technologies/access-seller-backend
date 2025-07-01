@@ -263,6 +263,22 @@ export class AuthService {
                 }
             });
 
+            const otp = crypto.randomInt(1000, 9999).toString();
+            const otpExpiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 mins expiry
+
+             // Update OTP for the user
+             await this.prisma.user.update({
+                where: { email: payload.email },
+                data: {
+                    otp,
+                    otp_expires_at: otpExpiresAt,
+                },
+            });
+
+            await sendLoginOtpByMail({ email: payload.email, otp })
+
+            
+
             // Generate a unique referral code and URL for the new user
             
 

@@ -3,8 +3,10 @@ import { PrismaService } from '../prisma/prisma.service';
 import * as colors from "colors";
 import { ApiResponse } from 'src/shared/helper-functions/response';
 import { requestAffiliatePermissionDto } from './dto/afiliate.dto';
-import { RequestCommissionPayoutDto, CommissionPayoutResponseDto } from './dto/commission-payout.dto';
+import { RequestCommissionPayoutDto, } from './dto/commission-payout.dto';
 import { AffiliateStatus } from '@prisma/client';
+import { formatAmount, formatDateWithoutTime } from 'src/shared/helper-functions/formatter';
+import { AddBankDto, DeleteBankDto, UpdateBankStatusDto } from './dto/bank.dto';
 
 @Injectable()
 export class UserService {
@@ -156,7 +158,12 @@ export class UserService {
           },
           include: {
             user: { select: { first_name: true, last_name: true, email: true } },
-            commissions: true
+            commissions: true,
+            items: {
+              select: {
+                product: { select: { displayImages: true } }
+              }
+            }
           },
           orderBy: { createdAt: 'desc' },
           take: 10
@@ -164,17 +171,24 @@ export class UserService {
       ]);
 
       // 4. Format table analysis
-      const tableAnalysis = recentOrders.map(order => ({
-        orderId: order.id,
-        buyerName: order.user.first_name + ' ' + order.user.last_name,
-        buyerEmail: order.user.email,
-        orderAmount: order.total,
-        commissionEarned: order.commissions
-          .filter(c => c.userId === user.id)
-          .reduce((sum, c) => sum + c.amount, 0),
-        orderDate: order.createdAt,
-        status: order.status
-      }));
+      const tableAnalysis = recentOrders.map(order => {
+        const fourDaysAgo = new Date();
+        fourDaysAgo.setDate(fourDaysAgo.getDate() - 2);
+        const approved = order.createdAt < fourDaysAgo;
+        return {
+          orderId: order.id,
+          buyerName: order.user.first_name + ' ' + order.user.last_name,
+          buyerEmail: order.user.email,
+          orderAmount: formatAmount(order.total),
+          displayImage: order.items?.[0]?.product?.displayImages?.[0]?.secure_url,
+          commissionEarned: formatAmount(order.commissions
+            .filter(c => c.userId === user.id)
+            .reduce((sum, c) => sum + c.amount, 0)),
+          orderDate: formatDateWithoutTime(order.createdAt),
+          status: approved ? order.status : "inactive",
+          approved,
+        };
+      });
 
       // 5. Build response
       const dashboard = {
@@ -191,6 +205,8 @@ export class UserService {
         tableAnalysis,
         
       };
+
+      console.log('Affiliate dashboard fetched successfully.', dashboard)
 
       return new ApiResponse(true, 'Affiliate dashboard fetched successfully.', dashboard);
     } catch (error) {
@@ -379,5 +395,88 @@ export class UserService {
       orderBy: { requestedAt: 'desc' }
     });
     return new ApiResponse(true, 'Commission payout history fetched.', payouts);
+  }
+
+  async addBank(user: any, dto: AddBankDto) {
+    try {
+      console.log(colors.cyan('[user-service] Adding new bank for user...'));
+      const existingUser = await this.prisma.user.findFirst({ where: { email: user.email } });
+      if (!existingUser) {
+        console.log(colors.red('[user-service] User not found.'));
+        return new ApiResponse(false, 'User not found.');
+      }
+      // Check for duplicate bank (by accountNumber and bankCode for this user)
+      const existingBank = await this.prisma.bank.findFirst({
+        where: {
+          userId: existingUser.id,
+          accountNumber: dto.accountNumber,
+          bankCode: dto.bankCode,
+        },
+      });
+      if (existingBank) {
+        console.log(colors.red('[user-service] Bank with this account number and bank code already exists for user.'));
+        return new ApiResponse(false, 'Bank with this account number and bank code already exists.');
+      }
+      const bank = await this.prisma.bank.create({
+        data: {
+          userId: existingUser.id,
+          bankName: dto.bankName,
+          bankCode: dto.bankCode,
+          accountNumber: dto.accountNumber,
+          accountName: dto.accountName,
+        },
+      });
+      console.log(colors.green('[user-service] Bank added successfully.'));
+      return new ApiResponse(true, 'Bank added successfully.', bank);
+    } catch (error) {
+      console.log(colors.red('[user-service] Error adding bank:'), error);
+      return new ApiResponse(false, 'Failed to add bank.');
+    }
+  }
+
+  async deleteBank(user: any, dto: DeleteBankDto) {
+    try {
+      console.log(colors.cyan('[user-service] Deleting bank for user...'));
+      const existingUser = await this.prisma.user.findFirst({ where: { email: user.email } });
+      if (!existingUser) {
+        console.log(colors.red('[user-service] User not found.'));
+        return new ApiResponse(false, 'User not found.');
+      }
+      // Ensure the bank belongs to the user
+      const bank = await this.prisma.bank.findFirst({ where: { id: dto.bankId, userId: existingUser.id } });
+      if (!bank) {
+        console.log(colors.red('[user-service] Bank not found or does not belong to user.'));
+        return new ApiResponse(false, 'Bank not found or does not belong to user.');
+      }
+      await this.prisma.bank.delete({ where: { id: dto.bankId } });
+      console.log(colors.green('[user-service] Bank deleted successfully.'));
+      return new ApiResponse(true, 'Bank deleted successfully.');
+    } catch (error) {
+      console.log(colors.red('[user-service] Error deleting bank:'), error);
+      return new ApiResponse(false, 'Failed to delete bank.');
+    }
+  }
+
+  async updateBankStatus(user: any, dto: UpdateBankStatusDto) {
+    try {
+      console.log(colors.cyan('[user-service] Updating bank status for user...'));
+      const existingUser = await this.prisma.user.findFirst({ where: { email: user.email } });
+      if (!existingUser) {
+        console.log(colors.red('[user-service] User not found.'));
+        return new ApiResponse(false, 'User not found.');
+      }
+      // Ensure the bank belongs to the user
+      const bank = await this.prisma.bank.findFirst({ where: { id: dto.bankId, userId: existingUser.id } });
+      if (!bank) {
+        console.log(colors.red('[user-service] Bank not found or does not belong to user.'));
+        return new ApiResponse(false, 'Bank not found or does not belong to user.');
+      }
+      // The Bank model does not have an isActive field
+      console.log(colors.red('[user-service] Bank status cannot be updated because the Bank model does not have an isActive field.'));
+      return new ApiResponse(false, 'Bank status cannot be updated because the Bank model does not have an isActive field.');
+    } catch (error) {
+      console.log(colors.red('[user-service] Error updating bank status:'), error);
+      return new ApiResponse(false, 'Failed to update bank status.');
+    }
   }
 }

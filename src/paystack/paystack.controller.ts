@@ -3,6 +3,7 @@ import { PaystackService } from './paystack.service';
 import { affiliateInitiatePaystackPayment, PaymentDataDto, verifyPaystackPaymentDto } from '../shared/dto/payment.dto';
 import { JwtGuard } from 'src/auth/guard';
 import { Request } from 'express';
+import { VerifyAccountNumberDto } from './dto/paystack.dto';
 
 @Controller('paystack')
 export class PaystackController {
@@ -26,5 +27,15 @@ export class PaystackController {
   @Get('order/:id')
   async getOrderById(@Param('id') id: string) {
     return this.paystackService.getOrderById(id);
+  }
+
+  @Get('banks')
+  async fetchAllBanks() {
+    return this.paystackService.fetchAllBanks();
+  }
+
+  @Post('verify-account-number')
+  async verifyAccountNumber(@Body() dto: VerifyAccountNumberDto) {
+    return this.paystackService.verifyAccountNumberPaystack(dto, null);
   }
 }

@@ -7,6 +7,8 @@ import { ProductsService } from '../admin/products/products.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { ApiResponse } from 'src/shared/helper-functions/response';
 import { formatAmount, formatDate } from 'src/shared/helper-functions/formatter';
+import { sendOrderConfirmationToBuyer, sendOrderNotificationToAdmin } from 'src/common/mailer/send-mail';
+import { VerifyAccountNumberDto } from './dto/paystack.dto';
 
 @Injectable()
 export class PaystackService {
@@ -93,10 +95,6 @@ export class PaystackService {
       if (!product) {
         throw new Error('Product not found');
       }
-      const storeId = product.storeId;
-      if (!storeId) {
-        throw new Error('Product is not linked to a store');
-      }
 
       // 1. Quantity check
       if (quantity > product.stock) {
@@ -111,6 +109,23 @@ export class PaystackService {
 
       // Start a transaction to revert back in case of a problem
       const { order, user, paystackResponse } = await this.prisma.$transaction(async (tx) => {
+        // Ensure product has a storeId (inside transaction)
+        let storeId = product.storeId;
+        if (!storeId) {
+          console.log(colors.blue("store d nt found, updating"));
+          const firstStore = await tx.store.findFirst();
+          console.log(colors.yellow("First store id: "), firstStore?.id)
+          if (!firstStore) {
+            throw new Error('No store found in the database to attach to the product');
+          }
+          await tx.product.update({
+            where: { id: productId },
+            data: { storeId: firstStore.id },
+          });
+          storeId = firstStore.id;
+          console.log(colors.yellow(`[paystack-service] Product had no storeId. Attached first store (${storeId}) to product ${productId}`));
+        }
+
         // 1. Check if user exists, else create a guest user
         let user = await tx.user.findUnique({ where: { email } });
         if (!user) {
@@ -305,6 +320,7 @@ export class PaystackService {
               updatedAt: new Date() 
             },
             include: {
+              user: true,
               items: {
                 include: {
                   product: true
@@ -326,10 +342,13 @@ export class PaystackService {
         }
 
         // Award commission if there's a referral slug
+        let commissionAmount: number | undefined;
+        let affiliateLink: any = null;
+        
         if (updatedOrder.trackingNumber) {
           try {
             // Find the affiliate link by slug
-            const affiliateLink = await this.prisma.affiliateLink.findUnique({
+            affiliateLink = await this.prisma.affiliateLink.findUnique({
               where: { slug: updatedOrder.trackingNumber },
               include: {
                 user: true,
@@ -346,7 +365,7 @@ export class PaystackService {
               
               // Calculate commission using the product's commission percentage
               const commissionPercentage = productCommission ? parseFloat(productCommission) : 20; // Default to 20% if not set
-              const commissionAmount = (updatedOrder.total * commissionPercentage) / 100;
+              commissionAmount = (updatedOrder.total * commissionPercentage) / 100;
               console.log("order total value: ",existingOrder.total_amount)
               console.log("commission amount: ",commissionAmount)
 
@@ -384,16 +403,54 @@ export class PaystackService {
 
         console.log(colors.cyan(`Transaction amount: , ${existingOrder.total_amount}`)); 
 
-          const formattedResponse = {
-            id: updatedOrder.id,
-            amount: formatAmount(updatedOrder.total_amount ?? 0),
-            description: "Payment for order purchase",
-            status: "success",
-            payment_method: "paystack",
-            date: formatDate(updatedOrder.updatedAt)
-          }
+        const formattedResponse = {
+          id: updatedOrder.id,
+          amount: formatAmount(updatedOrder.total_amount ?? 0),
+          description: "Payment for order purchase",
+          status: "success",
+          payment_method: "paystack",
+          date: formatDate(updatedOrder.updatedAt)
+        }
 
         console.log(colors.green("Payment verified successfully"));
+
+        // Prepare email data
+        const emailData = {
+          orderId: updatedOrder.id,
+          firstName: updatedOrder.user?.first_name || '',
+          lastName: updatedOrder.user?.last_name || '',
+          email: updatedOrder.user?.email || '',
+          orderTotal: formatAmount(updatedOrder.total_amount ?? 0),
+          state: updatedOrder.state || '',
+          city: updatedOrder.city || '',
+          houseAddress: updatedOrder.houseAddress || '',
+          trackingNumber: updatedOrder.trackingNumber || undefined,
+          paymentStatus: updatedOrder.orderPaymentStatus || 'paid',
+          shippingAddress: updatedOrder.shippingAddress || '',
+          orderCreated: formatDate(updatedOrder.createdAt),
+          updatedAt: formatDate(updatedOrder.updatedAt),
+          productName: updatedOrder.items[0]?.product?.name,
+          quantity: updatedOrder.items[0]?.quantity,
+          commissionAmount: commissionAmount ? formatAmount(commissionAmount) : undefined,
+          affiliateUserId: affiliateLink?.userId
+        };
+
+        // Send order confirmation email to buyer
+        try {
+          await sendOrderConfirmationToBuyer(emailData);
+          console.log(colors.green("Order confirmation email sent to buyer"));
+        } catch (error) {
+          console.log(colors.red("Error sending order confirmation email to buyer:"), error);
+        }
+
+        // Send order notification email to admin
+        try {
+          await sendOrderNotificationToAdmin(emailData);
+          console.log(colors.green("Order notification email sent to admin"));
+        } catch (error) {
+          console.log(colors.red("Error sending order notification email to admin:"), error);
+        }
+
         return new ApiResponse(true, "Payment verified successfully", formattedResponse);
 
     } catch (error) {
@@ -434,6 +491,80 @@ export class PaystackService {
     } catch (error) {
       console.log(colors.red('[paystack-service] Error fetching order:'), error);
       return new ApiResponse(false, 'Failed to fetch order.');
+    }
+  }
+
+  async fetchAllBanks() {
+    console.log(colors.cyan("Fetching all banks..."));
+
+    let response: any;
+
+    try {
+          response = await axios.get(`https://api.paystack.co/bank`, {
+          headers: {
+            Authorization: `Bearer ${process.env.PAYSTACK_TEST_SECRET_KEY}`,
+            'Content-Type': 'application/json',
+          },
+        });
+    } catch (error) {
+      console.log(colors.red("Error fetching banks: "), error);
+      return new ApiResponse(false, "Error fetching banks");
+    }
+
+    console.log("Response: ", response.data);
+
+        const { status, data } = response.data;
+        if(!status) {
+            console.log(colors.red(`Error fetching banks:`));
+            return new ApiResponse(false, "Error fetching banks");
+        }
+
+        const formattedPaystackBanks = data.map(bank => ({
+            id: bank.id,
+            name: bank.name,
+            code: bank.code
+        }));
+
+        console.log(colors.magenta("Fetched all banks successfully"));
+
+        return new ApiResponse(true, "Fetched all banks successfully", formattedPaystackBanks);
+  }
+
+  async verifyAccountNumberPaystack(dto: VerifyAccountNumberDto, userPayload: any) {
+    console.log("User verifying account number".blue)
+
+    const reqBody = {
+        account_number: dto.account_number,
+        bank_code: dto.bank_code
+    }
+
+    try {
+        const response = await axios.get(`https://api.paystack.co/bank/resolve`, {
+            params: reqBody,
+            headers: {
+                Authorization: `Bearer ${process.env.PAYSTACK_TEST_SECRET_KEY}`
+            }
+        });
+
+        const { status, data } = response.data;
+
+        if (status) {
+            console.log("Account name successfully retrieved: ", data.account_name);
+            return new ApiResponse(true, "Bank details verified successfully", data.account_name);
+        } else {
+            console.log(`Failed to verify bank details: ${data.message}`);
+            return new ApiResponse(false, `Failed to verify bank details: ${data.message}`);
+        }
+    } catch (error) {
+        // Handle the error message and extract the response message
+        if (error.response && error.response.data && error.response.data.message) {
+            console.error(error.response.data.message);
+            return new ApiResponse(false, error.response.data.message);
+        } else {
+            // For unexpected errors
+            console.error("Unexpected error verifying bank details", error);
+            return new ApiResponse(false, "An unexpected error occurred while verifying bank details");
+        }
     }
   }
 }

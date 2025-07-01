@@ -1,9 +1,10 @@
-import { Body, Controller, Get, Param, Post, Query, Request, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query, Request, UseGuards, Delete, Patch } from '@nestjs/common';
 import { UserService } from './user.service';
 import { JwtGuard } from 'src/auth/guard';
 import { requestAffiliatePermissionDto } from './dto/afiliate.dto';
 import { RequestCommissionPayoutDto } from './dto/commission-payout.dto';
 import { GenerateAffiliateLinkDto } from 'src/admin/referrals/dto/generate-affiliate-link.dto';
+import { AddBankDto, DeleteBankDto, UpdateBankStatusDto } from './dto/bank.dto';
 
 @Controller('user')
 @UseGuards(JwtGuard)
@@ -51,5 +52,20 @@ export class UserController {
   @Get('commission-payout/history')
   async getCommissionPayoutHistory(@Request() req) {
     return this.userService.getCommissionPayoutHistory(req.user);
+  }
+
+  @Post('bank')
+  async addBank(@Request() req, @Body() dto: AddBankDto) {
+    return this.userService.addBank(req.user, dto);
+  }
+
+  @Delete('bank')
+  async deleteBank(@Request() req, @Body() dto: DeleteBankDto) {
+    return this.userService.deleteBank(req.user, dto);
+  }
+
+  @Patch('bank/status')
+  async updateBankStatus(@Request() req, @Body() dto: UpdateBankStatusDto) {
+    return this.userService.updateBankStatus(req.user, dto);
   }
 }
