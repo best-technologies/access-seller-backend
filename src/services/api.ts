@@ -196,6 +196,22 @@ export interface AddAgeRatingResponse {
   }
 }
 
+// Response type for adding a new bank
+export interface AddNewBankResponse {
+  success: boolean;
+  message: string;
+  data: {
+    id: string;
+    userId: string;
+    bankName: string;
+    bankCode: string;
+    accountNumber: string;
+    accountName: string;
+    createdAt: string;
+    updatedAt: string;
+  };
+}
+
 // Token management - to be used by auth context
 export const tokenManager = {
   get: () => {
@@ -299,6 +315,11 @@ export const api = {
       const res = await axiosInstance.post('/user/request-affiliate-access', { niche, reason });
       console.log("[API Call] response: ", res.data)
       return res as unknown as AffiliateAccessResponse;
+    },
+    addBankAccount: async (data: { bankName: string; bankCode: string; accountNumber: string; accountName: string }): Promise<AddNewBankResponse> => {
+      const res = await axiosInstance.post('/user/bank', data);
+      console.log("[API] response: ", res)
+      return res as unknown as AddNewBankResponse;
     },
   },
 
@@ -466,6 +487,14 @@ export const api = {
     getOrderById: async (id: string) => {
       // Calls /paystack/order/:id to fetch order details
       return axiosInstance.get(`/paystack/order/${id}`);
+    },
+    getBanks: async () => {
+      const response = await axiosInstance.get('/paystack/banks');
+      return response;
+    },
+    verifyAccountNumber: async (account_number: string, bank_code: string) => {
+      const response = await axiosInstance.post('/paystack/verify-account-number', { account_number, bank_code });
+      return response as unknown;
     },
   },
 }

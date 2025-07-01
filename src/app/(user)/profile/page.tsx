@@ -11,7 +11,6 @@ import {
   X,
   User as UserIcon
 } from "lucide-react";
-import PageHeader from "@/components/ui/PageHeader";
 import ProfileInfo from "@/components/profile/ProfileInfo";
 import ProfileOrders from "@/components/profile/ProfileOrders";
 import ProfileWishlist from "@/components/profile/ProfileWishlist";
@@ -73,7 +72,7 @@ export default function ProfilePage() {
   const mappedUserData = {
     name: `${userData.first_name} ${userData.last_name}`,
     email: userData.email,
-    phone: (userData as { phone_number?: string }).phone_number || "",
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            phone: (userData as { phone_number?: string }).phone_number || "",
     address: (userData as { address?: string }).address || "",
     joinDate: (userData as { joined_date?: string }).joined_date || "",
     avatar: userData.profile_picture || "/images/icons/media.svg",
@@ -141,10 +140,32 @@ export default function ProfilePage() {
       {/* Main Content */}
       <main className="flex-1 min-h-screen transition-all lg:ml-64">
         <div className="p-8">
-          <PageHeader title="My Profile" />
-          <p className="text-sm text-gray-500 mb-8">
-            Manage your account settings and preferences
-          </p>
+          {/* Professional Profile Header */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 flex flex-col md:flex-row items-center gap-6 mb-8">
+            <img
+              src={mappedUserData.avatar}
+              alt={mappedUserData.name}
+              className="w-24 h-24 rounded-full border-4 border-indigo-100 object-cover"
+            />
+            <div className="flex-1">
+              <h2 className="text-2xl font-bold text-gray-900">{mappedUserData.name}</h2>
+              <p className="text-gray-500">{mappedUserData.email}</p>
+              <div className="flex gap-6 mt-4">
+                {/* <div>
+                  <span className="block text-lg font-semibold text-indigo-600">{mappedUserData.stats.orders}</span>
+                  <span className="text-xs text-gray-400">Orders</span>
+                </div> */}
+                {/* <div>
+                  <span className="block text-lg font-semibold text-indigo-600">{mappedUserData.stats.wishlist}</span>
+                  <span className="text-xs text-gray-400">Wishlist</span>
+                </div> */}
+                {/* <div>
+                  <span className="block text-lg font-semibold text-indigo-600">{mappedUserData.stats.reviews}</span>
+                  <span className="text-xs text-gray-400">Reviews</span>
+                </div> */}
+              </div>
+            </div>
+          </div>
           {/* Main Content Tabs */}
           {activeTab === "profile" && <ProfileInfo userData={mappedUserData} />}
           {activeTab === "referrals" && (
