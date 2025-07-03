@@ -321,6 +321,14 @@ export const api = {
       console.log("[API] response: ", res)
       return res as unknown as AddNewBankResponse;
     },
+    deleteBankAccount: async (bankId: string): Promise<{ success: boolean; message: string }> => {
+      const res = await axiosInstance.delete('/user/bank', { data: { bankId } });
+      return res as unknown as { success: boolean; message: string };
+    },
+    requestWithdrawal: async (data: { orderId: string; bankCode: string }): Promise<{ success: boolean; message: string }> => {
+      const res = await axiosInstance.post('/user/withdrawal-request', data);
+      return res as unknown as { success: boolean; message: string };
+    },
   },
 
   public: {

@@ -1,7 +1,7 @@
 import { Eye, Package, Clock, Truck, CheckCircle, XCircle } from "lucide-react";
 // import { recentOrders } from "@/data/admin/dashboard/mockData";
 
-interface Order {
+export interface Order {
   id: string;
   orderNumber: string;
   items: number;

@@ -18,6 +18,7 @@ import ProfileSettings from "@/components/profile/ProfileSettings";
 import ReferralEarnings from "@/components/profile/ReferralEarnings";
 import { api } from "@/services/api";
 import Loader from "@/components/Loader";
+import Image from 'next/image';
 
 export default function ProfilePage() {
   const [userData, setUserData] = useState<User | null>(null);
@@ -142,9 +143,11 @@ export default function ProfilePage() {
         <div className="p-8">
           {/* Professional Profile Header */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 flex flex-col md:flex-row items-center gap-6 mb-8">
-            <img
+            <Image
               src={mappedUserData.avatar}
               alt={mappedUserData.name}
+              width={96}
+              height={96}
               className="w-24 h-24 rounded-full border-4 border-indigo-100 object-cover"
             />
             <div className="flex-1">

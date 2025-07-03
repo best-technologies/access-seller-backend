@@ -1,7 +1,7 @@
 import { Bell, Package, User, Settings, AlertTriangle, Clock } from "lucide-react";
 // import { notifications } from "@/data/admin/dashboard/mockData";
 
-interface Notification {
+export interface Notification {
   id: string;
   type: string;
   priority: string;
