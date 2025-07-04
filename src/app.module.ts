@@ -15,6 +15,7 @@ import { PaystackModule } from './paystack/paystack.module';
 import { ProductsModule } from './products/products.module';
 import { UserModule } from './user/user.module';
 import { DiscountModule } from './discount/discount.module';
+import { OrderModule } from './order/order.module';
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { DiscountModule } from './discount/discount.module';
     ProductsModule,
     UserModule,
     DiscountModule,
+    OrderModule,
   ],
   controllers: [AppController],
   providers: [AppService],

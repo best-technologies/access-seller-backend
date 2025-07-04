@@ -221,7 +221,7 @@ export class DashboardService {
 
                 const monthOrders = await this.prisma.order.findMany({
                     where: {
-                        status: 'delivered',
+                        // status: 'delivered',
                         createdAt: {
                             gte: monthStart,
                             lte: monthEnd
@@ -248,7 +248,7 @@ export class DashboardService {
         };
     }
 
-    private async getRevenueBreakdown() {
+    private async   getRevenueBreakdown() {
         const categories = await this.prisma.category.findMany({
             include: {
                 products: {
@@ -316,6 +316,8 @@ export class DashboardService {
                 }
             }
         });
+
+        console.log(colors.green("Orders: "), orders)
 
         return orders.map((order, index) => ({
             id: order.id,

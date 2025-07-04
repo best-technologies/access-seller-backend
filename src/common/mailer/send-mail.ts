@@ -231,7 +231,7 @@ export const sendLoginOtpByMail = async ({ email, otp}: SendResetOtpProps): Prom
 
   const mailOptions = {
       from: {
-          name: "PayFlex LTD",
+          name: "Access Sellr",
           address: process.env.EMAIL_USER as string,
       },
       to: email,

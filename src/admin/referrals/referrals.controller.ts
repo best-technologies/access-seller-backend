@@ -4,6 +4,7 @@ import { JwtGuard } from '../../auth/guard';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { GenerateAffiliateLinkDto } from './dto/generate-affiliate-link.dto';
 import { TrackAffiliateLinkConversionDto } from './dto/track-affiliate-link-conversion.dto';
+import { UpdateWithdrawalStatusDto } from './dto/update-withdrawal-status.dto';
 
 @Controller('admin/affiliates')
 @UseGuards(JwtGuard)
@@ -82,4 +83,37 @@ export class ReferralsController {
     async fetchAllCommissionPayouts() {
         return this.referralsService.fetchAllCommissionPayouts();
     }
+
+    // Update withdrawal request status (approve/reject)
+    @Put('withdrawal/:payoutId/status')
+    async updateWithdrawalStatus(
+        @Param('payoutId') payoutId: string,
+        @Request() req,
+        @Body() dto: UpdateWithdrawalStatusDto
+    ) {
+        const adminId = req.user.id;
+        return this.referralsService.updateWithdrawalStatus(
+            payoutId, 
+            dto.payoutStatus, 
+            adminId, 
+            dto.notes
+        );
+    }
+
+    // Fetch all withdrawal requests with filtering and pagination
+    @Get('withdrawals')
+    async fetchAllWithdrawalRequests(
+        @Query('page') page: number = 1,
+        @Query('limit') limit: number = 20,
+        @Query('status') status?: string
+    ) {
+        return this.referralsService.fetchAllWithdrawalRequests(
+            Number(page), 
+            Number(limit), 
+            status
+        );
+    }
+
+    // i said add the controller too
+
 } 

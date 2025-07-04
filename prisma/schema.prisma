@@ -157,6 +157,21 @@ enum AffiliateStatus {
   inactive
 }
 
+enum WithdrawalStatus {
+  not_requested
+  pending
+  paid
+  cancelled
+}
+
+enum OrderWithdrawalStatus {
+  none
+  processing
+  completed
+  rejected
+  failed
+}
+
 model Store {
   id          String      @id @default(cuid())
   first_name  String
@@ -226,17 +241,18 @@ model User {
   updatedAt             DateTime        @updatedAt
 
   // Relations
-  store            Store?             @relation(fields: [store_id], references: [id])
-  orders           Order[]
-  cart             Cart?
-  referrals_made   Referral[]         @relation("Referrer")
-  referredBy       Referral[]         @relation("Referred")
-  commissions      Commission[]
-  referralCode     ReferralCode?
-  Affiliate        Affiliate?
-  AffiliateLink    AffiliateLink[]
-  CommissionPayout CommissionPayout[]
-  banks            Bank[]
+  store              Store?              @relation(fields: [store_id], references: [id])
+  orders             Order[]
+  cart               Cart?
+  referrals_made     Referral[]          @relation("Referrer")
+  referredBy         Referral[]          @relation("Referred")
+  commissions        Commission[]
+  referralCode       ReferralCode?
+  Affiliate          Affiliate?
+  AffiliateLink      AffiliateLink[]
+  CommissionPayout   CommissionPayout[]
+  banks              Bank[]
+  withdrawalRequests WithdrawalRequest[]
 }
 
 model Product {
@@ -322,32 +338,35 @@ model CartItem {
 }
 
 model Order {
-  id                 String      @id @default(cuid())
+  id                 String                @id @default(cuid())
+  orderId            String                @unique @default(cuid())
   productid          String?
   userId             String
   storeId            String
-  status             OrderStatus @default(pending)
+  status             OrderStatus           @default(pending)
   total              Float
-  total_amount       Float       @default(0) // Adding this field for compatibility
+  total_amount       Float                 @default(0) // Adding this field for compatibility
   shippingAddress    String
   state              String?
   referralSlug       String?
   city               String?
   houseAddress       String?
-  orderPaymentStatus String      @default("pending")
+  orderPaymentStatus String                @default("pending")
   trackingNumber     String?
-  createdAt          DateTime    @default(now())
-  updatedAt          DateTime    @updatedAt
+  withdrawalStatus   OrderWithdrawalStatus @default(none)
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
 
   paystackReference        String? @unique
   paystackAuthorizationUrl String?
   paystackAccessCode       String?
 
   // Relations
-  user        User         @relation(fields: [userId], references: [id])
-  store       Store        @relation(fields: [storeId], references: [id])
-  items       OrderItem[]
-  commissions Commission[]
+  user               User                @relation(fields: [userId], references: [id])
+  store              Store               @relation(fields: [storeId], references: [id])
+  items              OrderItem[]
+  commissions        Commission[]
+  withdrawalRequests WithdrawalRequest[]
 }
 
 model OrderItem {
@@ -393,8 +412,9 @@ model Commission {
   updatedAt            DateTime         @updatedAt
 
   // Relations
-  user  User  @relation(fields: [userId], references: [id])
-  order Order @relation(fields: [orderId], references: [id])
+  user               User                @relation(fields: [userId], references: [id])
+  order              Order               @relation(fields: [orderId], references: [id])
+  withdrawalRequests WithdrawalRequest[]
 }
 
 model Notification {
@@ -529,7 +549,7 @@ model CommissionPayout {
   id          String    @id @default(cuid())
   userId      String
   amount      Float
-  status      String    @default("pending") // pending, paid, rejected, cancelled
+  status      String    @default("pending") // pending, completed, rejected, cancelled
   method      String // e.g. "bank", "wallet", "paypal"
   reference   String    @unique
   requestedAt DateTime  @default(now())
@@ -538,17 +558,50 @@ model CommissionPayout {
   user User @relation(fields: [userId], references: [id])
 }
 
+model WithdrawalRequest {
+  id                   String           @id @default(cuid())
+  payoutId             String?          @unique // Unique payout identifier in format out/accXXXXXX
+  userId               String
+  orderId              String
+  commissionId         String? // Link to the commission record
+  buyerName            String
+  buyerEmail           String
+  totalPurchaseAmount  Float
+  commissionAmount     Float
+  commissionPercentage String
+  payoutMethod         String // "bank", "wallet", "paypal"
+  bankId               String? // If payout method is bank
+  payoutStatus         WithdrawalStatus @default(pending)
+  reference            String           @unique
+  requestedAt          DateTime         @default(now())
+  processedAt          DateTime?
+  processedBy          String? // Admin who processed it
+  notes                String? // Admin notes for rejection/cancellation
+  rejectionReason      String? // Specific reason if rejected
+
+  // Relations
+  user       User        @relation(fields: [userId], references: [id])
+  order      Order       @relation(fields: [orderId], references: [id])
+  bank       Bank?       @relation(fields: [bankId], references: [id])
+  commission Commission? @relation(fields: [commissionId], references: [id])
+
+  @@index([userId])
+  @@index([orderId])
+  @@index([payoutStatus])
+}
+
 model Bank {
   id            String   @id @default(cuid())
   userId        String
   bankName      String
-  bankCode      String
+  bankCode      String   @unique
   accountNumber String
   accountName   String
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  user User @relation(fields: [userId], references: [id])
+  user               User                @relation(fields: [userId], references: [id])
+  withdrawalRequests WithdrawalRequest[]
 
   @@index([userId])
 }

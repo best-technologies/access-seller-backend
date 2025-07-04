@@ -112,7 +112,7 @@ export class PaystackService {
         // Ensure product has a storeId (inside transaction)
         let storeId = product.storeId;
         if (!storeId) {
-          console.log(colors.blue("store d nt found, updating"));
+          console.log(colors.blue("store id not found, updating"));
           const firstStore = await tx.store.findFirst();
           console.log(colors.yellow("First store id: "), firstStore?.id)
           if (!firstStore) {
@@ -153,11 +153,16 @@ export class PaystackService {
           });
         }
 
+        // generate order id in this format acc/slr/<randomletterand number(6)> and it must be unique
+        const orderId = `acc/slr/${Math.random().toString(36).substring(2, 8)}`;
+        console.log(colors.yellow("Order id: "), orderId)
+
         // 2. Create the order (initially, without paystack fields)
         const order = await tx.order.create({
           data: {
             userId: user.id,
             productid: productId,
+            orderId: orderId,
             storeId: storeId,
             status: 'pending',
             total_amount: totalAmount,

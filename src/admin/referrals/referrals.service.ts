@@ -127,6 +127,22 @@ export class ReferralsService {
             });
             const payouts = await Promise.all(payoutsRaw.map(async (p) => {
                 const affiliate = await this.prisma.affiliate.findUnique({ where: { userId: p.userId } });
+                
+                // Fetch withdrawal request and bank details for this commission
+                const withdrawalRequest = await this.prisma.withdrawalRequest.findFirst({
+                    where: { commissionId: p.id },
+                    include: {
+                        bank: {
+                            select: {
+                                bankName: true,
+                                accountNumber: true,
+                                accountName: true,
+                                bankCode: true
+                            }
+                        }
+                    }
+                });
+
                 return {
                     payoutId: p.id,
                     affiliateId: p.userId,
@@ -134,7 +150,16 @@ export class ReferralsService {
                     amount: Number(p.amount),
                     status: p.status,
                     requestedAt: p.createdAt.toISOString(),
-                    paidAt: p.status === 'paid' ? p.updatedAt.toISOString() : null
+                    paidAt: p.status === 'paid' ? p.updatedAt.toISOString() : null,
+                    // Bank account details
+                    accountDetails: withdrawalRequest?.bank ? {
+                        bankName: withdrawalRequest.bank.bankName,
+                        accountNumber: withdrawalRequest.bank.accountNumber,
+                        accountName: withdrawalRequest.bank.accountName,
+                        bankCode: withdrawalRequest.bank.bankCode
+                    } : null,
+                    payoutMethod: withdrawalRequest?.payoutMethod || null,
+                    withdrawalStatus: withdrawalRequest?.payoutStatus || null
                 };
             }));
 
@@ -592,6 +617,9 @@ export class ReferralsService {
      * Fetch all commission payouts (admin)
      */
     async fetchAllCommissionPayouts() {
+
+        console.log(colors.cyan("fetching all commission oayouts for a user"))
+
         try {
             const payouts = await this.prisma.commissionPayout.findMany({
                 orderBy: { requestedAt: 'desc' },
@@ -606,12 +634,17 @@ export class ReferralsService {
                     }
                 }
             });
+
+            console.log(colors.magenta("commission payouts fetched successfully"))
+
             return {
                 success: true,
                 message: 'Commission payouts fetched successfully.',
                 data: payouts
             };
         } catch (error) {
+
+            console.log(colors.red("Failed to fetch commission payouts"), error)
             return {
                 success: false,
                 message: 'Failed to fetch commission payouts.',
@@ -621,4 +654,260 @@ export class ReferralsService {
         }
     }
 
+    async updateWithdrawalStatus(payoutId: string, payoutStatus: string, adminId: string, notes?: string) {
+        console.log(colors.cyan(`Updating payout status for ${payoutId} to ${payoutStatus}`));
+        
+        // List of allowed payout statuses from WithdrawalStatus enum
+        const allowedStatuses = [
+            'not_requested',
+            'pending',
+            'paid',
+            'cancelled'
+        ];
+        
+        if (!allowedStatuses.includes(payoutStatus.toLowerCase())) {
+            console.log(colors.red(`Invalid payout status. Allowed statuses: ${allowedStatuses.join(', ')}`));
+            return {
+                success: false,
+                message: `Invalid payout status. Allowed statuses: ${allowedStatuses.join(', ')}`,
+                data: null
+            };
+        }
+
+        try {
+            // Check if withdrawal request exists
+            const withdrawalRequest = await this.prisma.withdrawalRequest.findUnique({
+                where: { id: payoutId },
+                include: {
+                    user: {
+                        select: {
+                            id: true,
+                            first_name: true,
+                            last_name: true,
+                            email: true
+                        }
+                    },
+                    commission: true,
+                    bank: true
+                }
+            });
+
+            if (!withdrawalRequest) {
+                console.log(colors.red('Withdrawal request not found.'));
+                return {
+                    success: false,
+                    message: 'Withdrawal request not found.',
+                    data: null
+                };
+            }
+
+            // Prepare update data
+            const updateData: any = {
+                payoutStatus: payoutStatus as any,
+                processedAt: new Date(),
+                processedBy: adminId
+            };
+
+            // Add notes if provided
+            if (notes) {
+                updateData.notes = notes;
+            }
+
+            // Add rejection reason if status is cancelled
+            if (payoutStatus === 'cancelled' && notes) {
+                updateData.rejectionReason = notes;
+            }
+
+            // Update withdrawal request
+            const updatedWithdrawalRequest = await this.prisma.withdrawalRequest.update({
+                where: { id: payoutId },
+                data: updateData,
+                include: {
+                    user: {
+                        select: {
+                            id: true,
+                            first_name: true,
+                            last_name: true,
+                            email: true
+                        }
+                    },
+                    commission: true,
+                    bank: true
+                }
+            });
+
+            // If payout is approved (paid), also update the commission status
+            if (payoutStatus === 'paid' && withdrawalRequest.commissionId) {
+                await this.prisma.commission.update({
+                    where: { id: withdrawalRequest.commissionId },
+                    data: { status: 'paid' }
+                });
+                console.log(colors.yellow(`Commission status updated to paid for commission ID: ${withdrawalRequest.commissionId}`));
+            }
+
+            // If payout is cancelled, also update the commission status back to pending
+            if (payoutStatus === 'cancelled' && withdrawalRequest.commissionId) {
+                await this.prisma.commission.update({
+                    where: { id: withdrawalRequest.commissionId },
+                    data: { status: 'pending' }
+                });
+                console.log(colors.yellow(`Commission status reverted to pending for commission ID: ${withdrawalRequest.commissionId}`));
+            }
+
+            console.log(colors.magenta(`Payout status updated to ${payoutStatus} successfully`));
+            
+            return {
+                success: true,
+                message: `Payout status updated to ${payoutStatus} successfully`,
+                data: {
+                    id: updatedWithdrawalRequest.id,
+                    payoutId: updatedWithdrawalRequest.payoutId,
+                    userId: updatedWithdrawalRequest.userId,
+                    user: updatedWithdrawalRequest.user,
+                    commissionAmount: updatedWithdrawalRequest.commissionAmount,
+                    payoutStatus: updatedWithdrawalRequest.payoutStatus,
+                    payoutMethod: updatedWithdrawalRequest.payoutMethod,
+                    bankDetails: updatedWithdrawalRequest.bank ? {
+                        bankName: updatedWithdrawalRequest.bank.bankName,
+                        accountNumber: updatedWithdrawalRequest.bank.accountNumber,
+                        accountName: updatedWithdrawalRequest.bank.accountName,
+                        bankCode: updatedWithdrawalRequest.bank.bankCode
+                    } : null,
+                    processedAt: updatedWithdrawalRequest.processedAt,
+                    processedBy: updatedWithdrawalRequest.processedBy,
+                    notes: updatedWithdrawalRequest.notes,
+                    rejectionReason: updatedWithdrawalRequest.rejectionReason
+                }
+            };
+        } catch (error) {
+            console.log(colors.red('Error updating payout status:'), error);
+            return {
+                success: false,
+                message: 'Failed to update payout status.',
+                data: null,
+                error: error?.message || error
+            };
+        }
+    }
+
+    /**
+     * Fetch all withdrawal requests with filtering and pagination
+     */
+    async fetchAllWithdrawalRequests(page: number = 1, limit: number = 20, status?: string) {
+        console.log(colors.cyan('Fetching all withdrawal requests...'), { page, limit, status });
+        
+        try {
+            const skip = (page - 1) * limit;
+            
+            // Allowed statuses from WithdrawalStatus enum
+            const allowedStatuses = [
+                'not_requested',
+                'pending',
+                'paid',
+                'cancelled'
+            ];
+
+            let whereClause: any = {};
+            
+            if (status) {
+                if (!allowedStatuses.includes(status.toLowerCase())) {
+                    return {
+                        success: false,
+                        message: `Invalid status. Allowed statuses: ${allowedStatuses.join(', ')}`,
+                        data: null
+                    };
+                }
+                whereClause.payoutStatus = status;
+            }
+
+            const [withdrawalRequests, total] = await Promise.all([
+                this.prisma.withdrawalRequest.findMany({
+                    skip,
+                    take: limit,
+                    where: whereClause,
+                    orderBy: { requestedAt: 'desc' },
+                    include: {
+                        user: {
+                            select: {
+                                id: true,
+                                first_name: true,
+                                last_name: true,
+                                email: true,
+                                phone_number: true
+                            }
+                        },
+                        commission: true,
+                        bank: {
+                            select: {
+                                bankName: true,
+                                accountNumber: true,
+                                accountName: true,
+                                bankCode: true
+                            }
+                        },
+                        order: {
+                            select: {
+                                id: true,
+                                orderId: true,
+                                total: true,
+                                status: true
+                            }
+                        }
+                    }
+                }),
+                this.prisma.withdrawalRequest.count({ where: whereClause })
+            ]);
+
+            const totalPages = Math.ceil(total / limit);
+
+            const formattedRequests = withdrawalRequests.map(request => ({
+                id: request.id,
+                payoutId: request.payoutId,
+                userId: request.userId,
+                user: request.user,
+                orderId: request.orderId,
+                order: request.order,
+                commissionId: request.commissionId,
+                commission: request.commission,
+                buyerName: request.buyerName,
+                buyerEmail: request.buyerEmail,
+                totalPurchaseAmount: request.totalPurchaseAmount,
+                commissionAmount: request.commissionAmount,
+                commissionPercentage: request.commissionPercentage,
+                payoutMethod: request.payoutMethod,
+                payoutStatus: request.payoutStatus,
+                bankDetails: request.bank,
+                reference: request.reference,
+                requestedAt: request.requestedAt,
+                processedAt: request.processedAt,
+                processedBy: request.processedBy,
+                notes: request.notes,
+                rejectionReason: request.rejectionReason
+            }));
+
+            console.log(colors.magenta(`Withdrawal requests fetched successfully. Total: ${total}`));
+
+            return {
+                success: true,
+                message: 'Withdrawal requests fetched successfully.',
+                data: {
+                    pagination: {
+                        currentPage: page,
+                        totalPages,
+                        totalItems: total,
+                        itemsPerPage: limit
+                    },
+                    withdrawalRequests: formattedRequests
+                }
+            };
+        } catch (error) {
+            console.log(colors.red('Error fetching withdrawal requests:'), error);
+            return {
+                success: false,
+                message: 'Failed to fetch withdrawal requests.',
+                data: null,
+                error: error?.message || error
+            };
+        }
+    }
 } 
