@@ -434,6 +434,12 @@ export const api = {
       const response = await axiosInstance.get(url);
       return response;
     },
+    getAffiliatePayouts: async (page = 1, limit = 20, status?: string) => {
+      let url = `/admin/affiliates/payouts?page=${page}&limit=${limit}`;
+      if (status && status !== 'all') url += `&status=${status}`;
+      const response = await axiosInstance.get(url);
+      return response;
+    },
     updateAffiliateStatus: async (id: string, status: string) => {
       // Sends a PUT request to update affiliate status
       const response = await axiosInstance.put(`/admin/affiliates/${id}/status`, { status });

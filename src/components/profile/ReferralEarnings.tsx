@@ -6,6 +6,7 @@ import { api } from "@/services/api";
 import { toast } from "react-hot-toast";
 import Image from "next/image";
 import InlineSpinner from "@/components/profile/InlineSpinner";
+import { useRouter } from 'next/navigation';
 
 interface ReferralEarningsProps {
   affiliateDashboard: Record<string, unknown>;
@@ -45,6 +46,7 @@ type TableAnalysisRow = {
 };
 
 export default function ReferralEarnings({ affiliateDashboard, refreshAffiliateDashboard }: ReferralEarningsProps) {
+  const router = useRouter();
   // All hooks must be called unconditionally
   const [showModal, setShowModal] = useState(false);
   const [niche, setNiche] = useState("");
@@ -1329,7 +1331,7 @@ export default function ReferralEarnings({ affiliateDashboard, refreshAffiliateD
             <h3 className="text-lg font-bold text-gray-900">Products You are Promoting</h3>
             <button
               className="inline-flex items-center gap-1 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-medium shadow transition-colors text-sm"
-              // TODO: Add onClick handler to navigate to hot products page
+              onClick={() => router.push('/products')}
             >
               Explore Hot <span role="img" aria-label="hot">🥵</span> Products
             </button>
@@ -1352,7 +1354,6 @@ export default function ReferralEarnings({ affiliateDashboard, refreshAffiliateD
                   <th className="px-4 py-2 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Commission %</th>
                   <th className="px-4 py-2 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Earning/Sale</th>
                   <th className="px-4 py-2 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Overall Earnings</th>
-                  <th className="px-4 py-2 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Clicks</th>
                   <th className="px-4 py-2 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Sales</th>
                   <th className="px-4 py-2 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Status</th>
                   <th className="px-4 py-2 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Share Link</th>
@@ -1370,7 +1371,6 @@ export default function ReferralEarnings({ affiliateDashboard, refreshAffiliateD
                     <td className="px-4 py-2 text-gray-700">{p.commission}%</td>
                     <td className="px-4 py-2 text-gray-700">₦{p.earningPerSale}</td>
                     <td className="px-4 py-2 text-gray-700 font-semibold">₦{p.earnings}</td>
-                    <td className="px-4 py-2 text-gray-700">{p.clicks}</td>
                     <td className="px-4 py-2 text-gray-700">{p.sales}</td>
                     <td className="px-4 py-2">
                       <span className={`inline-block px-2 py-1 rounded text-xs font-semibold ${

@@ -1,6 +1,5 @@
 import {
   Users,
-  Target,
   DollarSign,
   Wallet,
   Clock,
@@ -33,7 +32,7 @@ export default function KPICards({ kpiCards }: KPICardsProps) {
           <span>+12% this month</span>
         </div>
       </div>
-      <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg shadow border border-green-100 p-4 hover:shadow-lg transition-all duration-200 group">
+      {/* <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg shadow border border-green-100 p-4 hover:shadow-lg transition-all duration-200 group">
         <div className="flex items-center justify-between">
           <div>
             <p className="text-xs text-green-600 font-medium">Total Clicks</p>
@@ -47,7 +46,7 @@ export default function KPICards({ kpiCards }: KPICardsProps) {
           <TrendingUp className="h-3 w-3 mr-1" />
           <span>+8% this month</span>
         </div>
-      </div>
+      </div> */}
       <div className="bg-gradient-to-br from-purple-50 to-violet-50 rounded-lg shadow border border-purple-100 p-4 hover:shadow-lg transition-all duration-200 group">
         <div className="flex items-center justify-between">
           <div>

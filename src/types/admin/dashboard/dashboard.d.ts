@@ -146,6 +146,14 @@ export interface AffiliatePayout {
   status: string;              // Payout status (pending/completed)
   requestedAt: string;         // Date payout was requested (ISO 8601)
   paidAt: string | null;       // Date payout was completed (null if pending)
+  accountDetails: {
+    bankName: string;
+    accountNumber: string;
+    accountName: string;
+    bankCode: string;
+  } | null;                    // Bank account details for payout
+  payoutMethod: string | null; // Payout method (e.g., "bank transfer")
+  withdrawalStatus: string | null; // Withdrawal status
 }
 
 export interface AffiliateEvent {
