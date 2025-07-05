@@ -5,6 +5,7 @@ import type { CustomersResponse } from '@/types/admin/customers/customers';
 import axios, { AxiosError, AxiosInstance } from 'axios';
 import type { BrowseProductsResponse, Product } from '@/types/product';
 import { PromoCodeVerifyResponse } from '@/types/admin/discounts/discount';
+import type { ApiResponse } from '@/types/order';
 
 let API_URL: string = "";
 if(process.env.NODE_ENV === "development") {
@@ -328,6 +329,9 @@ export const api = {
     requestWithdrawal: async (data: { orderId: string; bankCode: string }): Promise<{ success: boolean; message: string }> => {
       const res = await axiosInstance.post('/user/withdrawal-request', data);
       return res as unknown as { success: boolean; message: string };
+    },
+    getUserOrders: async (page = 1): Promise<ApiResponse> => {
+      return axiosInstance.get(`/orders?page=${page}`);
     },
   },
 

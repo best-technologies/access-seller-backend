@@ -35,3 +35,48 @@ export interface Commission {
   paidAt?: Date;
   createdAt: Date;
 }
+
+export interface OrderItem {
+  id: string;
+  productId: string;
+  productName: string;
+  productIsbn: string;
+  productPublisher: string;
+  displayImage: string;
+  quantity: number;
+  price: number;
+  createdAt: string;
+}
+
+export interface UserOrder {
+  id: string;
+  orderId: string;
+  status: string;
+  total: number;
+  shippingAddress: string;
+  state: string;
+  city: string;
+  houseAddress: string;
+  orderPaymentStatus: string;
+  trackingNumber: string;
+  withdrawalStatus: string;
+  createdAt: string;
+  updatedAt: string;
+  items: OrderItem[];
+}
+
+export interface Pagination {
+  currentPage: number;
+  totalPages: number;
+  perPage: number;
+  totalItems: number;
+}
+
+export interface ApiResponse {
+  success: boolean;
+  message: string;
+  data: {
+    pagination: Pagination;
+    orders: UserOrder[];
+  };
+}
