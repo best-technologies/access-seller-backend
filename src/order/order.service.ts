@@ -87,7 +87,7 @@ export class OrderService {
       // Transform orders to match response format
       const transformedOrders: UserOrderDto[] = orders.map(order => ({
         id: order.id,
-        orderId: order.orderId,
+        // orderId: order.orderId,
         status: order.status,
         total: order.total,
         shippingAddress: order.shippingAddress,

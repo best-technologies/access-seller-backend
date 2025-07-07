@@ -13,7 +13,7 @@ export interface UserOrderItemDto {
 
 export interface UserOrderDto {
     id: string;
-    orderId: string;
+    // orderId: string;
     status: OrderStatus;
     total: number;
     shippingAddress: string;

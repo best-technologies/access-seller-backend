@@ -162,7 +162,7 @@ export class PaystackService {
           data: {
             userId: user.id,
             productid: productId,
-            orderId: orderId,
+            // orderId: orderId,
             storeId: storeId,
             status: 'pending',
             total_amount: totalAmount,
