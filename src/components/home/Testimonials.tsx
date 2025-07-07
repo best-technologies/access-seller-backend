@@ -6,7 +6,7 @@ import Image from "next/image";
 
 const testimonials = [
   {
-    name: "Sarah Johnson",
+    name: "Mayowa Bernard",
     role: "Book Enthusiast",
     avatar: "/images/book-images/TBm-300x300.png",
     rating: 5,
@@ -14,7 +14,7 @@ const testimonials = [
     location: "New York, USA"
   },
   {
-    name: "Michael Chen",
+    name: "Oladele Steve",
     role: "Avid Reader",
     avatar: "/images/book-images/profit-first.png",
     rating: 5,
@@ -22,7 +22,7 @@ const testimonials = [
     location: "San Francisco, USA"
   },
   {
-    name: "Emma Thompson",
+    name: "Vanilla Monye",
     role: "Book Club Organizer",
     avatar: "/images/book-images/Launch-Jeff-Walker-2.png",
     rating: 4,
@@ -30,7 +30,7 @@ const testimonials = [
     location: "London, UK"
   },
   {
-    name: "David Rodriguez",
+    name: "Esther Bangboje",
     role: "Literature Student",
     avatar: "/images/book-images/ecommerce-book-cover.png",
     rating: 5,
