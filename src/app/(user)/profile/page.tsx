@@ -19,6 +19,7 @@ import ReferralEarnings from "@/components/profile/ReferralEarnings";
 import { api } from "@/services/api";
 import Loader from "@/components/Loader";
 import Image from 'next/image';
+import Link from "next/link";
 
 export default function ProfilePage() {
   const [userData, setUserData] = useState<User | null>(null);
@@ -101,7 +102,9 @@ export default function ProfilePage() {
         <div className="flex flex-col h-full">
           {/* Logo / App Name */}
           <div className="flex items-center justify-center h-16 border-b border-gray-200">
-            <span className="text-xl font-bold text-indigo-600">My Profile</span>
+            <Link href="/" className="text-xl font-bold text-indigo-600 hover:text-indigo-700 transition-colors">
+              My Profile
+            </Link>
           </div>
           {/* Navigation */}
           <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">

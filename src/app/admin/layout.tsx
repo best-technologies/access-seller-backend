@@ -12,7 +12,8 @@ import {
   MessageSquare,
   LogOut,
   Menu,
-  X
+  X,
+  Printer
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
@@ -46,6 +47,11 @@ const sidebarItems = [
     title: "Discounts",
     icon: Currency,
     href: "/admin/promos-commissions"
+  },
+  {
+    title: "Printing Press",
+    icon: Printer,
+    href: "/admin/printing"
   },
   {
     title: "Meta Data",

@@ -16,7 +16,8 @@ import {
   LogOut,
   Search,
   Heart,
-  UserPlus
+  UserPlus,
+  Printer
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
@@ -24,10 +25,12 @@ import { useAuth } from "@/context/AuthContext";
 import { useWishlist } from "@/hooks/useWishlist";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
+import Loader from "@/components/Loader";
 
 export default function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [loadingPrintingPress, setLoadingPrintingPress] = useState(false);
   const { isAuthenticated, user, logout } = useAuth();
   const { wishlistCount } = useWishlist();
   const router = useRouter();
@@ -53,8 +56,22 @@ export default function Navbar() {
     router.push("/wishlist");
   };
 
+  const handlePrintingPressClick = async () => {
+    setLoadingPrintingPress(true);
+    // Simulate API call (e.g., permission check or prefetch)
+    await new Promise((resolve) => setTimeout(resolve, 1200));
+    setLoadingPrintingPress(false);
+    router.push("/printing-inventory");
+  };
+
   return (
     <>
+      {/* Loader for Printing Press */}
+      {loadingPrintingPress && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/30">
+          <Loader title="Loading Printing Press..." message="Preparing the Printing Press dashboard..." />
+        </div>
+      )}
       {/* Modern Navbar with Glass Effect */}
       <nav className="fixed top-0 left-0 right-0 z-[100] bg-white/90 backdrop-blur-md border-b border-gray-100">
         <div className="max-w-7xl mx-auto px-4">
@@ -92,6 +109,17 @@ export default function Navbar() {
               >
                 {isMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
               </button>
+              {/* Printing Press Button (Mobile) */}
+              {isAuthenticated && (user?.role === "admin" || user?.role === "inventory_manager") && (
+                <button
+                  onClick={handlePrintingPressClick}
+                  className="p-2 text-indigo-600 hover:text-white hover:bg-indigo-600 rounded-lg border border-indigo-100 transition-colors"
+                  aria-label="Go to Printing Press"
+                  disabled={loadingPrintingPress}
+                >
+                  <Printer className="w-5 h-5" />
+                </button>
+              )}
             </div>
 
             {/* Desktop Navigation */}
@@ -114,9 +142,18 @@ export default function Navbar() {
                 <Link href="/categories" className="text-sm font-medium text-gray-700 hover:text-indigo-600 transition-colors">
                   Categories
                 </Link>
-                {/* <Link href="/deals" className="text-sm font-medium text-gray-700 hover:text-indigo-600 transition-colors">
-                  Deals
-                </Link> */}
+                {/* Printing Press Button (Desktop) */}
+                {isAuthenticated && (user?.role === "admin" || user?.role === "inventory_manager") && (
+                  <button
+                    onClick={handlePrintingPressClick}
+                    className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg font-medium shadow-sm hover:bg-indigo-700 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                    aria-label="Go to Printing Press"
+                    disabled={loadingPrintingPress}
+                  >
+                    <Printer className="w-5 h-5" />
+                    <span>Printing Press</span>
+                  </button>
+                )}
               </div>
 
               {/* User Actions */}
@@ -261,11 +298,6 @@ export default function Navbar() {
                       </span>
                     )}
                   </Link>
-                  {/* <Link href="/deals" className="flex items-center space-x-3 px-3 py-2 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors">
-                    <Tag className="w-5 h-5 text-indigo-600" />
-                    <span className="text-sm font-medium">Deals</span>
-                  </Link> */}
-                  
                   {/* User-specific menu items - only show when authenticated */}
                   {isAuthenticated && (
                     <>
@@ -274,6 +306,18 @@ export default function Navbar() {
                         <User className="w-5 h-5 text-indigo-600" />
                         <span className="text-sm font-medium">Profile</span>
                       </Link>
+                      {/* Printing Press Button (Mobile Menu) */}
+                      {(user?.role === "admin" || user?.role === "inventory_manager") && (
+                        <button
+                          onClick={handlePrintingPressClick}
+                          className="flex items-center space-x-3 px-3 py-2 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg font-medium transition-colors w-full"
+                          aria-label="Go to Printing Press"
+                          disabled={loadingPrintingPress}
+                        >
+                          <Printer className="w-5 h-5 text-indigo-600" />
+                          <span className="text-sm font-medium">Printing Press</span>
+                        </button>
+                      )}
                       {(user?.role === 'admin' || user?.role === 'super_admin') && (
                         <Link href="/admin/dashboard" className="flex items-center space-x-3 px-3 py-2 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors">
                           <User className="w-5 h-5 text-indigo-600" />
