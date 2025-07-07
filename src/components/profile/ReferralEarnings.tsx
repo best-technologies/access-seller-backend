@@ -274,7 +274,7 @@ export default function ReferralEarnings({ affiliateDashboard, refreshAffiliateD
         })
         .finally(() => setAffiliateLinksLoading(false));
     }
-  }, [activeTab, affiliateLinks.length, affiliateLinksLoading]);
+  }, [activeTab, affiliateLinks.length]);
 
   // Promoted products from API
   const promotedProducts = affiliateLinks.map((link) => ({
