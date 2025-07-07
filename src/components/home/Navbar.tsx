@@ -139,9 +139,9 @@ export default function Navbar() {
                 <Link href="/products" className="text-sm font-medium text-gray-700 hover:text-indigo-600 transition-colors">
                   Browse
                 </Link>
-                <Link href="/categories" className="text-sm font-medium text-gray-700 hover:text-indigo-600 transition-colors">
+                {/* <Link href="/categories" className="text-sm font-medium text-gray-700 hover:text-indigo-600 transition-colors">
                   Categories
-                </Link>
+                </Link> */}
                 {/* Printing Press Button (Desktop) */}
                 {isAuthenticated && (user?.role === "admin" || user?.role === "inventory_manager") && (
                   <button
