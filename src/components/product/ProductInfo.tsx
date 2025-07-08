@@ -1,6 +1,6 @@
-import { Star, Check, Book, BookOpen, Download, Copy, Share2 } from "lucide-react";
+import { Star, Check, Book, BookOpen, Download, Copy, Share2, X, Facebook, Twitter, Send, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import React from "react";
+import React, { useState, useRef } from "react";
 import type { ProductUI } from '@/types/product';
 import type { User as UserBase } from '@/services/api';
 
@@ -31,6 +31,42 @@ export default function ProductInfo({
   handleGenerateAffiliateLink,
   isAffiliateReferral
 }: ProductInfoProps) {
+  const [showSharePopover, setShowSharePopover] = useState(false);
+  const shareBtnRef = useRef<HTMLButtonElement>(null);
+
+  // Helper for social share URLs
+  const getShareUrl = (platform: string) => {
+    if (!affiliateLink) return "#";
+    const encoded = encodeURIComponent(affiliateLink);
+    const text = encodeURIComponent(`Check this out: ${affiliateLink}`);
+    switch (platform) {
+      case "whatsapp":
+        return `https://wa.me/?text=${text}`;
+      case "facebook":
+        return `https://www.facebook.com/sharer/sharer.php?u=${encoded}`;
+      case "twitter":
+        return `https://twitter.com/intent/tweet?url=${encoded}&text=Check%20this%20out!`;
+      case "telegram":
+        return `https://t.me/share/url?url=${encoded}&text=Check%20this%20out!`;
+      default:
+        return "#";
+    }
+  };
+
+  // Native share API
+  const handleNativeShare = async () => {
+    if (navigator.share && affiliateLink) {
+      try {
+        await navigator.share({
+          title: "Check this out!",
+          text: "Check out this book:",
+          url: affiliateLink,
+        });
+        setShowSharePopover(false);
+      } catch {}
+    }
+  };
+
   return (
     <div className="space-y-4">
       <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 leading-tight mb-2">
@@ -48,25 +84,83 @@ export default function ProductInfo({
               <div className="bg-white p-2 rounded border text-xs font-mono text-gray-600 break-all">
                 {affiliateLink}
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full border-indigo-500 text-indigo-700 hover:bg-indigo-50"
-                onClick={handleCopyAffiliateLink}
-                disabled={linkCopied}
-              >
-                {linkCopied ? (
-                  <>
-                    <Check className="h-4 w-4 mr-2" />
-                    Copied!
-                  </>
-                ) : (
-                  <>
-                    <Copy className="h-4 w-4 mr-2" />
-                    Copy Link
-                  </>
+              <div className="flex gap-2 relative">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1 border-indigo-500 text-indigo-700 hover:bg-indigo-50"
+                  onClick={handleCopyAffiliateLink}
+                  disabled={linkCopied}
+                >
+                  {linkCopied ? (
+                    <>
+                      <Check className="h-4 w-4 mr-2" />
+                      Copied!
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="h-4 w-4 mr-2" />
+                      Copy Link
+                    </>
+                  )}
+                </Button>
+                <Button
+                  ref={shareBtnRef}
+                  variant="outline"
+                  size="sm"
+                  className="flex-1 border-indigo-500 text-indigo-700 hover:bg-indigo-50 relative"
+                  onClick={() => setShowSharePopover(v => !v)}
+                  disabled={!affiliateLink}
+                  type="button"
+                >
+                  <Share2 className="h-4 w-4 mr-2" />
+                  Share
+                </Button>
+                {/* Share Popover */}
+                {showSharePopover && (
+                  <div className="absolute z-50 mt-12 right-0 bg-white border border-gray-200 rounded-lg shadow-lg p-3 flex flex-col gap-2 min-w-[180px]" style={{ top: '100%', right: 0 }}>
+                    {/* <div className="text-xs text-red-500">DEBUG: Popover is rendered</div> */}
+                    <button className="absolute top-1 right-1 p-1 text-gray-400 hover:text-gray-600" onClick={() => setShowSharePopover(false)}><X className="h-4 w-4" /></button>
+                    <span className="text-xs text-gray-700 mb-1 font-semibold">Share via</span>
+                    <a href={getShareUrl("whatsapp")}
+                      target="_blank" rel="noopener noreferrer"
+                      className="flex items-center gap-2 px-2 py-1 rounded hover:bg-green-50 text-green-700 text-sm"
+                      onClick={() => setShowSharePopover(false)}
+                    >
+                      <MessageCircle className="h-4 w-4" /> WhatsApp
+                    </a>
+                    <a href={getShareUrl("facebook")}
+                      target="_blank" rel="noopener noreferrer"
+                      className="flex items-center gap-2 px-2 py-1 rounded hover:bg-blue-50 text-blue-700 text-sm"
+                      onClick={() => setShowSharePopover(false)}
+                    >
+                      <Facebook className="h-4 w-4" /> Facebook
+                    </a>
+                    <a href={getShareUrl("twitter")}
+                      target="_blank" rel="noopener noreferrer"
+                      className="flex items-center gap-2 px-2 py-1 rounded hover:bg-sky-50 text-sky-700 text-sm"
+                      onClick={() => setShowSharePopover(false)}
+                    >
+                      <Twitter className="h-4 w-4" /> Twitter
+                    </a>
+                    <a href={getShareUrl("telegram")}
+                      target="_blank" rel="noopener noreferrer"
+                      className="flex items-center gap-2 px-2 py-1 rounded hover:bg-blue-50 text-blue-700 text-sm"
+                      onClick={() => setShowSharePopover(false)}
+                    >
+                      <Send className="h-4 w-4" /> Telegram
+                    </a>
+                    {typeof navigator.share === 'function' && (
+                      <button
+                        className="flex items-center gap-2 px-2 py-1 rounded hover:bg-gray-50 text-gray-700 text-sm w-full"
+                        onClick={handleNativeShare}
+                      >
+                        <Share2 className="h-4 w-4" /> More...
+                      </button>
+                    )}
+                  </div>
                 )}
-              </Button>
+              </div>
             </div>
           ) : (
             <Button

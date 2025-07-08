@@ -1,7 +1,37 @@
-import { Zap, ChevronLeft, ChevronRight, MoreVertical, CheckCircle, Eye, Clock } from "lucide-react";
+import { Zap, ChevronLeft, ChevronRight, MoreVertical, CheckCircle, Eye, Clock, RefreshCw } from "lucide-react";
 import { useState, useMemo, useEffect, useRef } from "react";
 import { api } from '@/services/api';
 import type { AffiliatePayout } from '@/types/admin/dashboard/dashboard';
+import { toast } from 'react-hot-toast';
+
+// Add type for withdrawal request
+interface WithdrawalRequest {
+  id: string;
+  payoutId: string | null;
+  userId: string;
+  user: {
+    id: string;
+    first_name: string;
+    last_name: string;
+    email: string;
+    phone_number: string;
+  };
+  amount: number;
+  payoutMethod: string;
+  payoutStatus: string;
+  bank: {
+    bankName: string;
+    accountNumber: string;
+    accountName: string;
+    bankCode: string;
+  };
+  reference: string;
+  requestedAt: string;
+  processedAt: string | null;
+  processedBy: string | null;
+  notes: string | null;
+  rejectionReason: string | null;
+}
 
 interface PayoutsTabProps {
   payouts?: AffiliatePayout[];
@@ -37,6 +67,14 @@ export default function PayoutsTab({ payouts: initialPayouts }: PayoutsTabProps)
   const [isModalOpen, setIsModalOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
+  // Add withdrawal requests state
+  const [withdrawalRequests, setWithdrawalRequests] = useState<WithdrawalRequest[]>([]);
+  const [selectedWithdrawal, setSelectedWithdrawal] = useState<WithdrawalRequest | null>(null);
+
+  // Add a refetching state for reload button
+  const [refetching, setRefetching] = useState(false);
+  const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
+
   const itemsPerPage = 10;
 
   // Close menu when clicking outside
@@ -50,6 +88,32 @@ export default function PayoutsTab({ payouts: initialPayouts }: PayoutsTabProps)
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  // Fetch withdrawal requests on mount
+  useEffect(() => {
+    async function fetchWithdrawalRequests() {
+      try {
+        const response = await api.admin.getAffiliateDashboard();
+        setWithdrawalRequests(response.data.formatted_withdrawal_request || []);
+      } catch (err) {
+        setWithdrawalRequests([]);
+      }
+    }
+    fetchWithdrawalRequests();
+  }, []);
+
+  // Refetch function for reload button
+  const refetchWithdrawalRequests = async () => {
+    setRefetching(true);
+    try {
+      const response = await api.admin.getAffiliateDashboard();
+      setWithdrawalRequests(response.data.formatted_withdrawal_request || []);
+    } catch (err) {
+      setWithdrawalRequests([]);
+    } finally {
+      setRefetching(false);
+    }
+  };
 
   const handleApprovePayout = async (payoutId: string) => {
     try {
@@ -69,21 +133,11 @@ export default function PayoutsTab({ payouts: initialPayouts }: PayoutsTabProps)
     }
   };
 
-  const handleViewDetails = (payoutId: string) => {
-    // TODO: Implement view details functionality
-    console.log('Viewing details for payout:', payoutId);
-    setOpenMenuId(null);
-  };
-
   const handleViewPayoutDetails = (payout: AffiliatePayout) => {
     console.log('Opening modal for payout:', payout);
     setSelectedPayout(payout);
     setIsModalOpen(true);
     setOpenMenuId(null);
-  };
-
-  const toggleMenu = (payoutId: string) => {
-    setOpenMenuId(openMenuId === payoutId ? null : payoutId);
   };
 
   const closeModal = () => {
@@ -160,6 +214,17 @@ export default function PayoutsTab({ payouts: initialPayouts }: PayoutsTabProps)
     }
   };
 
+  // Helper for status badge color
+  const getStatusBadge = (status: string) => {
+    const s = status.toLowerCase();
+    let color = 'bg-gray-200 text-gray-800';
+    if (s === 'pending') color = 'bg-yellow-100 text-yellow-800 border border-yellow-300';
+    else if (s === 'approved' || s === 'completed') color = 'bg-green-100 text-green-800 border border-green-300';
+    else if (s === 'rejected') color = 'bg-red-100 text-red-800 border border-red-300';
+    else if (s === 'cancelled') color = 'bg-gray-100 text-gray-800 border border-gray-300';
+    return `inline-block px-3 py-1 rounded-full text-xs font-semibold ${color}`;
+  };
+
   const tabs: { key: PayoutStatus; label: string }[] = [
     { key: 'all', label: 'All' },
     { key: 'pending', label: 'Pending' },
@@ -177,12 +242,73 @@ export default function PayoutsTab({ payouts: initialPayouts }: PayoutsTabProps)
     return displayPayouts;
   }, [payouts, initialPayouts, activeTab, viewAll]);
 
+  // Action handlers
+  const handleViewDetails = (withdrawal: WithdrawalRequest) => {
+    setSelectedWithdrawal(withdrawal);
+    setIsModalOpen(true);
+    setOpenMenuId(null);
+  };
+  const handleMarkAsPaid = async (withdrawal: WithdrawalRequest) => {
+    setActionLoadingId(withdrawal.id);
+    const payload = { withdrawalId: withdrawal.id, status: 'paid' };
+    console.log('Sending to backend:', payload);
+    try {
+      const res = await api.admin.updateWithdrawalStatus(payload.withdrawalId, payload.status);
+      toast.success(res.data?.message || 'Marked as paid!');
+      await refetchWithdrawalRequests();
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to mark as paid');
+    } finally {
+      setActionLoadingId(null);
+      setOpenMenuId(null);
+    }
+  };
+  const handleReject = async (withdrawal: WithdrawalRequest) => {
+    setActionLoadingId(withdrawal.id);
+    const payload = { withdrawalId: withdrawal.id, status: 'cancelled' };
+    console.log('Sending to backend:', payload);
+    try {
+      const res = await api.admin.updateWithdrawalStatus(payload.withdrawalId, payload.status);
+      toast.success(res.data?.message || 'Withdrawal rejected!');
+      await refetchWithdrawalRequests();
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to reject withdrawal');
+    } finally {
+      setActionLoadingId(null);
+      setOpenMenuId(null);
+    }
+  };
+  const toggleMenu = (id: string) => {
+    setOpenMenuId(openMenuId === id ? null : id);
+  };
+  // const closeModal = () => {
+  //   setIsModalOpen(false);
+  //   setSelectedWithdrawal(null);
+  // };
+
   return (
     <div className="space-y-6">
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-200">
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-gray-900">Commission Payout Status</h3>
+            <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+              Withdrawal Requests
+              <button
+                onClick={refetchWithdrawalRequests}
+                className="ml-2 p-1 rounded hover:bg-gray-100 transition-colors"
+                aria-label="Reload"
+                disabled={refetching}
+              >
+                {refetching ? (
+                  <svg className="animate-spin h-5 w-5 text-indigo-600" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l5-5-5-5v4a10 10 0 100 20 10 10 0 01-10-10z" />
+                  </svg>
+                ) : (
+                  <RefreshCw className="h-5 w-5 text-indigo-600" />
+                )}
+              </button>
+            </h3>
             <div className="flex items-center gap-3">
               {!viewAll && (
                 <button 
@@ -192,32 +318,7 @@ export default function PayoutsTab({ payouts: initialPayouts }: PayoutsTabProps)
                   View All
                 </button>
               )}
-              {/* <button 
-                onClick={() => {
-                  console.log('Test modal button clicked');
-                  setSelectedPayout({
-                    payoutId: "test-123",
-                    affiliateId: "test-affiliate",
-                    affiliateName: "Test Affiliate",
-                    amount: 50000,
-                    status: "pending",
-                    requestedAt: new Date().toISOString(),
-                    paidAt: null,
-                    accountDetails: {
-                      bankName: "Test Bank",
-                      accountNumber: "1234567890",
-                      accountName: "Test Account Name",
-                      bankCode: "001"
-                    },
-                    payoutMethod: "bank transfer",
-                    withdrawalStatus: "pending"
-                  });
-                  setIsModalOpen(true);
-                }}
-                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-green-600 bg-green-50 rounded-lg hover:bg-green-100 transition-colors"
-              >
-                Test Modal
-              </button> */}
+              
             <button className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700">
               <Zap className="h-4 w-4" />
               Initiate Bulk Payout
@@ -245,94 +346,86 @@ export default function PayoutsTab({ payouts: initialPayouts }: PayoutsTabProps)
           </nav>
         </div>
 
-        <div className="overflow-x-auto">
+        {/* Replace the table rendering with the following: */}
+        <div className="overflow-x-auto rounded-xl shadow border border-gray-200 bg-white">
           <table className="w-full">
             <thead>
-              <tr className="bg-gray-50 border-b border-gray-200">
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Affiliate Name</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount (₦)</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Requested At</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+              <tr className="bg-indigo-50 border-b border-gray-200">
+                <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Payout ID</th>
+                <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Affiliate</th>
+                <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Amount</th>
+                <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Status</th>
+                <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Account Number</th>
+                <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Account Name</th>
+                <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Bank Name</th>
+                <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Requested At</th>
+                <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200">
-              {loading ? (
-                <tr>
-                  <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
-                    Loading payouts...
-                  </td>
-                </tr>
-              ) : error ? (
-                <tr>
-                  <td colSpan={5} className="px-6 py-8 text-center text-red-500">
-                    {error}
-                  </td>
-                </tr>
-              ) : filteredPayouts.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
-                    No payouts found
-                  </td>
-                </tr>
-              ) : (
-                filteredPayouts.map((payout) => (
-                <tr key={payout.payoutId} className="hover:bg-gray-50 transition-colors duration-200">
-                  <td className="px-6 py-4">{payout.affiliateName}</td>
-                  <td className="px-6 py-4">₦{payout.amount.toLocaleString()}</td>
-                    <td className="px-6 py-4">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(payout.status)}`}>
-                        {payout.status}
-                      </span>
-                    </td>
-                  <td className="px-6 py-4">{new Date(payout.requestedAt).toLocaleDateString()}</td>
-                    <td className="px-6 py-4 relative">
-                      <div className="flex items-center gap-2">
+            <tbody className="divide-y divide-gray-100">
+              {withdrawalRequests.length > 0 ? (
+                withdrawalRequests.map((w, i) => (
+                  <tr key={w.id} className={
+                    `transition-colors duration-200 ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-indigo-50`}
+                  >
+                    <td className="px-6 py-4 font-mono text-xs text-gray-600">{w.payoutId || Math.random().toString(36).slice(2, 10)}</td>
+                    <td className="px-6 py-4 text-gray-900">{w.user?.first_name || '-'}</td>
+                    <td className="px-6 py-4 font-bold text-indigo-700">₦{Number(w.amount).toLocaleString()}</td>
+                    <td className="px-6 py-4"><span className={getStatusBadge(w.payoutStatus)}>{w.payoutStatus}</span></td>
+                    <td className="px-6 py-4 text-gray-700">{w.bank?.accountNumber || '-'}</td>
+                    <td className="px-6 py-4 text-gray-700">{w.bank?.accountName || '-'}</td>
+                    <td className="px-6 py-4 text-gray-700">{w.bank?.bankName || '-'}</td>
+                    <td className="px-6 py-4 text-xs text-gray-500">{w.requestedAt || '-'}</td>
+                    <td className="px-6 py-4 flex items-center gap-2 relative">
+                      <button
+                        onClick={() => handleViewDetails(w)}
+                        className="p-1 rounded hover:bg-indigo-100 text-indigo-600"
+                        aria-label="View Details"
+                      >
+                        <Eye className="h-5 w-5" />
+                      </button>
+                      <div className="relative" ref={menuRef}>
                         <button
-                          onClick={() => handleViewPayoutDetails(payout)}
-                          className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                          title="View Details"
+                          onClick={() => toggleMenu(w.id)}
+                          className="p-1 rounded hover:bg-gray-100 text-gray-600"
+                          aria-label="Actions"
                         >
-                          <Eye className="h-4 w-4" />
+                          <MoreVertical className="h-5 w-5" />
                         </button>
-                        <div className="relative" ref={menuRef}>
-                          <button
-                            onClick={() => toggleMenu(payout.payoutId)}
-                            className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                          >
-                            <MoreVertical className="h-4 w-4" />
-                          </button>
-                          
-                          {openMenuId === payout.payoutId && (
-                            <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-10">
-                              <div className="py-1">
-                                {payout.status.toLowerCase() === 'pending' && (
-                                  <button
-                                    onClick={() => handleApprovePayout(payout.payoutId)}
-                                    className="w-full px-4 py-2 text-left text-sm text-green-700 hover:bg-green-50 flex items-center gap-2"
-                                  >
-                                    <CheckCircle className="h-4 w-4" />
-                                    Approve Payout
-                                  </button>
-                                )}
-                                
-                                {payout.status.toLowerCase() === 'pending' && (
-                                  <button
-                                    onClick={() => handleViewDetails(payout.payoutId)}
-                                    className="w-full px-4 py-2 text-left text-sm text-yellow-700 hover:bg-yellow-50 flex items-center gap-2"
-                                  >
-                                    <Clock className="h-4 w-4" />
-                                    Mark as Processing
-                                  </button>
-                                )}
-                              </div>
-                            </div>
-                          )}
-                        </div>
+                        {openMenuId === w.id && (
+                          <div className="absolute right-0 mt-2 w-40 bg-white border border-gray-200 rounded-lg shadow-lg z-20">
+                            <button
+                              onClick={() => handleMarkAsPaid(w)}
+                              className="block w-full text-left px-4 py-2 text-sm text-green-700 hover:bg-green-50 hover:text-green-900 flex items-center gap-2"
+                              disabled={actionLoadingId === w.id}
+                            >
+                              {actionLoadingId === w.id ? (
+                                <span className="animate-spin mr-2 h-4 w-4 border-2 border-green-600 border-t-transparent rounded-full"></span>
+                              ) : null}
+                              Mark as Paid
+                            </button>
+                            <button
+                              onClick={() => handleReject(w)}
+                              className="block w-full text-left px-4 py-2 text-sm text-red-700 hover:bg-red-50 hover:text-red-900 flex items-center gap-2"
+                              disabled={actionLoadingId === w.id}
+                            >
+                              {actionLoadingId === w.id ? (
+                                <span className="animate-spin mr-2 h-4 w-4 border-2 border-red-600 border-t-transparent rounded-full"></span>
+                              ) : null}
+                              Reject
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </td>
-                </tr>
+                  </tr>
                 ))
+              ) : (
+                <tr>
+                  <td colSpan={9} className="px-6 py-8 text-center text-gray-500">
+                    No withdrawal requests found
+                  </td>
+                </tr>
               )}
             </tbody>
           </table>
@@ -676,6 +769,57 @@ export default function PayoutsTab({ payouts: initialPayouts }: PayoutsTabProps)
                   </button>
                 )}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal for viewing withdrawal details */}
+      {isModalOpen && selectedWithdrawal && (
+        <div className="fixed inset-0 bg-gray-900 bg-opacity-30 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full border border-gray-200">
+            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+              <h4 className="text-lg font-semibold text-gray-900">Withdrawal Details</h4>
+              <button onClick={closeModal} className="text-gray-400 hover:text-gray-600 p-1">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="px-6 py-6 space-y-4">
+              <div>
+                <span className="block text-xs text-gray-500 uppercase font-bold mb-1">Payout ID</span>
+                <span className="block font-mono text-sm text-gray-800 bg-gray-50 rounded p-2 border border-gray-100">{selectedWithdrawal.payoutId || selectedWithdrawal.id}</span>
+              </div>
+              <div>
+                <span className="block text-xs text-gray-500 uppercase font-bold mb-1">Affiliate</span>
+                <span className="block text-gray-900 font-semibold">{selectedWithdrawal.user?.first_name} {selectedWithdrawal.user?.last_name}</span>
+              </div>
+              <div>
+                <span className="block text-xs text-gray-500 uppercase font-bold mb-1">Amount</span>
+                <span className="block text-indigo-700 font-bold">₦{Number(selectedWithdrawal.amount).toLocaleString()}</span>
+              </div>
+              <div>
+                <span className="block text-xs text-gray-500 uppercase font-bold mb-1">Status</span>
+                <span className={getStatusBadge(selectedWithdrawal.payoutStatus)}>{selectedWithdrawal.payoutStatus}</span>
+              </div>
+              <div>
+                <span className="block text-xs text-gray-500 uppercase font-bold mb-1">Bank Details</span>
+                <span className="block text-gray-700">{selectedWithdrawal.bank?.bankName} - {selectedWithdrawal.bank?.accountNumber} ({selectedWithdrawal.bank?.accountName})</span>
+              </div>
+              <div>
+                <span className="block text-xs text-gray-500 uppercase font-bold mb-1">Requested At</span>
+                <span className="block text-xs text-gray-600">{selectedWithdrawal.requestedAt}</span>
+              </div>
+              {selectedWithdrawal.notes && (
+                <div>
+                  <span className="block text-xs text-gray-500 uppercase font-bold mb-1">Notes</span>
+                  <span className="block text-gray-700">{selectedWithdrawal.notes}</span>
+                </div>
+              )}
+            </div>
+            <div className="px-6 py-4 border-t border-gray-200 flex justify-end">
+              <button onClick={closeModal} className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">Close</button>
             </div>
           </div>
         </div>

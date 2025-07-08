@@ -326,7 +326,7 @@ export const api = {
       const res = await axiosInstance.delete('/user/bank', { data: { bankId } });
       return res as unknown as { success: boolean; message: string };
     },
-    requestWithdrawal: async (data: { orderId: string; bankCode: string }): Promise<{ success: boolean; message: string }> => {
+    requestWithdrawal: async (data: { amount: number; bankCode: string }): Promise<{ success: boolean; message: string }> => {
       const res = await axiosInstance.post('/user/withdrawal-request', data);
       return res as unknown as { success: boolean; message: string };
     },
@@ -468,6 +468,14 @@ export const api = {
     addAgeRating: async (name: string): Promise<AddAgeRatingResponse> => {
       const response = await axiosInstance.post("/admin/age-ratings/add-new", { name });
       return response as unknown as AddAgeRatingResponse;
+    },
+    updateWithdrawalStatus: async (withdrawalId: string, status: string) => {
+      // Calls /admin/affiliates/update-withdrawal-status with withdrawalId and status
+      const response = await axiosInstance.post('/admin/affiliates/update-withdrawal-status', {
+        withdrawalId,
+        status,
+      });
+      return response;
     },
   },
 

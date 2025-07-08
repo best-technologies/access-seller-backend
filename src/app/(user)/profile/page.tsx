@@ -30,6 +30,7 @@ export default function ProfilePage() {
   const [affiliateLoading, setAffiliateLoading] = useState(false);
   const [affiliateError, setAffiliateError] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   // Sidebar navigation items
   const sidebarItems = [
@@ -56,7 +57,7 @@ export default function ProfilePage() {
   }, []);
 
   useEffect(() => {
-    if (activeTab === "referrals" && !affiliateDashboard && !affiliateLoading) {
+    if (activeTab === "referrals") {
       setAffiliateLoading(true);
       setAffiliateError(null);
       api.user.getAffiliateDashboard()
@@ -64,7 +65,7 @@ export default function ProfilePage() {
         .catch((err) => setAffiliateError(err.message || "Failed to load affiliate dashboard"))
         .finally(() => setAffiliateLoading(false));
     }
-  }, [activeTab, affiliateDashboard, affiliateLoading]);
+  }, [activeTab, refreshKey]);
 
   if (loading) return <Loader/>;
   if (error) return <div className="min-h-screen flex items-center justify-center text-red-500">{error}</div>;
@@ -182,14 +183,7 @@ export default function ProfilePage() {
             ) : affiliateDashboard ? (
               <ReferralEarnings 
                 affiliateDashboard={affiliateDashboard} 
-                refreshAffiliateDashboard={() => {
-                  setAffiliateLoading(true);
-                  setAffiliateError(null);
-                  api.user.getAffiliateDashboard()
-                    .then((res) => setAffiliateDashboard(res.data))
-                    .catch((err) => setAffiliateError(err.message || "Failed to load affiliate dashboard"))
-                    .finally(() => setAffiliateLoading(false));
-                }}
+                refreshAffiliateDashboard={() => setRefreshKey(k => k + 1)}
               />
             ) : null
           )}

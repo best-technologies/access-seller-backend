@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { DollarSign, Users, Copy, ChevronDown, ChevronUp, Trash2, Clock, CheckCircle, XCircle, AlertCircle } from "lucide-react";
+import { DollarSign, Users, Copy, ChevronDown, ChevronUp, Trash2, Clock, CheckCircle, XCircle, AlertCircle, RefreshCw } from "lucide-react";
 import { api } from "@/services/api";
 import { toast } from "react-hot-toast";
 import Image from "next/image";
@@ -75,10 +75,22 @@ export default function ReferralEarnings({ affiliateDashboard, refreshAffiliateD
   const [deletingBankId, setDeletingBankId] = useState<string | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [bankToDelete, setBankToDelete] = useState<UserBank | null>(null);
-  const [showWithdrawModal, setShowWithdrawModal] = useState(false);
-  const [selectedWithdrawOrder, setSelectedWithdrawOrder] = useState<TableAnalysisRow | null>(null);
-  const [selectedWithdrawBank, setSelectedWithdrawBank] = useState<string>("");
-  const [withdrawSubmitting, setWithdrawSubmitting] = useState(false);
+  const [showGlobalWithdrawModal, setShowGlobalWithdrawModal] = useState(false);
+  const [withdrawAmount, setWithdrawAmount] = useState('');
+  const [withdrawAmountError, setWithdrawAmountError] = useState<string | null>(null);
+  const [withdrawBank, setWithdrawBank] = useState('');
+  // Use optional chaining and fallback for stats
+  const stats = affiliateDashboard?.stats ?? {};
+  // Calculate available for withdrawal from tableAnalysis
+  const tableAnalysis = (affiliateDashboard?.tableAnalysis as Array<Record<string, unknown>>) || [];
+  const totalEarned = (stats as any)?.totalEarned ?? "0";
+  const availableForWithdrawal = totalEarned;
+  function formatWithCommas(num: number) {
+    return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  }
+  const pendingWithdrawals = (stats as any)?.pendingWithdrawals ?? "0";
+  const totalWithdrawn = (stats as any)?.totalWithdrawn ?? "0";
+  const totalPurchases = (stats as any)?.totalPurchases ?? "0";
 
   // Data extraction
   const data = affiliateDashboard || {};
@@ -247,8 +259,7 @@ export default function ReferralEarnings({ affiliateDashboard, refreshAffiliateD
   }
 
   // If affiliate, show dashboard
-  const stats = (data.stats as Record<string, unknown>) || {};
-  const tableAnalysis = (data.tableAnalysis as Array<Record<string, unknown>>) || [];
+  // tableAnalysis already declared above
   console.log("Table analysis: ", tableAnalysis)
 
   // Fetch affiliate links when products tab is active
@@ -491,64 +502,6 @@ export default function ReferralEarnings({ affiliateDashboard, refreshAffiliateD
     setBankToDelete(null);
   };
 
-  // Handle withdrawal request
-  const handleWithdrawRequest = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedWithdrawOrder || !selectedWithdrawBank) return;
-    
-    setWithdrawSubmitting(true);
-    try {
-      const selectedBank = userBanks.find(bank => (bank.id || bank.bankCode) === selectedWithdrawBank);
-      
-      if (!selectedBank?.id) {
-        toast.error('Invalid bank selection. Please try again.');
-        return;
-      }
-      
-      const withdrawalData = {
-        orderId: selectedWithdrawOrder.id,
-        bankCode: selectedBank.bankCode!
-      };
-      
-      console.log('Withdrawal order:', selectedWithdrawOrder);
-      console.log('Selected bank:', selectedBank);
-      
-      const res = await api.user.requestWithdrawal(withdrawalData);
-      
-      if (res.success) {
-        toast.success(res.message || 'Withdrawal request submitted successfully!');
-        setShowWithdrawModal(false);
-        setSelectedWithdrawOrder(null);
-        setSelectedWithdrawBank("");
-        
-        // Refresh the affiliate dashboard to get updated withdrawal status
-        refreshAffiliateDashboard();
-      } else {
-        toast.error(res.message || 'Failed to submit withdrawal request');
-      }
-    } catch (err: unknown) {
-      let message = 'Failed to submit withdrawal request';
-      if (err && typeof err === 'object' && 'message' in err && typeof (err as { message?: unknown }).message === 'string') {
-        message = (err as { message: string }).message;
-      }
-      toast.error(message);
-    } finally {
-      setWithdrawSubmitting(false);
-    }
-  };
-
-  const openWithdrawModal = (order: TableAnalysisRow) => {
-    setSelectedWithdrawOrder(order);
-    setSelectedWithdrawBank("");
-    setShowWithdrawModal(true);
-  };
-
-  const closeWithdrawModal = () => {
-    setShowWithdrawModal(false);
-    setSelectedWithdrawOrder(null);
-    setSelectedWithdrawBank("");
-  };
-
   // Helper function to get withdraw button state
   const getWithdrawButtonState = (order: TableAnalysisRow) => {
     const withdrawalStatus = order.withdrawalStatus || 'none';
@@ -663,7 +616,19 @@ export default function ReferralEarnings({ affiliateDashboard, refreshAffiliateD
     }
   };
 
+  // Add a helper to format numbers with commas
+  function formatNairaInput(value: string) {
+    // Remove non-digit characters
+    const numeric = value.replace(/\D/g, "");
+    if (!numeric) return "";
+    // Format with commas
+    return numeric.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  }
+
   if (affiliateStatusUI) return affiliateStatusUI;
+
+  // For calculations, parse availableForWithdrawal as number
+  const availableForWithdrawalNumber = Number((totalEarned + '').replace(/,/g, '')) || 0;
 
   return (
     <div className="space-y-6">
@@ -707,7 +672,18 @@ export default function ReferralEarnings({ affiliateDashboard, refreshAffiliateD
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gray-900">Account Details</h3>
-              <div className="relative group">
+              <div className="flex items-center gap-2">
+                {/* Refresh Button */}
+                <button
+                  type="button"
+                  onClick={refreshAffiliateDashboard}
+                  className="p-2 rounded-full hover:bg-gray-100 transition-colors relative group"
+                  title="Refresh"
+                  aria-label="Refresh"
+                >
+                  <RefreshCw className={`w-5 h-5 ${submitting ? 'animate-spin' : ''}`} />
+                  <span className="absolute left-1/2 -translate-x-1/2 mt-2 w-20 bg-gray-800 text-white text-xs rounded-lg px-2 py-1 opacity-0 group-hover:opacity-100 pointer-events-none z-50 transition-opacity duration-200 text-center">Refresh</span>
+                </button>
                 <button
                   className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors shadow-sm focus:outline-none ${canAdd ? 'bg-indigo-600 text-white hover:bg-indigo-700' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}
                   disabled={!canAdd}
@@ -961,15 +937,15 @@ export default function ReferralEarnings({ affiliateDashboard, refreshAffiliateD
               </div>
             )}
             {/* Withdrawal Modal */}
-            {showWithdrawModal && selectedWithdrawOrder && (
+            {showGlobalWithdrawModal && (
               <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
                 <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-lg font-semibold text-gray-900">Request Withdrawal</h3>
                     <button
-                      onClick={closeWithdrawModal}
+                      onClick={() => setShowGlobalWithdrawModal(false)}
                       className="text-gray-400 hover:text-gray-600 transition-colors"
-                      disabled={withdrawSubmitting}
+                      disabled={submitting}
                     >
                       <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -977,120 +953,128 @@ export default function ReferralEarnings({ affiliateDashboard, refreshAffiliateD
                     </button>
                   </div>
                   
-                  <form onSubmit={handleWithdrawRequest} className="space-y-6">
-                    {/* Commission Details */}
+                  <form onSubmit={async (e) => {
+                    e.preventDefault();
+                    if (!withdrawAmount || !withdrawBank) return;
+                    setSubmitting(true);
+                    try {
+                      const amount = Number(withdrawAmount.replace(/,/g, ''));
+                      if (isNaN(amount) || amount <= 0 || amount > availableForWithdrawalNumber) {
+                        setWithdrawAmountError(`Amount cannot exceed ₦${availableForWithdrawal}`);
+                        setSubmitting(false);
+                        return;
+                      } else {
+                        setWithdrawAmountError(null);
+                      }
+                      const selectedBank = userBanks.find(bank => (bank.id || bank.bankCode) === withdrawBank);
+                      if (!selectedBank?.id) {
+                        toast.error('Invalid bank selection. Please try again.');
+                        setSubmitting(false);
+                        return;
+                      }
+                      // Fix: API expects { amount, bankCode }
+                      const res = await api.user.requestWithdrawal({ amount, bankCode: selectedBank.bankCode });
+                      if (res.success) {
+                        toast.success(res.message || 'Withdrawal request submitted successfully!');
+                        setShowGlobalWithdrawModal(false);
+                        setWithdrawAmount('');
+                        setWithdrawBank('');
+                        refreshAffiliateDashboard();
+                      } else {
+                        toast.error(res.message || 'Failed to submit withdrawal request');
+                      }
+                    } catch (err: unknown) {
+                      let message = 'Failed to submit withdrawal request';
+                      if (err && typeof err === 'object' && 'message' in err && typeof (err as { message?: unknown }).message === 'string') {
+                        message = (err as { message: string }).message;
+                      }
+                      toast.error(message);
+                    } finally {
+                      setSubmitting(false);
+                    }
+                  }} className="space-y-6">
                     <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                       <div className="flex items-center justify-between">
                         <div>
-                          <h4 className="text-sm font-medium text-green-800">Available Commission</h4>
-                          <p className="text-2xl font-bold text-green-600">₦{selectedWithdrawOrder.commissionEarned}</p>
+                          <h4 className="text-sm font-medium text-green-800">Available for Withdrawal</h4>
+                          <p className="text-2xl font-bold text-green-600">₦{String(availableForWithdrawal)}</p>
                         </div>
                         <div className="p-3 bg-green-100 rounded-lg">
                           <DollarSign className="h-6 w-6 text-green-600" />
                         </div>
                       </div>
                     </div>
-                    
-                    {/* Instructions */}
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                      <div className="flex items-start">
-                        <div className="flex-shrink-0">
-                          <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
-                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                          </svg>
-                        </div>
-                        <div className="ml-3">
-                          <h4 className="text-sm font-medium text-blue-800">Important Information</h4>
-                          <div className="text-sm text-blue-700 mt-1 space-y-1">
-                            <p>• You are about to request ₦{selectedWithdrawOrder.commissionEarned} for this commission</p>
-                            <p>• Funds will be delivered to your selected bank account within 24 hours</p>
-                            <p>• Processing time may vary depending on your bank</p>
-                            <p>• You will receive a confirmation email once processed</p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    {/* Bank Selection */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Select Bank Account
-                      </label>
-                      {userBanks.length === 0 ? (
-                        <div className="text-center py-4 border border-gray-200 rounded-lg">
-                          <p className="text-gray-500 mb-2">No bank accounts available</p>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              closeWithdrawModal();
-                              openBankModal();
-                            }}
-                            className="text-indigo-600 hover:text-indigo-700 font-medium"
-                          >
-                            Add a bank account first
-                          </button>
-                        </div>
-                      ) : (
-                        <select
-                          value={selectedWithdrawBank}
-                          onChange={(e) => setSelectedWithdrawBank(e.target.value)}
-                          className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Amount to Withdraw</label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-bold pointer-events-none">₦</span>
+                        <input
+                          type="text"
+                          className={`w-full border rounded-lg px-8 py-2 ${withdrawAmountError ? 'border-red-500' : 'border-gray-300'}`}
+                          min={1}
+                          max={availableForWithdrawalNumber}
+                          value={withdrawAmount}
+                          onChange={e => {
+                            const formatted = formatNairaInput(e.target.value);
+                            setWithdrawAmount(formatted);
+                            const numeric = Number(formatted.replace(/,/g, ''));
+                            if (numeric > availableForWithdrawalNumber) {
+                              setWithdrawAmountError(`Amount cannot exceed ₦${availableForWithdrawal}`);
+                            } else {
+                              setWithdrawAmountError(null);
+                            }
+                          }}
+                          placeholder={`Enter amount (max ₦${String(availableForWithdrawal)})`}
                           required
-                        >
-                          <option value="">Select a bank account</option>
-                          {userBanks.map((bank, idx) => (
-                            <option key={idx} value={bank.id || bank.bankCode}>
-                              {bank.bankName} - {bank.accountNumber}
-                            </option>
-                          ))}
-                        </select>
-                      )}
-                    </div>
-                    
-                    {/* Selected Bank Details */}
-                    {selectedWithdrawBank && (
-                      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                        <h4 className="text-sm font-medium text-gray-800 mb-3">Selected Bank Details</h4>
-                        {(() => {
-                          const selectedBank = userBanks.find(bank => (bank.id || bank.bankCode) === selectedWithdrawBank);
-                          if (!selectedBank) return null;
-                          
-                          return (
-                            <div className="space-y-2 text-sm">
-                              <div className="flex justify-between">
-                                <span className="text-gray-600">Bank Name:</span>
-                                <span className="font-medium text-gray-800">{selectedBank.bankName}</span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span className="text-gray-600">Account Number:</span>
-                                <span className="font-medium text-gray-800 font-mono">{selectedBank.accountNumber}</span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span className="text-gray-600">Account Name:</span>
-                                <span className="font-medium text-gray-800">{selectedBank.accountName}</span>
-                              </div>
-                            </div>
-                          );
-                        })()}
+                          disabled={submitting}
+                          inputMode="numeric"
+                          pattern="[0-9,]*"
+                        />
+                        {withdrawAmountError && (
+                          <div className="text-xs text-red-600 mt-1">{withdrawAmountError}</div>
+                        )}
                       </div>
-                    )}
-                    
-                    {/* Action Buttons */}
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Select Bank Account</label>
+                      <select
+                        value={withdrawBank}
+                        onChange={e => setWithdrawBank(e.target.value)}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                        required
+                        disabled={submitting}
+                      >
+                        <option value="">Select a bank account</option>
+                        {userBanks.map((bank, idx) => (
+                          <option key={idx} value={bank.id || bank.bankCode}>
+                            {bank.bankName} - {bank.accountNumber}
+                          </option>
+                        ))}
+                      </select>
+                      {/* Show account name for selected bank */}
+                      {withdrawBank && (() => {
+                        const selected = userBanks.find(bank => (bank.id || bank.bankCode) === withdrawBank);
+                        if (!selected) return null;
+                        return (
+                          <div className="text-[10px] text-gray-500 mt-1 ml-1">{selected.accountName}</div>
+                        );
+                      })()}
+                    </div>
                     <div className="flex gap-3 pt-4">
                       <button
                         type="button"
-                        onClick={closeWithdrawModal}
+                        onClick={() => setShowGlobalWithdrawModal(false)}
                         className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-300"
-                        disabled={withdrawSubmitting}
+                        disabled={submitting}
                       >
                         Cancel
                       </button>
                       <button
                         type="submit"
                         className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                        disabled={withdrawSubmitting || !selectedWithdrawBank || userBanks.length === 0}
+                        disabled={submitting || !withdrawAmount || !withdrawBank || !!withdrawAmountError}
                       >
-                        {withdrawSubmitting ? (
+                        {submitting ? (
                           <>
                             <InlineSpinner size={16} />
                             Processing...
@@ -1106,12 +1090,12 @@ export default function ReferralEarnings({ affiliateDashboard, refreshAffiliateD
             )}
           </div>
           {/* Stats Overview */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-500">Total Earned</p>
-                  <p className="text-2xl font-semibold text-gray-900">₦{(stats.totalEarned as number) ?? 0}</p>
+                  <p className="text-2xl font-semibold text-gray-900">₦{totalEarned}</p>
                 </div>
                 <div className="p-3 bg-green-50 rounded-lg">
                   <DollarSign className="h-6 w-6 text-green-600" />
@@ -1121,8 +1105,26 @@ export default function ReferralEarnings({ affiliateDashboard, refreshAffiliateD
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
               <div className="flex items-center justify-between">
                 <div>
+                  <p className="text-sm text-gray-500">Available for Withdrawal</p>
+                  <p className="text-2xl font-semibold text-indigo-700">₦{String(availableForWithdrawal)}</p>
+                </div>
+                <div className="p-3 bg-indigo-50 rounded-lg">
+                  <DollarSign className="h-6 w-6 text-indigo-600" />
+                </div>
+              </div>
+              <button
+                className="mt-4 w-full bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-medium"
+                disabled={false}
+                onClick={() => setShowGlobalWithdrawModal(true)}
+              >
+                Withdraw
+              </button>
+            </div>
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <div className="flex items-center justify-between">
+                <div>
                   <p className="text-sm text-gray-500">Total Purchases</p>
-                  <p className="text-2xl font-semibold text-gray-900">{(stats.totalPurchases as number) ?? 0}</p>
+                  <p className="text-2xl font-semibold text-gray-900">{(totalPurchases)}</p>
                 </div>
                 <div className="p-3 bg-blue-50 rounded-lg">
                   <Users className="h-6 w-6 text-blue-600" />
@@ -1133,7 +1135,7 @@ export default function ReferralEarnings({ affiliateDashboard, refreshAffiliateD
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-500">Total Withdrawn</p>
-                  <p className="text-2xl font-semibold text-gray-900">₦{(stats.totalWithdrawn as number) ?? 0}</p>
+                  <p className="text-2xl font-semibold text-gray-900">₦{totalWithdrawn}</p>
                 </div>
                 <div className="p-3 bg-yellow-50 rounded-lg">
                   <DollarSign className="h-6 w-6 text-yellow-600" />
@@ -1176,8 +1178,6 @@ export default function ReferralEarnings({ affiliateDashboard, refreshAffiliateD
                           <th className="px-4 py-2 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Commission</th>
                           <th className="px-4 py-2 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Date</th>
                           <th className="px-4 py-2 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Status</th>
-                          <th className="px-4 py-2 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Withdrawal Status</th>
-                          <th className="px-4 py-2 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Withdraw</th>
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-100">
@@ -1199,40 +1199,6 @@ export default function ReferralEarnings({ affiliateDashboard, refreshAffiliateD
                             <td className="px-4 py-2">{order.orderDate ? order.orderDate : ''}</td>
                             <td className="px-4 py-2">
                               <span className={`inline-block px-2 py-1 rounded text-xs font-semibold ${order.status === 'pending' ? 'bg-yellow-100 text-yellow-700' : order.status === 'completed' ? 'bg-green-100 text-green-700' : order.status === 'inactive' ? 'bg-gray-200 text-gray-500' : 'bg-gray-100 text-gray-500'}`}>{order.status}</span>
-                            </td>
-                            <td className="px-4 py-2">
-                              {(() => {
-                                const statusBadge = getWithdrawalStatusBadge(order.withdrawalStatus);
-                                return (
-                                  <div className="group relative">
-                                    <span 
-                                      className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-semibold ${statusBadge.className}`}
-                                      title={statusBadge.tooltip}
-                                    >
-                                      {statusBadge.icon}
-                                      {statusBadge.text}
-                                    </span>
-                                    <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none z-10 whitespace-nowrap transition-opacity duration-200">
-                                      {statusBadge.tooltip}
-                                      <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
-                                    </div>
-                                  </div>
-                                );
-                              })()}
-                            </td>
-                            <td className="px-4 py-2">
-                              {(() => {
-                                const buttonState = getWithdrawButtonState(order);
-                                return (
-                                  <button
-                                    className={`px-3 py-1 rounded font-semibold text-xs transition-colors focus:outline-none ${buttonState.className}`}
-                                    disabled={buttonState.disabled}
-                                    onClick={() => !buttonState.disabled && openWithdrawModal(order)}
-                                  >
-                                    {buttonState.text}
-                                  </button>
-                                );
-                              })()}
                             </td>
                           </tr>
                         ))}

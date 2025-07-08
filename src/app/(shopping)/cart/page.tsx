@@ -344,7 +344,7 @@ export default function ProfessionalCartPage() {
                   <div className="p-6 space-y-4">
                     {/* Promo Code */}
                     <div className="space-y-3">
-                      <label className="text-sm font-medium text-gray-700">Promo Code</label>
+                      <label className="text-sm font-medium text-gray-700">Referral Code</label>
                       <div className="flex gap-2">
                         <input
                           type="text"

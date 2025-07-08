@@ -89,6 +89,7 @@ export interface AffiliateDashboardData {
   payouts: AffiliatePayout[];
   events: AffiliateEvent[];
   analytics: AffiliateAnalytics;
+  formatted_withdrawal_request: any[]; // Add this line to match backend response
 }
 
 export interface AffiliateKPICards {
