@@ -1,5 +1,5 @@
-import { Zap, ChevronLeft, ChevronRight, MoreVertical, CheckCircle, Eye, Clock, RefreshCw } from "lucide-react";
-import { useState, useMemo, useEffect, useRef } from "react";
+import { ChevronLeft, ChevronRight, MoreVertical, RefreshCw, Eye } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
 import { api } from '@/services/api';
 import type { AffiliatePayout } from '@/types/admin/dashboard/dashboard';
 import { toast } from 'react-hot-toast';
@@ -56,11 +56,8 @@ type PayoutStatus = 'all' | 'pending' | 'completed' | 'rejected' | 'cancelled';
 export default function PayoutsTab({ payouts: initialPayouts }: PayoutsTabProps) {
   const [activeTab, setActiveTab] = useState<PayoutStatus>('all');
   const [currentPage, setCurrentPage] = useState(1);
-  const [payouts, setPayouts] = useState<AffiliatePayout[]>(initialPayouts || []);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [viewAll, setViewAll] = useState(false);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [selectedPayout, setSelectedPayout] = useState<AffiliatePayout | null>(null);
@@ -94,9 +91,15 @@ export default function PayoutsTab({ payouts: initialPayouts }: PayoutsTabProps)
     async function fetchWithdrawalRequests() {
       try {
         const response = await api.admin.getAffiliateDashboard();
-        setWithdrawalRequests(response.data.formatted_withdrawal_request || []);
-      } catch (err) {
-        setWithdrawalRequests([]);
+        setWithdrawalRequests(response.data.formatted_withdrawal_request as WithdrawalRequest[] || []);
+      } catch (err: unknown) {
+        if (err instanceof Error) {
+          setWithdrawalRequests([]);
+          toast.error(err.message);
+        } else {
+          setWithdrawalRequests([]);
+          toast.error('Failed to fetch withdrawal requests');
+        }
       }
     }
     fetchWithdrawalRequests();
@@ -107,9 +110,15 @@ export default function PayoutsTab({ payouts: initialPayouts }: PayoutsTabProps)
     setRefetching(true);
     try {
       const response = await api.admin.getAffiliateDashboard();
-      setWithdrawalRequests(response.data.formatted_withdrawal_request || []);
-    } catch (err) {
-      setWithdrawalRequests([]);
+      setWithdrawalRequests(response.data.formatted_withdrawal_request as WithdrawalRequest[] || []);
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setWithdrawalRequests([]);
+        toast.error(err.message);
+      } else {
+        setWithdrawalRequests([]);
+        toast.error('Failed to refetch withdrawal requests');
+      }
     } finally {
       setRefetching(false);
     }
@@ -128,17 +137,23 @@ export default function PayoutsTab({ payouts: initialPayouts }: PayoutsTabProps)
       if (viewAll) {
         fetchPayouts(currentPage, activeTab);
       }
-    } catch (error) {
-      console.error('Error approving payout:', error);
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        console.error('Error approving payout:', error);
+        toast.error(error.message);
+      } else {
+        console.error('Error approving payout:', error);
+        toast.error('Failed to approve payout');
+      }
     }
   };
 
-  const handleViewPayoutDetails = (payout: AffiliatePayout) => {
-    console.log('Opening modal for payout:', payout);
-    setSelectedPayout(payout);
-    setIsModalOpen(true);
-    setOpenMenuId(null);
-  };
+  // const handleViewPayoutDetails = (payout: AffiliatePayout) => {
+  //   console.log('Opening modal for payout:', payout);
+  //   setSelectedPayout(payout);
+  //   setIsModalOpen(true);
+  //   setOpenMenuId(null);
+  // };
 
   const closeModal = () => {
     console.log('Closing modal');
@@ -147,28 +162,22 @@ export default function PayoutsTab({ payouts: initialPayouts }: PayoutsTabProps)
   };
 
   const fetchPayouts = async (page: number, status: PayoutStatus) => {
-    setLoading(true);
-    setError(null);
     try {
       const response = await api.admin.getAffiliatePayouts(page, itemsPerPage, status);
-      // Handle the response based on the actual structure
-      if (response && typeof response === 'object') {
-        const responseData = response as unknown as { success: boolean; message?: string; data?: { payouts?: AffiliatePayout[]; pagination?: { totalPages: number; totalItems: number } } };
-        if (responseData.success && responseData.data) {
-          setPayouts(responseData.data.payouts || []);
-          setTotalPages(responseData.data.pagination?.totalPages || 1);
-          setTotalItems(responseData.data.pagination?.totalItems || 0);
-        } else {
-          setError(responseData.message || 'Failed to fetch payouts');
-        }
+      const responseData = response as unknown as { success: boolean; message?: string; data?: { payouts?: AffiliatePayout[]; pagination?: { totalPages: number; totalItems: number } } };
+      if (responseData.success && responseData.data) {
+        // setPayouts(responseData.data.payouts || []); // Removed unused 'payouts'
+        setTotalPages(responseData.data.pagination?.totalPages || 1);
+        setTotalItems(responseData.data.pagination?.totalItems || 0);
       } else {
-        // Fallback for different response structure
-        setError('Unexpected response format');
+        toast.error(responseData.message || 'Failed to fetch payouts');
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch payouts');
-    } finally {
-      setLoading(false);
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        toast.error(err.message);
+      } else {
+        toast.error('Failed to fetch payouts');
+      }
     }
   };
 
@@ -233,15 +242,6 @@ export default function PayoutsTab({ payouts: initialPayouts }: PayoutsTabProps)
     { key: 'cancelled', label: 'Cancelled' },
   ];
 
-  const filteredPayouts = useMemo(() => {
-    const displayPayouts = viewAll ? payouts : (initialPayouts || []);
-    if (!viewAll) {
-      if (activeTab === 'all') return displayPayouts;
-      return displayPayouts.filter(payout => payout.status.toLowerCase() === activeTab);
-    }
-    return displayPayouts;
-  }, [payouts, initialPayouts, activeTab, viewAll]);
-
   // Action handlers
   const handleViewDetails = (withdrawal: WithdrawalRequest) => {
     setSelectedWithdrawal(withdrawal);
@@ -256,8 +256,12 @@ export default function PayoutsTab({ payouts: initialPayouts }: PayoutsTabProps)
       const res = await api.admin.updateWithdrawalStatus(payload.withdrawalId, payload.status);
       toast.success(res.data?.message || 'Marked as paid!');
       await refetchWithdrawalRequests();
-    } catch (err: any) {
-      toast.error(err?.message || 'Failed to mark as paid');
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        toast.error(err.message || 'Failed to mark as paid');
+      } else {
+        toast.error('Failed to mark as paid');
+      }
     } finally {
       setActionLoadingId(null);
       setOpenMenuId(null);
@@ -271,8 +275,12 @@ export default function PayoutsTab({ payouts: initialPayouts }: PayoutsTabProps)
       const res = await api.admin.updateWithdrawalStatus(payload.withdrawalId, payload.status);
       toast.success(res.data?.message || 'Withdrawal rejected!');
       await refetchWithdrawalRequests();
-    } catch (err: any) {
-      toast.error(err?.message || 'Failed to reject withdrawal');
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        toast.error(err.message || 'Failed to reject withdrawal');
+      } else {
+        toast.error('Failed to reject withdrawal');
+      }
     } finally {
       setActionLoadingId(null);
       setOpenMenuId(null);
@@ -319,11 +327,7 @@ export default function PayoutsTab({ payouts: initialPayouts }: PayoutsTabProps)
                 </button>
               )}
               
-            <button className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700">
-              <Zap className="h-4 w-4" />
-              Initiate Bulk Payout
-            </button>
-          </div>
+            </div>
         </div>
         </div>
 

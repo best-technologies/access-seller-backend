@@ -448,7 +448,9 @@ export default function ProductsPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs font-medium text-amber-600 mb-0.5">Total Value</p>
-              <p className="text-2xl font-bold text-amber-900">{formatAmount(productsData?.dashboardCards.totalProductValue || 0, { compact: true })}</p>
+              <p className="text-2xl font-bold text-amber-900">
+                {formatAmount(Number(productsData?.dashboardCards.totalProductValue) || 0)}
+              </p>
               <p className="text-xs text-amber-500">Inventory worth</p>
             </div>
             <div className="p-3 bg-gradient-to-br from-amber-500 to-orange-600 rounded-lg shadow-lg group-hover:scale-110 transition-transform duration-300">
@@ -592,7 +594,7 @@ export default function ProductsPage() {
                     <div className="text-xs font-mono text-gray-900 bg-gray-100 px-2 py-1 rounded">{book.isbn}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-bold text-gray-900">{formatAmount(book.sellingPrice || 0)}</div>
+                    <div className="text-sm font-bold text-gray-900">{formatAmount(Number(book.sellingPrice) || 0)}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm font-semibold text-gray-900">{book.stock}</div>

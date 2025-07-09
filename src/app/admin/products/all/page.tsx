@@ -265,7 +265,9 @@ export default function AllProductsPage() {
                   <div className="text-xs font-mono text-gray-900 bg-gray-100 px-2 py-1 rounded">{book.isbn}</div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm font-bold text-gray-900">{formatAmount(book.sellingPrice || 0)}</div>
+                  <div className="text-sm font-bold text-gray-900">
+                    {formatAmount(Number(book.sellingPrice) || 0)}
+                  </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="text-sm font-semibold text-gray-900">{book.stock}</div>

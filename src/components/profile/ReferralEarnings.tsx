@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { DollarSign, Users, Copy, ChevronDown, ChevronUp, Trash2, Clock, CheckCircle, XCircle, AlertCircle, RefreshCw } from "lucide-react";
+import { DollarSign, Users, Copy, ChevronDown, ChevronUp, Trash2, RefreshCw } from "lucide-react";
 import { api } from "@/services/api";
 import { toast } from "react-hot-toast";
 import Image from "next/image";
@@ -83,14 +83,11 @@ export default function ReferralEarnings({ affiliateDashboard, refreshAffiliateD
   const stats = affiliateDashboard?.stats ?? {};
   // Calculate available for withdrawal from tableAnalysis
   const tableAnalysis = (affiliateDashboard?.tableAnalysis as Array<Record<string, unknown>>) || [];
-  const totalEarned = (stats as any)?.totalEarned ?? "0";
+  const totalEarned = (stats as { totalEarned?: string })?.totalEarned ?? "0";
   const availableForWithdrawal = totalEarned;
-  function formatWithCommas(num: number) {
-    return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-  }
-  const pendingWithdrawals = (stats as any)?.pendingWithdrawals ?? "0";
-  const totalWithdrawn = (stats as any)?.totalWithdrawn ?? "0";
-  const totalPurchases = (stats as any)?.totalPurchases ?? "0";
+  // Remove the unused function 'formatWithCommas'.
+  const totalWithdrawn = (stats as { totalWithdrawn?: string })?.totalWithdrawn ?? "0";
+  const totalPurchases = (stats as { totalPurchases?: string })?.totalPurchases ?? "0";
 
   // Data extraction
   const data = affiliateDashboard || {};
@@ -285,7 +282,7 @@ export default function ReferralEarnings({ affiliateDashboard, refreshAffiliateD
         })
         .finally(() => setAffiliateLinksLoading(false));
     }
-  }, [activeTab, affiliateLinks.length]);
+  }, [activeTab, affiliateLinks.length, affiliateLinksLoading]);
 
   // Promoted products from API
   const promotedProducts = affiliateLinks.map((link) => ({
@@ -317,8 +314,8 @@ export default function ReferralEarnings({ affiliateDashboard, refreshAffiliateD
     method?: string;
     reference?: string;
   };
-  const payouts: Payout[] = Array.isArray((data as unknown as { payouts?: Payout[] }).payouts)
-    ? (data as unknown as { payouts: Payout[] }).payouts
+  const payouts: Payout[] = Array.isArray((data as { payouts?: Payout[] })?.payouts)
+    ? (data as { payouts: Payout[] }).payouts
     : [];
 
   // Bank list state and cache logic
@@ -333,8 +330,8 @@ export default function ReferralEarnings({ affiliateDashboard, refreshAffiliateD
     bankCode: string;
     id?: string; // Add optional id field in case backend provides it
   };
-  const userBanks: UserBank[] = Array.isArray((data as unknown as { banks?: UserBank[] }).banks)
-    ? (data as unknown as { banks: UserBank[] }).banks
+  const userBanks: UserBank[] = Array.isArray((data as { banks?: UserBank[] })?.banks)
+    ? (data as { banks: UserBank[] }).banks
     : [];
   const maxAccounts = 2;
   const canAdd = userBanks.length < maxAccounts;
@@ -500,120 +497,6 @@ export default function ReferralEarnings({ affiliateDashboard, refreshAffiliateD
   const closeDeleteModal = () => {
     setShowDeleteModal(false);
     setBankToDelete(null);
-  };
-
-  // Helper function to get withdraw button state
-  const getWithdrawButtonState = (order: TableAnalysisRow) => {
-    const withdrawalStatus = order.withdrawalStatus || 'none';
-    
-    // If order status is inactive, always disable the withdraw button
-    if (order.status === 'inactive') {
-      return {
-        text: 'Withdraw',
-        disabled: true,
-        className: 'bg-gray-200 text-gray-400 cursor-not-allowed'
-      };
-    }
-    
-    switch (withdrawalStatus) {
-      case 'none':
-        return {
-          text: 'Withdraw',
-          disabled: !(order.approved && order.status === 'pending'),
-          className: 'bg-indigo-600 text-white hover:bg-indigo-700'
-        };
-      case 'pending':
-        return {
-          text: 'Processing...',
-          disabled: true,
-          className: 'bg-yellow-100 text-yellow-700 cursor-not-allowed'
-        };
-      case 'processing':
-        return {
-          text: 'Processing...',
-          disabled: true,
-          className: 'bg-blue-100 text-blue-700 cursor-not-allowed'
-        };
-      case 'completed':
-        return {
-          text: 'Paid',
-          disabled: true,
-          className: 'bg-green-100 text-green-700 cursor-not-allowed'
-        };
-      case 'rejected':
-        return {
-          text: 'Rejected',
-          disabled: true,
-          className: 'bg-red-100 text-red-700 cursor-not-allowed'
-        };
-      case 'failed':
-        return {
-          text: 'Failed',
-          disabled: true,
-          className: 'bg-red-100 text-red-700 cursor-not-allowed'
-        };
-      default:
-        return {
-          text: 'Withdraw',
-          disabled: !(order.approved && order.status === 'pending'),
-          className: 'bg-indigo-600 text-white hover:bg-indigo-700'
-        };
-    }
-  };
-
-  // Helper function to get withdrawal status badge styling
-  const getWithdrawalStatusBadge = (withdrawalStatus: string | undefined) => {
-    switch (withdrawalStatus) {
-      case 'none':
-        return {
-          text: 'No Request',
-          className: 'bg-gray-100 text-gray-600',
-          icon: null,
-          tooltip: 'No withdrawal request has been made for this commission'
-        };
-      case 'pending':
-        return {
-          text: 'Pending',
-          className: 'bg-yellow-100 text-yellow-700',
-          icon: <Clock className="w-3 h-3" />,
-          tooltip: 'Withdrawal request submitted and awaiting approval'
-        };
-      case 'processing':
-        return {
-          text: 'Processing',
-          className: 'bg-blue-100 text-blue-700',
-          icon: <Clock className="w-3 h-3" />,
-          tooltip: 'Withdrawal approved and being processed by bank'
-        };
-      case 'completed':
-        return {
-          text: 'Paid',
-          className: 'bg-green-100 text-green-700',
-          icon: <CheckCircle className="w-3 h-3" />,
-          tooltip: 'Withdrawal successfully completed and paid out'
-        };
-      case 'rejected':
-        return {
-          text: 'Rejected',
-          className: 'bg-red-100 text-red-700',
-          icon: <XCircle className="w-3 h-3" />,
-          tooltip: 'Withdrawal request was rejected'
-        };
-      case 'failed':
-        return {
-          text: 'Failed',
-          className: 'bg-red-100 text-red-700',
-          icon: <AlertCircle className="w-3 h-3" />,
-          tooltip: 'Bank transfer failed'
-        };
-      default:
-        return {
-          text: 'No Request',
-          className: 'bg-gray-100 text-gray-600',
-          icon: null,
-          tooltip: 'No withdrawal request has been made for this commission'
-        };
-    }
   };
 
   // Add a helper to format numbers with commas
