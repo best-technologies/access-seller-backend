@@ -5,7 +5,7 @@ import { requestAffiliatePermissionDto } from './dto/afiliate.dto';
 import { RequestCommissionPayoutDto } from './dto/commission-payout.dto';
 import { GenerateAffiliateLinkDto } from 'src/admin/referrals/dto/generate-affiliate-link.dto';
 import { AddBankDto, DeleteBankDto, UpdateBankStatusDto } from './dto/bank.dto';
-import { RequestWithdrawalDto } from './dto/withdrawal-request.dto';
+import { RequestWithdrawalNewDto } from './dto/withdrawal-request.dto';
 
 @Controller('user')
 @UseGuards(JwtGuard)
@@ -70,8 +70,13 @@ export class UserController {
     return this.userService.updateBankStatus(req.user, dto);
   }
 
+  // @Post('withdrawal-request')
+  // async requestWithdrawal(@Request() req, @Body() dto: RequestWithdrawalDto) {
+  //   return this.userService.requestWithdrawal(req.user, dto);
+  // }
+
   @Post('withdrawal-request')
-  async requestWithdrawal(@Request() req, @Body() dto: RequestWithdrawalDto) {
+  async requestWithdrawal(@Request() req, @Body() dto: RequestWithdrawalNewDto) {
     return this.userService.requestWithdrawal(req.user, dto);
   }
 

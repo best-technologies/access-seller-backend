@@ -85,19 +85,9 @@ export class ReferralsController {
     }
 
     // Update withdrawal request status (approve/reject)
-    @Put('withdrawal/:payoutId/status')
-    async updateWithdrawalStatus(
-        @Param('payoutId') payoutId: string,
-        @Request() req,
-        @Body() dto: UpdateWithdrawalStatusDto
-    ) {
-        const adminId = req.user.id;
-        return this.referralsService.updateWithdrawalStatus(
-            payoutId, 
-            dto.payoutStatus, 
-            adminId, 
-            dto.notes
-        );
+    @Post('update-withdrawal-status')
+    async updateWithdrawalStatus(@Body() dto: UpdateWithdrawalStatusDto, @Request() req) {
+        return this.referralsService.updateWithdrawalStatus(dto, req);
     }
 
     // Fetch all withdrawal requests with filtering and pagination

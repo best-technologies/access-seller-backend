@@ -1,9 +1,14 @@
-import { IsString, IsOptional, IsIn } from 'class-validator';
+import { IsString, IsOptional, IsIn, IsNotEmpty } from 'class-validator';
 
 export class UpdateWithdrawalStatusDto {
+
     @IsString()
-    @IsIn(['not_requested', 'pending', 'paid', 'cancelled'])
-    payoutStatus: string;
+    @IsNotEmpty()
+    withdrawalId: string
+
+    @IsString()
+    @IsNotEmpty()
+    status: string;
 
     @IsOptional()
     @IsString()

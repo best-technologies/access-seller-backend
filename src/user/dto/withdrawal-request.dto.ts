@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsString, IsOptional, IsEnum } from 'class-validator';
+import { IsNotEmpty, IsString, IsOptional, IsEnum, IsNumber } from 'class-validator';
 
 export enum PayoutMethod {
   BANK = 'bank',
@@ -6,10 +6,10 @@ export enum PayoutMethod {
   PAYPAL = 'paypal'
 }
 
-export class RequestWithdrawalDto {
+export class RequestWithdrawalNewDto {
   @IsNotEmpty()
-  @IsString()
-  orderId: string;
+  @IsNumber()
+  amount: string;
 
   @IsOptional()
   @IsString()

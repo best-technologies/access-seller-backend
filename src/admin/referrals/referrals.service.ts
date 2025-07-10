@@ -4,6 +4,8 @@ import * as colors from 'colors';
 import { ApiResponse } from 'src/shared/helper-functions/response';
 import { AffiliateStatus } from '@prisma/client';
 import slugify from 'slugify';
+import { formatDate, formatDateWithoutTime } from 'src/shared/helper-functions/formatter';
+import { UpdateWithdrawalStatusDto } from './dto/update-withdrawal-status.dto';
 
 @Injectable()
 export class ReferralsService {
@@ -12,7 +14,7 @@ export class ReferralsService {
    
 
     async fetchAffiliateDashboard(page: number = 1, limit: number = 10, isUsed?: boolean) {
-        console.log(colors.cyan('Fetching affiliate dashboard...'));
+        console.log(colors.cyan('[referral-service] Fetching affiliate dashboard...'));
         try {
             // 1. KPI Cards
             const [
@@ -128,19 +130,19 @@ export class ReferralsService {
             const payouts = await Promise.all(payoutsRaw.map(async (p) => {
                 const affiliate = await this.prisma.affiliate.findUnique({ where: { userId: p.userId } });
                 
-                // Fetch withdrawal request and bank details for this commission
-                const withdrawalRequest = await this.prisma.withdrawalRequest.findFirst({
-                    where: { commissionId: p.id },
-                    include: {
-                        bank: {
-                            select: {
-                                bankName: true,
-                                accountNumber: true,
-                                accountName: true,
-                                bankCode: true
-                            }
-                        }
+                // Fetch all withdrawal requests for this affiliate
+                const withdrawalRequests = await this.prisma.withdrawalRequest.findMany({
+                  where: { userId: p.userId },
+                  include: {
+                    bank: {
+                      select: {
+                        bankName: true,
+                        accountNumber: true,
+                        accountName: true,
+                        bankCode: true
+                      }
                     }
+                  }
                 });
 
                 return {
@@ -152,15 +154,56 @@ export class ReferralsService {
                     requestedAt: p.createdAt.toISOString(),
                     paidAt: p.status === 'paid' ? p.updatedAt.toISOString() : null,
                     // Bank account details
-                    accountDetails: withdrawalRequest?.bank ? {
-                        bankName: withdrawalRequest.bank.bankName,
-                        accountNumber: withdrawalRequest.bank.accountNumber,
-                        accountName: withdrawalRequest.bank.accountName,
-                        bankCode: withdrawalRequest.bank.bankCode
+                    accountDetails: (withdrawalRequests.length > 0 && withdrawalRequests[0].bank) ? {
+                        bankName: withdrawalRequests[0].bank?.bankName,
+                        accountNumber: withdrawalRequests[0].bank?.accountNumber,
+                        accountName: withdrawalRequests[0].bank?.accountName,
+                        bankCode: withdrawalRequests[0].bank?.bankCode
                     } : null,
-                    payoutMethod: withdrawalRequest?.payoutMethod || null,
-                    withdrawalStatus: withdrawalRequest?.payoutStatus || null
+                    payoutMethod: withdrawalRequests.length > 0 ? withdrawalRequests[0].payoutMethod || null : null,
+                    withdrawalStatus: withdrawalRequests.length > 0 ? withdrawalRequests[0].payoutStatus || null : null
                 };
+            }));
+
+            const withdrawalRequests = await this.prisma.withdrawalRequest.findMany({
+                orderBy: { createdAt: "desc" },
+                take: 10,
+                include: {
+                  user: {
+                    select: {
+                      id: true,
+                      first_name: true,
+                      last_name: true,
+                      email: true,
+                      phone_number: true
+                    }
+                  },
+                  bank: {
+                    select: {
+                      bankName: true,
+                      accountNumber: true,
+                      accountName: true,
+                      bankCode: true
+                    }
+                  }
+                }
+            });
+
+            const formatted_withdrawal_request = withdrawalRequests.map(w => ({
+              id: w.id,
+              payoutId: w.payoutId,
+              userId: w.userId,
+              user: w.user,
+              amount: w.commissionAmount ?? w.withdrawal_amount ?? 0,
+              payoutMethod: w.payoutMethod,
+              payoutStatus: w.payoutStatus,
+              bank: w.bank,
+              reference: w.reference,
+              requestedAt: w.createdAt ? formatDateWithoutTime(w.createdAt) : '',
+              processedAt: w.updatedAt ? formatDateWithoutTime(w.updatedAt) : '',
+              processedBy: w.processedBy,
+              notes: w.notes,
+              rejectionReason: w.rejectionReason
             }));
 
             // 6. Events (recent affiliate-related events)
@@ -211,6 +254,7 @@ export class ReferralsService {
                 leaderboard,
                 overview,
                 payouts,
+                formatted_withdrawal_request,
                 events,
                 analytics
             };
@@ -227,7 +271,7 @@ export class ReferralsService {
                 success: false,
                 message: 'Failed to fetch affiliate dashboard.',
                 data: null
-            };
+            }; 
         }
     }
 
@@ -654,8 +698,8 @@ export class ReferralsService {
         }
     }
 
-    async updateWithdrawalStatus(payoutId: string, payoutStatus: string, adminId: string, notes?: string) {
-        console.log(colors.cyan(`Updating payout status for ${payoutId} to ${payoutStatus}`));
+    async updateWithdrawalStatus(dto: UpdateWithdrawalStatusDto, req: any) {
+        console.log(colors.cyan(`Updating payout status for ${dto.withdrawalId} to ${dto.status}`));
         
         // List of allowed payout statuses from WithdrawalStatus enum
         const allowedStatuses = [
@@ -665,7 +709,7 @@ export class ReferralsService {
             'cancelled'
         ];
         
-        if (!allowedStatuses.includes(payoutStatus.toLowerCase())) {
+        if (!allowedStatuses.includes(dto.status.toLowerCase())) {
             console.log(colors.red(`Invalid payout status. Allowed statuses: ${allowedStatuses.join(', ')}`));
             return {
                 success: false,
@@ -677,7 +721,7 @@ export class ReferralsService {
         try {
             // Check if withdrawal request exists
             const withdrawalRequest = await this.prisma.withdrawalRequest.findUnique({
-                where: { id: payoutId },
+                where: { id: dto.withdrawalId },
                 include: {
                     user: {
                         select: {
@@ -703,24 +747,24 @@ export class ReferralsService {
 
             // Prepare update data
             const updateData: any = {
-                payoutStatus: payoutStatus as any,
+                payoutStatus: dto.status as any,
                 processedAt: new Date(),
-                processedBy: adminId
+                processedBy: req.user
             };
 
             // Add notes if provided
-            if (notes) {
-                updateData.notes = notes;
+            if (dto.notes) {
+                updateData.notes = dto.notes;
             }
 
             // Add rejection reason if status is cancelled
-            if (payoutStatus === 'cancelled' && notes) {
-                updateData.rejectionReason = notes;
+            if (dto.status === 'cancelled' && dto.notes) {
+                updateData.rejectionReason = dto.notes;
             }
 
             // Update withdrawal request
             const updatedWithdrawalRequest = await this.prisma.withdrawalRequest.update({
-                where: { id: payoutId },
+                where: { id: dto.withdrawalId },
                 data: updateData,
                 include: {
                     user: {
@@ -737,28 +781,28 @@ export class ReferralsService {
             });
 
             // If payout is approved (paid), also update the commission status
-            if (payoutStatus === 'paid' && withdrawalRequest.commissionId) {
-                await this.prisma.commission.update({
-                    where: { id: withdrawalRequest.commissionId },
-                    data: { status: 'paid' }
-                });
-                console.log(colors.yellow(`Commission status updated to paid for commission ID: ${withdrawalRequest.commissionId}`));
-            }
+            // if (dto.status === 'paid' ) {
+            //     await this.prisma.commission.update({
+            //         where: { id: withdrawalRequest.commissionId },
+            //         data: { status: 'paid' }
+            //     });
+            //     console.log(colors.yellow(`Commission status updated to paid for commission ID: ${withdrawalRequest.commissionId}`));
+            // }
 
             // If payout is cancelled, also update the commission status back to pending
-            if (payoutStatus === 'cancelled' && withdrawalRequest.commissionId) {
-                await this.prisma.commission.update({
-                    where: { id: withdrawalRequest.commissionId },
-                    data: { status: 'pending' }
-                });
-                console.log(colors.yellow(`Commission status reverted to pending for commission ID: ${withdrawalRequest.commissionId}`));
-            }
+            // if (payoutStatus === 'cancelled' && withdrawalRequest.commissionId) {
+            //     await this.prisma.commission.update({
+            //         where: { id: withdrawalRequest.commissionId },
+            //         data: { status: 'pending' }
+            //     });
+            //     console.log(colors.yellow(`Commission status reverted to pending for commission ID: ${withdrawalRequest.commissionId}`));
+            // }
 
-            console.log(colors.magenta(`Payout status updated to ${payoutStatus} successfully`));
+            console.log(colors.magenta(`Payout status updated to ${dto.status} successfully`));
             
             return {
                 success: true,
-                message: `Payout status updated to ${payoutStatus} successfully`,
+                message: `Payout status updated to ${dto.status} successfully`,
                 data: {
                     id: updatedWithdrawalRequest.id,
                     payoutId: updatedWithdrawalRequest.payoutId,

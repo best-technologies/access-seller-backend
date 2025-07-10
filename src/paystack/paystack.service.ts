@@ -107,8 +107,8 @@ export class PaystackService {
         throw new Error(`Total amount mismatch. Expected: ${expectedTotal}, Received: ${totalAmount}`);
       }
 
-      // Start a transaction to revert back in case of a problem
-      const { order, user, paystackResponse } = await this.prisma.$transaction(async (tx) => {
+      // 3. Create user/order/orderItem in a transaction
+      const { order, user } = await this.prisma.$transaction(async (tx) => {
         // Ensure product has a storeId (inside transaction)
         let storeId = product.storeId;
         if (!storeId) {
@@ -186,57 +186,58 @@ export class PaystackService {
           }
         });
 
-        // 4. Initialise paystack payment
-        const amount = Math.round(totalAmount * 100);
-        const payload = {
-          email,
-          amount,
-          ...(callbackUrl ? { callback_url: callbackUrl } : {}),
-          metadata: {
-            orderId: order.id,
-            productId,
-            referralSlug,
-            firstName,
-            lastName,
-            phoneNumber,
-            state,
-            city,
-            houseAddress,
-            fullShippingAddress,
-          },
-        };
-
-        console.log(colors.blue("Paystack payload: "), payload)
-
-        let paystackResponse: any;
-
-        try {
-          paystackResponse = await axios.post(
-            'https://api.paystack.co/transaction/initialize',
-            payload,
-            {
-              headers: {
-                Authorization: `Bearer ${process.env.PAYSTACK_TEST_SECRET_KEY}`,
-                'Content-Type': 'application/json',
-              },
-            },
-          );
-
-          // 5. Update the order with paystack fields
-          await tx.order.update({
-            where: { id: order.id },
-            data: {
-              paystackReference: paystackResponse.data.data.reference,
-              paystackAuthorizationUrl: paystackResponse.data.data.authorization_url,
-              paystackAccessCode: paystackResponse.data.data.access_code,
-            }
-          });
-        } catch (error) {
-          // handle error if needed
-        }
-
-        return { order, user, paystackResponse };
+        return { order, user };
       });
+
+      // 4. Initialise paystack payment (outside transaction)
+      const amount = Math.round(totalAmount * 100);
+      const payload = {
+        email,
+        amount,
+        ...(callbackUrl ? { callback_url: callbackUrl } : {}),
+        metadata: {
+          orderId: order.id,
+          productId,
+          referralSlug,
+          firstName,
+          lastName,
+          phoneNumber,
+          state,
+          city,
+          houseAddress,
+          fullShippingAddress,
+        },
+      };
+
+      console.log(colors.blue("Paystack payload: "), payload)
+
+      let paystackResponse: any;
+
+      try {
+        paystackResponse = await axios.post(
+          'https://api.paystack.co/transaction/initialize',
+          payload,
+          {
+            headers: {
+              Authorization: `Bearer ${process.env.PAYSTACK_TEST_SECRET_KEY}`,
+              'Content-Type': 'application/json',
+            },
+          },
+        );
+
+        // 5. Update the order with paystack fields (outside transaction)
+        await this.prisma.order.update({
+          where: { id: order.id },
+          data: {
+            paystackReference: paystackResponse.data.data.reference,
+            paystackAuthorizationUrl: paystackResponse.data.data.authorization_url,
+            paystackAccessCode: paystackResponse.data.data.access_code,
+          }
+        });
+      } catch (error) {
+        console.error('Paystack initialize error:', error.response?.data || error.message);
+        throw new Error(error.response?.data?.message || error.message);
+      }
 
       const formattedResponse = {
         orderId: order.id,
@@ -276,10 +277,10 @@ export class PaystackService {
             throw new NotFoundException("Order not found or amount is missing");
         }
 
-        // if(existingOrder.orderPaymentStatus === "success") {
-        //     console.log(colors.red("Order payment status already verified"));
-        //     return new ApiResponse(false, "Transaction already verified");
-        // }
+        if(existingOrder.orderPaymentStatus === "success") {
+            console.log(colors.red("Order payment status already verified"));
+            return new ApiResponse(false, "Transaction already verified");
+        }
 
         const amountInKobo = existingOrder.total * 100;
 
@@ -317,7 +318,7 @@ export class PaystackService {
             return new ApiResponse(false, "Payment amount does not match transaction amount");
         }
 
-        // update the payment ststaus in db to success
+        // update the payment status in db to success
         const updatedOrder = await this.prisma.order.update({
             where: { paystackReference: dto.reference },
             data: { 
@@ -383,6 +384,25 @@ export class PaystackService {
                   commissionPercentage: commissionPercentage.toString(),
                   amount: commissionAmount,
                   status: 'pending'
+                }
+              });
+
+              // update users wallet
+              const wallet = await this.prisma.wallet.findUnique({ where: { userId: affiliateLink.userid } });
+              const amountEarned = 1000; // Replace with actual earned amount logic
+              const newTotalEarned = (wallet?.total_earned || 0) + amountEarned;
+              const newAvailableForWithdrawal = (wallet?.available_for_withdrawal || 0) + amountEarned;
+              const newBalanceBefore = wallet?.balance_after || 0;
+              const newBalanceAfter = newBalanceBefore + amountEarned;
+              
+              await this.prisma.wallet.update({
+                where: { userId: affiliateLink.userid },
+                data: {
+                  total_earned: newTotalEarned,
+                  available_for_withdrawal: newAvailableForWithdrawal,
+                  balance_before: newBalanceBefore,
+                  balance_after: newBalanceAfter,
+                  updatedAt: new Date()
                 }
               });
 

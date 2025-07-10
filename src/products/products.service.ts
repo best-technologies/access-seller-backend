@@ -27,6 +27,7 @@ export class ProductsService {
       }
     }
     return {
+      id: product.id,
       book_name: product.name,
       author: product.author ?? 'N/A',
       description: product.description ?? '',
@@ -117,6 +118,7 @@ export class ProductsService {
       }),
     };
 
+    console.log(colors.magenta("All products fetched successfully"))
     return new ApiResponse(true, "Homepage data fetched", formated_response);
   }
 

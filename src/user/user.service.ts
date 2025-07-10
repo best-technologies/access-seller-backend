@@ -7,7 +7,8 @@ import { RequestCommissionPayoutDto, } from './dto/commission-payout.dto';
 import { AffiliateStatus } from '@prisma/client';
 import { formatAmount, formatDateWithoutTime } from 'src/shared/helper-functions/formatter';
 import { AddBankDto, DeleteBankDto, UpdateBankStatusDto } from './dto/bank.dto';
-import { RequestWithdrawalDto, PayoutMethod } from './dto/withdrawal-request.dto';
+import { RequestWithdrawalNewDto } from './dto/withdrawal-request.dto';
+// import { PayoutMethod } from './dto/withdrawal-request.dto';
 
 @Injectable()
 export class UserService {
@@ -123,7 +124,7 @@ export class UserService {
   }
 
   async fetchAffiliateDashboard(payload: any) {
-    console.log(colors.cyan("Fetching affiliate dashboard"));
+    console.log(colors.cyan("[users service] Fetching affiliate dashboard"));
     try {
       // 1. Fetch user
       const user = await this.prisma.user.findFirst({ where: { email: payload.email } });
@@ -144,6 +145,20 @@ export class UserService {
 
       // 2. Fetch affiliate record
       const affiliate = await this.prisma.affiliate.findUnique({ where: { userId: user.id } });
+
+      // Calculate available_for_withdrawal
+      const twoDaysAgo = new Date(Date.now() - 48 * 60 * 60 * 1000);
+      const availableAgg = await this.prisma.commission.aggregate({
+        _sum: { amount: true },
+        where: {
+          userId: user.id,
+          status: 'pending',
+          order: {
+            createdAt: { lte: twoDaysAgo }
+          }
+        }
+      });
+      const available_for_withdrawal = Number(availableAgg._sum.amount || 0);
 
       // 3. Fetch stats and recent orders
       const [totalPurchases, totalEarned, totalWithdrawn, pendingWithdrawals, recentOrders] = await Promise.all([
@@ -230,14 +245,15 @@ export class UserService {
           totalPurchases,
           totalEarned: totalEarned._sum.amount || 0,
           totalWithdrawn: totalWithdrawn._sum.amount || 0,
-          pendingWithdrawals: pendingWithdrawals._sum.amount || 0
+          pendingWithdrawals: formatAmount(pendingWithdrawals._sum.amount || 0),
+          available_for_withdrawal: formatAmount(available_for_withdrawal || 0)
         },
         banks: bankDetails || [],
         tableAnalysis,
         payouts
       };
 
-      // console.log('Affiliate dashboard fetched successfully.', dashboard)
+      console.log('[users service] Affiliate dashboard fetched successfully.')
 
       return new ApiResponse(true, 'Affiliate dashboard fetched successfully.', dashboard);
     } catch (error) {
@@ -475,13 +491,13 @@ export class UserService {
         return new ApiResponse(false, 'User not found.');
       }
       // Ensure the bank belongs to the user
-      const bank = await this.prisma.bank.findFirst({ where: { bankCode: dto.bankId, userId: existingUser.id } });
+      const bank = await this.prisma.bank.findFirst({ where: { id: dto.bankId, userId: existingUser.id } });
       if (!bank) {
         console.log(colors.red('[user-service] Bank not found or does not belong to user.'));
         return new ApiResponse(false, 'Bank not found or does not belong to user.');
       }
 
-      await this.prisma.bank.delete({ where: { bankCode: dto.bankId } });
+      await this.prisma.bank.delete({ where: { id: dto.bankId } });
 
       console.log(colors.green('[user-service] Bank deleted successfully.'));
       return new ApiResponse(true, 'Bank deleted successfully.');
@@ -516,35 +532,14 @@ export class UserService {
   }
 
   // //////////////////////////////////////////////////////////////////////// Request withdrawal
-  async requestWithdrawal(user: any, dto: RequestWithdrawalDto) {
+  async requestWithdrawal(user: any, dto: RequestWithdrawalNewDto) {
     try {
-      console.log(colors.cyan('[user-service] Creating withdrawal request...'), dto);
+      console.log(colors.cyan('[user-service] Creating new withdrawal request...'), dto);
       
       const existingUser = await this.prisma.user.findFirst({ where: { email: user.email } });
       if (!existingUser) {
         console.log(colors.red('[user-service] User not found.'));
         return new ApiResponse(false, 'User not found.');
-      }
-
-      // Validate order exists (do not check userId)
-      const order = await this.prisma.order.findFirst({
-        where: { id: dto.orderId },
-        include: {
-          user: { select: { first_name: true, last_name: true, email: true } },
-          commissions: { where: { userId: existingUser.id } }
-        }
-      });
-
-      if (!order) {
-        console.log(colors.red('[user-service] Order not found.'));
-        return new ApiResponse(false, 'Order not found.');
-      }
-
-      // Get commission for this order and user
-      const commission = order.commissions[0];
-      if (!commission) {
-        console.log(colors.red('[user-service] No commission found for this order and user.'));
-        return new ApiResponse(false, 'No commission found for this order and user.');
       }
 
       const bank = await this.prisma.bank.findFirst({
@@ -554,16 +549,6 @@ export class UserService {
       if (!bank) {
         console.log(colors.red('[user-service] Bank not found or does not belong to user.'));
         return new ApiResponse(false, 'Bank not found or does not belong to user.');
-      }
-
-      // Check if withdrawal request already exists for this order
-      const existingRequest = await this.prisma.withdrawalRequest.findFirst({
-        where: { orderId: dto.orderId, userId: existingUser.id }
-      });
-
-      if (existingRequest) {
-        console.log(colors.red('[user-service] Withdrawal request already exists for this order.'));
-        return new ApiResponse(false, 'Withdrawal request already exists for this order.');
       }
 
       // Generate unique payoutId
@@ -576,38 +561,16 @@ export class UserService {
       const payoutId = generatePayoutId();
 
       // Create withdrawal request and update order status in a transaction
-      const { withdrawalRequest } = await this.prisma.$transaction(async (tx) => {
-        // Create withdrawal request
-        const withdrawalRequest = await tx.withdrawalRequest.create({
-          data: {
-            userId: existingUser.id,
-            orderId: dto.orderId,
-            commissionId: commission.id,
-            buyerName: `${order.user.first_name} ${order.user.last_name}`,
-            buyerEmail: order.user.email,
-            totalPurchaseAmount: order.total,
-            commissionAmount: commission.amount,
-            commissionPercentage: commission.commissionPercentage,
-            payoutMethod: "bank transfer",
-            bankId: bank.id,
-            reference,
-            payoutId, // Store the generated payoutId
-            payoutStatus: 'pending',
-          },
-          include: {
-            order: { select: { id: true, total: true } },
-            commission: { select: { amount: true, commissionPercentage: true } },
-            bank: { select: { bankName: true, accountNumber: true, accountName: true } }
-          }
-        });
-
-        // Update order withdrawal status to 'processing'
-        await tx.order.update({
-          where: { id: dto.orderId },
-          data: { withdrawalStatus: 'processing' }
-        });
-
-        return { withdrawalRequest };
+      const withdrawalRequest = await this.prisma.withdrawalRequest.create({
+        data: {
+          userId: existingUser.id,
+          withdrawal_amount: Number(dto.amount),
+          commissionAmount: Number(dto.amount),
+          payoutMethod: "bank transfer",
+          bankId: bank.id,
+          reference,
+          // Add other fields as needed from dto
+        }
       });
 
       console.log(colors.green('[user-service] Withdrawal request created successfully.'));

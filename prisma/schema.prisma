@@ -253,6 +253,7 @@ model User {
   CommissionPayout   CommissionPayout[]
   banks              Bank[]
   withdrawalRequests WithdrawalRequest[]
+  wallet             Wallet?
 }
 
 model Product {
@@ -562,13 +563,14 @@ model WithdrawalRequest {
   id                   String           @id @default(cuid())
   payoutId             String?          @unique // Unique payout identifier in format out/accXXXXXX
   userId               String
-  orderId              String
+  orderId              String?
   commissionId         String? // Link to the commission record
-  buyerName            String
-  buyerEmail           String
-  totalPurchaseAmount  Float
-  commissionAmount     Float
-  commissionPercentage String
+  buyerName            String?
+  buyerEmail           String?
+  totalPurchaseAmount  Float?
+  commissionAmount     Float?
+  withdrawal_amount    Float?
+  commissionPercentage String?
   payoutMethod         String // "bank", "wallet", "paypal"
   bankId               String? // If payout method is bank
   payoutStatus         WithdrawalStatus @default(pending)
@@ -581,9 +583,12 @@ model WithdrawalRequest {
 
   // Relations
   user       User        @relation(fields: [userId], references: [id])
-  order      Order       @relation(fields: [orderId], references: [id])
+  order      Order?      @relation(fields: [orderId], references: [id])
   bank       Bank?       @relation(fields: [bankId], references: [id])
   commission Commission? @relation(fields: [commissionId], references: [id])
+
+  createdAt DateTime? @default(now())
+  updatedAt DateTime? @updatedAt
 
   @@index([userId])
   @@index([orderId])
@@ -594,7 +599,7 @@ model Bank {
   id            String   @id @default(cuid())
   userId        String
   bankName      String
-  bankCode      String   @unique
+  bankCode      String   
   accountNumber String
   accountName   String
   createdAt     DateTime @default(now())
@@ -602,6 +607,24 @@ model Bank {
 
   user               User                @relation(fields: [userId], references: [id])
   withdrawalRequests WithdrawalRequest[]
+
+  @@index([userId])
+}
+
+model Wallet {
+  id                       String   @id @default(cuid())
+  userId                   String   @unique
+  total_earned             Float    @default(0)
+  awaiting_approval        Float?   @default(0)
+  available_for_withdrawal Float    @default(0)
+  total_withdrawn          Float    @default(0)
+  balance_before           Float    @default(0)
+  balance_after            Float    @default(0)
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  // Relations
+  user User @relation(fields: [userId], references: [id])
 
   @@index([userId])
 }

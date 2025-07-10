@@ -263,6 +263,18 @@ export class AuthService {
                 }
             });
 
+            // Create wallet for the new user
+            await this.prisma.wallet.create({
+                data: {
+                    userId: newUser.id,
+                    total_earned: 0,
+                    available_for_withdrawal: 0,
+                    total_withdrawn: 0,
+                    balance_before: 0,
+                    balance_after: 0,
+                }
+            });
+
             const otp = crypto.randomInt(1000, 9999).toString();
             const otpExpiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 mins expiry
 
