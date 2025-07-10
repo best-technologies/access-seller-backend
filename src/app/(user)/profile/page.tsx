@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import type { User } from '@/services/api';
 import { 
   BookOpen,
@@ -21,11 +22,12 @@ import Loader from "@/components/Loader";
 import Image from 'next/image';
 import Link from "next/link";
 
-export default function ProfilePage() {
+function ProfilePage() {
   const [userData, setUserData] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("profile");
+  const searchParams = useSearchParams();
   const [affiliateDashboard, setAffiliateDashboard] = useState<Record<string, unknown> | null>(null);
   const [affiliateLoading, setAffiliateLoading] = useState(false);
   const [affiliateError, setAffiliateError] = useState<string | null>(null);
@@ -40,6 +42,14 @@ export default function ProfilePage() {
     { key: "wishlist", label: "Wishlist", icon: Heart },
     { key: "settings", label: "Settings", icon: Settings },
   ];
+
+  // Set active tab from query param on mount
+  useEffect(() => {
+    const tab = searchParams?.get("tab");
+    if (tab && ["profile", "referrals", "orders", "wishlist", "settings"].includes(tab)) {
+      setActiveTab(tab);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -193,5 +203,13 @@ export default function ProfilePage() {
         </div>
       </main>
     </div>
+  );
+}
+
+export default function ProfilePageWrapper() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <ProfilePage />
+    </Suspense>
   );
 } 

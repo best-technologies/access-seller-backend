@@ -1,14 +1,13 @@
 'use client';
 
 import { Star, Quote } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import Image from "next/image";
 
 const testimonials = [
   {
     name: "Mayowa Bernard",
     role: "Book Enthusiast",
-    avatar: "/images/book-images/TBm-300x300.png",
+    avatar: "/images/testimonial-images/maximus.jpg",
     rating: 5,
     text: "I've discovered so many amazing books through this platform. The referral program is fantastic - I've earned enough to fund my entire reading habit!",
     location: "New York, USA"
@@ -16,7 +15,7 @@ const testimonials = [
   {
     name: "Oladele Steve",
     role: "Avid Reader",
-    avatar: "/images/book-images/profit-first.png",
+    avatar: "/images/testimonial-images/Steven.jpg",
     rating: 5,
     text: "The selection of books is incredible, and the referral rewards make it even better. I've recommended this to all my book-loving friends!",
     location: "San Francisco, USA"
@@ -24,7 +23,7 @@ const testimonials = [
   {
     name: "Vanilla Monye",
     role: "Book Club Organizer",
-    avatar: "/images/book-images/Launch-Jeff-Walker-2.png",
+    avatar: "/images/testimonial-images/vanilla.jpg",
     rating: 4,
     text: "As someone who runs a book club, this platform has been a game-changer. The referral system helps us discover new titles and earn rewards together.",
     location: "London, UK"
@@ -95,11 +94,11 @@ export default function Testimonials() {
         ))}
       </div>
 
-      <div className="text-center mt-4">
+      {/* <div className="text-center mt-4">
         <Button variant="outline" className="border-indigo-600 text-indigo-600 hover:bg-indigo-50 rounded-full px-4 sm:px-6 py-1.5 sm:py-2 text-sm sm:text-base">
           View All Reviews
         </Button>
-      </div>
+      </div> */}
     </div>
   );
 }

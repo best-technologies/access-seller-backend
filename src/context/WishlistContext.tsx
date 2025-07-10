@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import React, { createContext, useContext, useEffect, useState, ReactNode, useRef } from "react";
+import toast from "react-hot-toast";
 
 export interface WishlistItem {
   id: string;
@@ -29,6 +30,20 @@ const WishlistContext = createContext<WishlistContextType | undefined>(undefined
 
 export const WishlistProvider = ({ children }: { children: ReactNode }) => {
   const [wishlist, setWishlist] = useState<WishlistItem[]>([]);
+  const lastToastRef = useRef<string>('');
+
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+    if (lastToastRef.current === message) return;
+    lastToastRef.current = message;
+    if (type === 'error') {
+      toast.error(message);
+    } else {
+      toast.success(message);
+    }
+    setTimeout(() => {
+      lastToastRef.current = '';
+    }, 100);
+  };
 
   // Load wishlist from localStorage on mount
   useEffect(() => {
@@ -64,20 +79,30 @@ export const WishlistProvider = ({ children }: { children: ReactNode }) => {
       if (existing) {
         return prev; // Item already exists
       }
+      showToast(`${item.title} added to wishlist!`);
       // Add new item at the beginning of the array (most recent first)
       return [{ ...item, addedAt: Date.now() }, ...prev];
     });
   };
 
   const removeFromWishlist = (itemId: string) => {
-    setWishlist(prev => prev.filter(wi => wi.id !== itemId));
+    setWishlist(prev => {
+      const itemToRemove = prev.find(wi => wi.id === itemId);
+      if (itemToRemove) {
+        showToast(`${itemToRemove.title} removed from wishlist!`, 'error');
+      }
+      return prev.filter(wi => wi.id !== itemId);
+    });
   };
 
   const isInWishlist = (itemId: string) => {
     return wishlist.some(item => item.id === itemId);
   };
 
-  const clearWishlist = () => setWishlist([]);
+  const clearWishlist = () => {
+    setWishlist([]);
+    showToast("Wishlist cleared!", 'error');
+  };
 
   const wishlistCount = wishlist.length;
 

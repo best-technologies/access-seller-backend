@@ -10,7 +10,6 @@ import Testimonials from "@/components/home/Testimonials";
 import Navbar from "@/components/home/Navbar";
 import { useEffect, useState } from 'react';
 import { api } from '@/services/api';
-import Loader from "@/components/Loader";
 
 // Types for homepage featured books and categories
 interface HomepageBook {
@@ -39,6 +38,7 @@ const HOMEPAGE_CACHE_TIME = 60 * 60 * 1000; // 1 hour
 export default function Home() {
   const [homepageData, setHomepageData] = useState<unknown>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchHomepageData = async () => {
@@ -50,6 +50,7 @@ export default function Home() {
           if (Date.now() - timestamp < HOMEPAGE_CACHE_TIME) {
             console.log('[Homepage] Using cached homepage data', data);
             setHomepageData(data);
+            setError(null);
             setLoading(false);
             return;
           }
@@ -62,25 +63,26 @@ export default function Home() {
         console.log('[Homepage] API response:', res);
         if (res.success) {
           setHomepageData(res.data);
+          setError(null);
           if (typeof window !== 'undefined') {
             localStorage.setItem(HOMEPAGE_CACHE_KEY, JSON.stringify({ data: res.data, timestamp: Date.now() }));
           }
         } else {
           console.error('API did not return success:', res);
+          setError('Failed to fetch homepage data.');
         }
       } catch (err) {
         console.error('[Homepage] Error fetching homepage data:', err);
+        setError('Failed to fetch homepage data.');
       }
       setLoading(false);
     };
     fetchHomepageData();
   }, []);
 
-  if (loading) return <Loader/>;
-
   // Inline Book type from FeaturedBooks/NewArrivals
   type HomeBook = {
-    id: number;
+    id: string;
     title: string;
     author: string;
     desc: string;
@@ -104,9 +106,9 @@ export default function Home() {
     count: string;
   };
 
-  const mapBook = (book: HomepageBook, idx: number): HomeBook => {
+  const mapBook = (book: HomepageBook): HomeBook => {
     return {
-      id: idx, // Use index as fallback if id is not a number
+      id: book.id, // Use the string id from the API, not the index
       title: book.book_name,
       author: book.author,
       desc: book.description,
@@ -151,21 +153,21 @@ export default function Home() {
       {/* Featured Section with Background */}
       <section className="bg-gradient-to-b from-white to-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10">
-        <FeaturedBooks books={featuredBooks} available_categories={availableCategories} />
+        <FeaturedBooks books={featuredBooks} available_categories={availableCategories} loading={loading} error={error} />
         </div>
       </section>
 
       {/* New Arrivals with Pattern Background */}
       <section className="bg-[url('/pattern.svg')] bg-opacity-5">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10">
-          <NewArrivals books={newArrivals} />
+          <NewArrivals books={newArrivals} loading={loading} error={error} />
         </div>
       </section>
 
       {/* Categories with Gradient */}
       <section className="bg-gradient-to-b from-gray-50 to-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10">
-          <Categories categories={categories} />
+          <Categories categories={categories} loading={loading} error={error} />
         </div>
       </section>
 

@@ -307,7 +307,7 @@ export default function Navbar() {
                         <span className="text-sm font-medium">Profile</span>
                       </Link>
                       {/* Printing Press Button (Mobile Menu) */}
-                      {(user?.role === "admin" || user?.role === "inventory_manager") && (
+                      {/* {(user?.role === "admin" || user?.role === "inventory_manager") && (
                         <button
                           onClick={handlePrintingPressClick}
                           className="flex items-center space-x-3 px-3 py-2 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg font-medium transition-colors w-full"
@@ -317,7 +317,7 @@ export default function Navbar() {
                           <Printer className="w-5 h-5 text-indigo-600" />
                           <span className="text-sm font-medium">Printing Press</span>
                         </button>
-                      )}
+                      )} */}
                       {(user?.role === 'admin' || user?.role === 'super_admin') && (
                         <Link href="/admin/dashboard" className="flex items-center space-x-3 px-3 py-2 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors">
                           <User className="w-5 h-5 text-indigo-600" />

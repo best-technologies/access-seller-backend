@@ -27,14 +27,17 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     localStorage.setItem("cart", JSON.stringify(cart));
   }, [cart]);
 
-  const showToast = (message: string) => {
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
     // Prevent duplicate toasts by checking if the same message was just shown
     if (lastToastRef.current === message) {
       return;
     }
     lastToastRef.current = message;
-    toast.success(message);
-    
+    if (type === 'error') {
+      toast.error(message);
+    } else {
+      toast.success(message);
+    }
     // Clear the ref after a short delay to allow the same message again if needed
     setTimeout(() => {
       lastToastRef.current = '';
@@ -61,7 +64,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     setCart(prev => {
       const itemToRemove = prev.find(ci => ci.productId === productId);
       if (itemToRemove) {
-        showToast(`${itemToRemove.product?.name || 'Item'} removed from cart!`);
+        showToast(`${itemToRemove.product?.name || 'Item'} removed from cart!`, 'error');
       }
       return prev.filter(ci => ci.productId !== productId);
     });
@@ -82,7 +85,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
 
   const clearCart = () => {
     setCart([]);
-    showToast("Cart cleared!");
+    showToast("Cart cleared!", 'error');
   };
 
   return (

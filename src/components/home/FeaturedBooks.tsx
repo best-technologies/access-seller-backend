@@ -4,10 +4,11 @@ import { useState, useRef, useEffect } from "react";
 import { Star, ShoppingCart, Heart, ChevronLeft, ChevronRight, TrendingUp, Award, BookOpen } from "lucide-react";
 import { useCart } from "@/hooks/useCart";
 import { useWishlist } from "@/hooks/useWishlist";
-import toast from "react-hot-toast";
+import Link from "next/link";
+import { Loader } from "@/components/ui/loader";
 
 interface Book {
-  id: number;
+  id: string;
   title: string;
   author: string;
   desc: string;
@@ -27,13 +28,15 @@ interface Book {
 interface FeaturedBooksProps {
   books: Book[];
   available_categories?: Array<{ id: string; name: string }>;
+  loading?: boolean;
+  error?: string | null;
 }
 
-export default function FeaturedBooks({ books = [], available_categories = [] }: FeaturedBooksProps) {
+export default function FeaturedBooks({ books = [], available_categories = [], loading = false, error = null }: FeaturedBooksProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
   const [isVisible, setIsVisible] = useState(false);
-  const { addToCart, cart } = useCart();
+  const { addToCart, cart, removeFromCart } = useCart();
   const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
 
   useEffect(() => {
@@ -84,7 +87,6 @@ export default function FeaturedBooks({ books = [], available_categories = [] }:
     
     if (isInWishlist(bookId)) {
       removeFromWishlist(bookId);
-      toast.success(`${book.title} removed from wishlist`);
     } else {
       addToWishlist({
         id: bookId,
@@ -100,7 +102,6 @@ export default function FeaturedBooks({ books = [], available_categories = [] }:
         badge: book.badge,
         isNew: book.isNew
       });
-      toast.success(`${book.title} added to wishlist`);
     }
   };
 
@@ -196,17 +197,18 @@ export default function FeaturedBooks({ books = [], available_categories = [] }:
             ref={scrollContainerRef}
             className="flex overflow-x-auto pb-6 gap-3 sm:gap-4 px-2 sm:px-0 sm:snap-x sm:snap-mandatory scrollbar-hide scroll-smooth"
           >
-            {filteredBooks.length > 0 ? (
+            {loading ? (
+              <div className="flex justify-center items-center w-full min-h-[200px]"><Loader size="lg" variant="primary" /></div>
+            ) : error ? (
+              <div className="flex justify-center items-center w-full min-h-[200px] text-red-500">{error}</div>
+            ) : filteredBooks.length === 0 ? (
+              <div className="flex justify-center items-center w-full min-h-[200px] text-gray-500">No featured books at the moment.</div>
+            ) : (
               filteredBooks.map((book, index) => {
                 const b = book;
+                const slug = `${b.id}-${b.title.toLowerCase().replace(/\s+/g, '-')}`;
                 return (
-                  <div 
-                    key={b.id} 
-                    className={`group relative flex-none w-[140px] sm:w-[200px] transition-all duration-700 ${
-                      isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
-                    }`} 
-                    style={{ transitionDelay: `${index * 100}ms`, minHeight: 340, maxHeight: 340, display: 'flex', flexDirection: 'column' }}
-                  >
+                  <Link key={b.id} href={`/products/${slug}`} className="group relative flex-none w-[140px] sm:w-[200px] transition-all duration-700" style={{ transitionDelay: `${index * 100}ms`, minHeight: 340, maxHeight: 340, display: 'flex', flexDirection: 'column' }}>
                     {/* Enhanced Card */}
                     <div className="bg-white rounded-xl sm:rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-500 border border-gray-100 hover:border-indigo-200 hover:scale-105 snap-start flex flex-col h-full">
                       {/* Book Image Container */}
@@ -243,7 +245,11 @@ export default function FeaturedBooks({ books = [], available_categories = [] }:
 
                         {/* Enhanced Favorite Button */}
                         <button 
-                          onClick={() => toggleFavorite(b)}
+                          onClick={e => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            toggleFavorite(b);
+                          }}
                           className={`absolute top-1.5 sm:top-2 right-1.5 sm:right-2 p-1.5 sm:p-2 rounded-full transition-all duration-300 shadow-lg hover:scale-110 ${
                             isInWishlist(String(b.id))
                               ? 'bg-red-500 text-white'
@@ -255,18 +261,26 @@ export default function FeaturedBooks({ books = [], available_categories = [] }:
 
                         {/* Add to Cart Button */}
                         <button 
-                          onClick={() => addToCart({
-                            productId: String(b.id),
-                            quantity: 1,
-                            price: Number(b.price),
-                            sellingPrice: Number(b.sellingPrice ?? b.price),
-                            normalPrice: Number(b.normalPrice ?? b.originalPrice ?? b.price),
-                            product: {
-                              name: b.title,
-                              image: b.image,
-                              category: b.category
+                          onClick={e => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            if (isInCart(String(b.id))) {
+                              removeFromCart(String(b.id));
+                            } else {
+                              addToCart({
+                                productId: String(b.id),
+                                quantity: 1,
+                                price: Number(b.price),
+                                sellingPrice: Number(b.sellingPrice ?? b.price),
+                                normalPrice: Number(b.normalPrice ?? b.originalPrice ?? b.price),
+                                product: {
+                                  name: b.title,
+                                  image: b.image,
+                                  category: b.category
+                                }
+                              });
                             }
-                          })}
+                          }}
                           className={`absolute top-1.5 sm:top-2 right-12 sm:right-14 p-1.5 sm:p-2 rounded-full transition-all duration-300 shadow-lg hover:scale-110 ${
                             isInCart(String(b.id)) 
                               ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white' 
@@ -316,27 +330,9 @@ export default function FeaturedBooks({ books = [], available_categories = [] }:
                         </div>
                       </div>
                     </div>
-                  </div>
+                  </Link>
                 );
               })
-            ) : (
-              <div className="w-full flex flex-col items-center justify-center py-12 px-4">
-                <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full flex items-center justify-center mb-4">
-                  <BookOpen className="w-8 h-8 sm:w-10 sm:h-10 text-gray-400" />
-                </div>
-                <h3 className="text-lg sm:text-xl font-semibold text-gray-700 mb-2">
-                  No books found in {selectedCategory.charAt(0).toUpperCase() + selectedCategory.slice(1)}
-                </h3>
-                <p className="text-sm sm:text-base text-gray-500 text-center max-w-md">
-                  We couldn&apos;t find any books in this category. Try selecting a different category or check back later for new additions.
-                </p>
-                <button 
-                  onClick={() => setSelectedCategory("All")}
-                  className="mt-4 px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-medium hover:from-indigo-700 hover:to-purple-700 transition-all duration-300"
-                >
-                  View All Books
-                </button>
-              </div>
             )}
           </div>
 

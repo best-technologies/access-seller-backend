@@ -1,7 +1,11 @@
 import { Button } from "@/components/ui/button";
-import { Gift, Share2, DollarSign, TrendingUp } from "lucide-react";
+import { Gift, Share2, TrendingUp } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function ReferralHighlight() {
+  const router = useRouter();
+  const { user } = useAuth();
   return (
     <div className="relative py-20">
       {/* Background Elements */}
@@ -31,10 +35,27 @@ export default function ReferralHighlight() {
 
             <div className="flex gap-6">
               <div className="flex-shrink-0 w-14 h-14 rounded-2xl bg-indigo-100 flex items-center justify-center">
-                <DollarSign className="w-7 h-7 text-indigo-600" />
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="w-7 h-7 text-indigo-600"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <text
+                    x="50%"
+                    y="60%"
+                    textAnchor="middle"
+                    fontSize="18"
+                    fontWeight="bold"
+                    fill="currentColor"
+                    dy=".3em"
+                  >₦</text>
+                </svg>
               </div>
               <div>
-                <h3 className="text-xl font-semibold mb-3">Earn Up to 15% Commission</h3>
+                <h3 className="text-xl font-semibold mb-3">Earn Up to 25% Commission</h3>
                 <p className="text-gray-600 text-lg">Get paid for every successful purchase made through your link.</p>
               </div>
             </div>
@@ -49,7 +70,15 @@ export default function ReferralHighlight() {
               </div>
             </div>
 
-            <Button size="lg" className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-full px-8 py-6 text-lg">
+            <Button size="lg" className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-full px-8 py-6 text-lg"
+              onClick={() => {
+                if (!user) {
+                  router.push("/auth/register");
+                } else {
+                  router.push("/profile?tab=referrals");
+                }
+              }}
+            >
               Start Earning Now
             </Button>
           </div>
@@ -71,7 +100,7 @@ export default function ReferralHighlight() {
                 <div className="flex justify-between items-center p-6 bg-gray-50 rounded-2xl">
                   <div>
                     <p className="text-sm text-gray-500 mb-1">Total Earnings</p>
-                    <p className="text-3xl font-bold text-indigo-600">$1,234.56</p>
+                    <p className="text-3xl font-bold text-indigo-600">#1,234.56</p>
                   </div>
                   <div className="text-green-500 text-sm font-medium bg-green-50 px-3 py-1 rounded-full">+15% this month</div>
                 </div>
