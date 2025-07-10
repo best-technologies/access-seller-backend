@@ -31,6 +31,7 @@ const WishlistContext = createContext<WishlistContextType | undefined>(undefined
 export const WishlistProvider = ({ children }: { children: ReactNode }) => {
   const [wishlist, setWishlist] = useState<WishlistItem[]>([]);
   const lastToastRef = useRef<string>('');
+  const [hasMounted, setHasMounted] = useState(false);
 
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
     if (lastToastRef.current === message) return;
@@ -66,12 +67,15 @@ export const WishlistProvider = ({ children }: { children: ReactNode }) => {
         setWishlist([]);
       }
     }
+    setHasMounted(true);
   }, []);
 
   // Save wishlist to localStorage on change
   useEffect(() => {
     localStorage.setItem("wishlist", JSON.stringify(wishlist));
   }, [wishlist]);
+
+  if (!hasMounted) return null;
 
   const addToWishlist = (item: Omit<WishlistItem, 'addedAt'>) => {
     setWishlist(prev => {

@@ -15,17 +15,21 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 export const CartProvider = ({ children }: { children: ReactNode }) => {
   const [cart, setCart] = useState<CartItem[]>([]);
   const lastToastRef = useRef<string>('');
+  const [hasMounted, setHasMounted] = useState(false);
 
   // Load cart from localStorage on mount
   useEffect(() => {
     const stored = localStorage.getItem("cart");
     if (stored) setCart(JSON.parse(stored));
+    setHasMounted(true);
   }, []);
 
   // Save cart to localStorage on change
   useEffect(() => {
     localStorage.setItem("cart", JSON.stringify(cart));
   }, [cart]);
+
+  if (!hasMounted) return null;
 
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
     // Prevent duplicate toasts by checking if the same message was just shown
