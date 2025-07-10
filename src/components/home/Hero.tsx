@@ -40,7 +40,7 @@ export default function Hero() {
                 <Link href="/products">
                   <Button 
                     size="lg" 
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg rounded-full px-8 font-medium group"
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg rounded-full px-8 font-medium group min-w-[200px] whitespace-nowrap"
                   >
                     Start Shopping
                     <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
@@ -50,7 +50,7 @@ export default function Hero() {
                   <Button 
                     size="lg" 
                     variant="outline" 
-                    className="bg-white/10 hover:bg-white/20 text-white border-white/50 hover:border-white rounded-full px-8 font-medium"
+                    className="bg-white/10 hover:bg-white/20 text-white border-white/50 hover:border-white rounded-full px-8 font-medium min-w-[200px] whitespace-nowrap"
                   >
                     Learn About Referrals
                   </Button>
