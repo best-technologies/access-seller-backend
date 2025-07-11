@@ -6,6 +6,7 @@ import { Toaster } from "react-hot-toast";
 import "./globals.css";
 import { CartProvider } from "@/context/CartContext";
 import { WishlistProvider } from "@/context/WishlistContext";
+import Navbar from "@/components/home/Navbar";
 
 export default function RootLayout({
   children,
@@ -18,6 +19,8 @@ export default function RootLayout({
         <AuthProvider>
           <CartProvider>
             <WishlistProvider>
+              {/* Navbar at the top */}
+              <Navbar />
               {/* Main Content */}
               <main>
                 {children}

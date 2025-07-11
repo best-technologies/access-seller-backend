@@ -41,6 +41,9 @@ export default function ProfessionalCartPage() {
   const manualModalRef = useRef<HTMLDivElement>(null);
   const [manualUploads, setManualUploads] = useState<File[]>([]);
   const [manualUploadError, setManualUploadError] = useState<string | null>(null);
+  // Confirmation modal state
+  const [confirmDelete, setConfirmDelete] = useState<{ open: boolean; productId: string | null }>({ open: false, productId: null });
+  const [confirmClear, setConfirmClear] = useState(false);
 
   // Update selected when cart changes
   useEffect(() => {
@@ -312,7 +315,7 @@ export default function ProfessionalCartPage() {
                 Select All ({cart.length})
               </span>
               <button onClick={deleteSelected} disabled={selected.length === 0} className="text-red-600 hover:underline disabled:text-gray-400">Delete Selected</button>
-              <button onClick={clearCart} disabled={cart.length === 0} className="text-red-600 hover:underline disabled:text-gray-400">Clear Cart</button>
+              <button onClick={() => setConfirmClear(true)} disabled={cart.length === 0} className="text-red-600 hover:underline disabled:text-gray-400">Clear Cart</button>
             </div>
           </div>
 
@@ -375,7 +378,7 @@ export default function ProfessionalCartPage() {
                                 </div>
                               </div>
                               <button
-                                onClick={() => removeFromCart(item.productId)}
+                                onClick={() => setConfirmDelete({ open: true, productId: item.productId })}
                                 className="p-2 text-red-500 hover:bg-red-50 rounded-lg"
                                 title="Remove"
                               >
@@ -770,6 +773,64 @@ export default function ProfessionalCartPage() {
           </div>
         </div>
       </div>
+      {/* Confirmation Modal for Delete */}
+      {confirmDelete.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-xl p-8 w-full max-w-sm flex flex-col items-center text-center">
+            <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mb-4">
+              <Trash2 className="h-6 w-6 text-red-600" />
+            </div>
+            <h2 className="text-lg font-semibold text-gray-900 mb-2">Remove Item?</h2>
+            <p className="text-gray-600 mb-6">Are you sure you want to remove this item from your cart?</p>
+            <div className="flex gap-4 w-full">
+              <button
+                onClick={() => setConfirmDelete({ open: false, productId: null })}
+                className="flex-1 px-4 py-2 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  if (confirmDelete.productId) removeFromCart(confirmDelete.productId);
+                  setConfirmDelete({ open: false, productId: null });
+                }}
+                className="flex-1 px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 font-medium"
+              >
+                Remove
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Confirmation Modal for Clear Cart */}
+      {confirmClear && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-xl p-8 w-full max-w-sm flex flex-col items-center text-center">
+            <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mb-4">
+              <Trash2 className="h-6 w-6 text-red-600" />
+            </div>
+            <h2 className="text-lg font-semibold text-gray-900 mb-2">Clear Cart?</h2>
+            <p className="text-gray-600 mb-6">Are you sure you want to remove all items from your cart?</p>
+            <div className="flex gap-4 w-full">
+              <button
+                onClick={() => setConfirmClear(false)}
+                className="flex-1 px-4 py-2 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  clearCart();
+                  setConfirmClear(false);
+                }}
+                className="flex-1 px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 font-medium"
+              >
+                Clear All
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

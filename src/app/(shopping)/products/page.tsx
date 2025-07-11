@@ -28,6 +28,7 @@ import { api } from '@/services/api';
 import Loader from "@/components/Loader";
 import type { BrowseProduct, BrowseCategory, BrowseFormat } from '@/types/product';
 import { PageLoader } from "@/components/ui/loader";
+import Navbar from "@/components/home/Navbar";
 
 export default function ProfessionalProductsPage() {
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
@@ -127,6 +128,12 @@ export default function ProfessionalProductsPage() {
         return false;
       }
     }
+    // Fix: Filter by selectedFormats
+    if (selectedFormats.length > 0) {
+      if (!selectedFormats.includes(product.format)) {
+        return false;
+      }
+    }
     if (
       searchQuery &&
       !product.product_name.toLowerCase().includes(searchQuery.toLowerCase()) &&
@@ -141,8 +148,8 @@ export default function ProfessionalProductsPage() {
 
   return (
     <>
-      <PageHeader title="Browse Books" />
-      <div className="min-h-screen bg-gray-50">
+      
+      <div className="min-h-screen bg-gray-50 pt-16">
         {/* Compact Header */}
         <div className="bg-white border-b border-gray-200 sticky top-0 z-40">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -256,7 +263,7 @@ export default function ProfessionalProductsPage() {
                 </div>
 
                 {/* Format Filter */}
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+                {/* <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
                   <h3 className="font-medium text-gray-900 mb-3 text-sm">Format</h3>
                   <div className="space-y-2">
                     {formats.map((format) => (
@@ -277,23 +284,14 @@ export default function ProfessionalProductsPage() {
                       </label>
                     ))}
                   </div>
-                </div>
+                </div> */}
 
                 {/* Price Range */}
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-                  <h3 className="font-medium text-gray-900 mb-3 text-sm">Price Range</h3>
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 opacity-50 pointer-events-none select-none">
+                  <h3 className="font-medium text-gray-900 mb-3 text-sm">Price Range (coming soon)</h3>
                   <div className="space-y-3">
                     <div className="space-y-2">
-                      {/* {filters.price.map((range) => (
-                        <label key={range} className="flex items-center gap-2 cursor-pointer group">
-                          <input 
-                            type="radio" 
-                            name="price" 
-                            className="w-3.5 h-3.5 text-indigo-600 border-gray-300 focus:ring-indigo-500" 
-                          />
-                          <span className="text-xs text-gray-700 group-hover:text-gray-900">{range}</span>
-                        </label>
-                      ))} */}
+                      {/* Price range radio buttons removed */}
                     </div>
                     <div className="pt-3 border-t border-gray-200">
                       <div className="flex items-center gap-2">
@@ -301,12 +299,14 @@ export default function ProfessionalProductsPage() {
                           type="number"
                           placeholder="Min"
                           className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:ring-2 focus:ring-indigo-500"
+                          disabled
                         />
                         <span className="text-gray-500 text-xs">-</span>
                         <input
                           type="number"
                           placeholder="Max"
                           className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:ring-2 focus:ring-indigo-500"
+                          disabled
                         />
                       </div>
                     </div>
@@ -314,27 +314,6 @@ export default function ProfessionalProductsPage() {
                 </div>
 
                 {/* Rating Filter */}
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-                  <h3 className="font-medium text-gray-900 mb-3 text-sm">Rating</h3>
-                  <div className="space-y-2">
-                    {/* {filters.rating.map((rating) => (
-                      <label key={rating} className="flex items-center gap-2 cursor-pointer group">
-                        <input 
-                          type="checkbox" 
-                          className="w-3.5 h-3.5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500" 
-                        />
-                        <div className="flex items-center gap-1.5">
-                          <div className="flex">
-                            {[...Array(4)].map((_, i) => (
-                              <Star key={i} className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-                            ))}
-                          </div>
-                          <span className="text-xs text-gray-700 group-hover:text-gray-900">{rating}</span>
-                        </div>
-                      </label>
-                    ))} */}
-                  </div>
-                </div>
               </div>
             </div>
 

@@ -1,7 +1,7 @@
 'use client';
 
 import { CardContent } from "@/components/ui/card";
-import { Clock, ChevronLeft, ChevronRight } from "lucide-react";
+import { Clock, ChevronLeft, ChevronRight, RotateCcw } from "lucide-react";
 import { useRef } from "react";
 import Image from "next/image";
 import { useCart } from "@/hooks/useCart";
@@ -30,9 +30,10 @@ interface NewArrivalsProps {
   books: Book[];
   loading?: boolean;
   error?: string | null;
+  onRetry?: () => void;
 }
 
-export default function NewArrivals({ books = [], loading = false, error = null }: NewArrivalsProps) {
+export default function NewArrivals({ books = [], loading = false, error = null, onRetry }: NewArrivalsProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const { addToCart, removeFromCart, cart } = useCart();
   const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
@@ -83,7 +84,17 @@ export default function NewArrivals({ books = [], loading = false, error = null 
             {loading ? (
               <div className="flex justify-center items-center w-full min-h-[200px]"><Loader size="lg" variant="primary" /></div>
             ) : error ? (
-              <div className="flex justify-center items-center w-full min-h-[200px] text-red-500">{error}</div>
+              <div className="flex flex-col justify-center items-center w-full min-h-[200px] text-red-500 gap-2">
+                <span>{error}</span>
+                {onRetry && (
+                  <button
+                    onClick={onRetry}
+                    className="flex items-center gap-1 px-3 py-1.5 bg-indigo-600 text-white rounded-full shadow hover:bg-indigo-700 transition-colors text-xs font-medium mt-2"
+                  >
+                    <RotateCcw className="w-4 h-4 mr-1 animate-spin-slow" /> Try Again
+                  </button>
+                )}
+              </div>
             ) : books.length === 0 ? (
               <div className="flex justify-center items-center w-full min-h-[200px] text-gray-500">No new arrivals at the moment.</div>
             ) : (

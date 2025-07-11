@@ -40,43 +40,45 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const fetchHomepageData = async () => {
-      setLoading(true);
-      const cached = typeof window !== 'undefined' ? localStorage.getItem(HOMEPAGE_CACHE_KEY) : null;
-      if (cached) {
-        try {
-          const { data, timestamp } = JSON.parse(cached);
-          if (Date.now() - timestamp < HOMEPAGE_CACHE_TIME) {
-            console.log('[Homepage] Using cached homepage data', data);
-            setHomepageData(data);
-            setError(null);
-            setLoading(false);
-            return;
-          }
-        } catch (e) {
-          console.error('Cache parse error:', e);
-        }
-      }
+  // Add fetchHomepageData as a function so it can be called on retry
+  const fetchHomepageData = async () => {
+    setLoading(true);
+    const cached = typeof window !== 'undefined' ? localStorage.getItem(HOMEPAGE_CACHE_KEY) : null;
+    if (cached) {
       try {
-        const res = await api.public.getHomepageProducts();
-        console.log('[Homepage] API response:', res);
-        if (res.success) {
-          setHomepageData(res.data);
+        const { data, timestamp } = JSON.parse(cached);
+        if (Date.now() - timestamp < HOMEPAGE_CACHE_TIME) {
+          console.log('[Homepage] Using cached homepage data', data);
+          setHomepageData(data);
           setError(null);
-          if (typeof window !== 'undefined') {
-            localStorage.setItem(HOMEPAGE_CACHE_KEY, JSON.stringify({ data: res.data, timestamp: Date.now() }));
-          }
-        } else {
-          console.error('API did not return success:', res);
-          setError('Failed to fetch homepage data.');
+          setLoading(false);
+          return;
         }
-      } catch (err) {
-        console.error('[Homepage] Error fetching homepage data:', err);
+      } catch (e) {
+        console.error('Cache parse error:', e);
+      }
+    }
+    try {
+      const res = await api.public.getHomepageProducts();
+      console.log('[Homepage] API response:', res);
+      if (res.success) {
+        setHomepageData(res.data);
+        setError(null);
+        if (typeof window !== 'undefined') {
+          localStorage.setItem(HOMEPAGE_CACHE_KEY, JSON.stringify({ data: res.data, timestamp: Date.now() }));
+        }
+      } else {
+        console.error('API did not return success:', res);
         setError('Failed to fetch homepage data.');
       }
-      setLoading(false);
-    };
+    } catch (err) {
+      console.error('[Homepage] Error fetching homepage data:', err);
+      setError('Failed to fetch homepage data.');
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => {
     fetchHomepageData();
   }, []);
 
@@ -153,14 +155,14 @@ export default function Home() {
       {/* Featured Section with Background */}
       <section className="bg-gradient-to-b from-white to-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10">
-        <FeaturedBooks books={featuredBooks} available_categories={availableCategories} loading={loading} error={error} />
+        <FeaturedBooks books={featuredBooks} available_categories={availableCategories} loading={loading} error={error} onRetry={fetchHomepageData} />
         </div>
       </section>
 
       {/* New Arrivals with Pattern Background */}
       <section className="bg-[url('/pattern.svg')] bg-opacity-5">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10">
-          <NewArrivals books={newArrivals} loading={loading} error={error} />
+          <NewArrivals books={newArrivals} loading={loading} error={error} onRetry={fetchHomepageData} />
         </div>
       </section>
 

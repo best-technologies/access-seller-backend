@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from "react";
-import { Star, ShoppingCart, Heart, ChevronLeft, ChevronRight, TrendingUp, Award, BookOpen } from "lucide-react";
+import { Star, ShoppingCart, Heart, ChevronLeft, ChevronRight, TrendingUp, Award, BookOpen, RotateCcw } from "lucide-react";
 import { useCart } from "@/hooks/useCart";
 import { useWishlist } from "@/hooks/useWishlist";
 import Link from "next/link";
@@ -30,9 +30,10 @@ interface FeaturedBooksProps {
   available_categories?: Array<{ id: string; name: string }>;
   loading?: boolean;
   error?: string | null;
+  onRetry?: () => void;
 }
 
-export default function FeaturedBooks({ books = [], available_categories = [], loading = false, error = null }: FeaturedBooksProps) {
+export default function FeaturedBooks({ books = [], available_categories = [], loading = false, error = null, onRetry }: FeaturedBooksProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
   const [isVisible, setIsVisible] = useState(false);
@@ -200,7 +201,17 @@ export default function FeaturedBooks({ books = [], available_categories = [], l
             {loading ? (
               <div className="flex justify-center items-center w-full min-h-[200px]"><Loader size="lg" variant="primary" /></div>
             ) : error ? (
-              <div className="flex justify-center items-center w-full min-h-[200px] text-red-500">{error}</div>
+              <div className="flex flex-col justify-center items-center w-full min-h-[200px] text-red-500 gap-2">
+                <span>{error}</span>
+                {onRetry && (
+                  <button
+                    onClick={onRetry}
+                    className="flex items-center gap-1 px-3 py-1.5 bg-indigo-600 text-white rounded-full shadow hover:bg-indigo-700 transition-colors text-xs font-medium mt-2"
+                  >
+                    <RotateCcw className="w-4 h-4 mr-1 animate-spin-slow" /> Try Again
+                  </button>
+                )}
+              </div>
             ) : filteredBooks.length === 0 ? (
               <div className="flex justify-center items-center w-full min-h-[200px] text-gray-500">No featured books at the moment.</div>
             ) : (
