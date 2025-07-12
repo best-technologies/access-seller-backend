@@ -20,7 +20,7 @@ export default function RootLayout({
           <CartProvider>
             <WishlistProvider>
               {/* Navbar at the top */}
-              <Navbar />
+              {/* <Navbar /> */}
               {/* Main Content */}
               <main>
                 {children}

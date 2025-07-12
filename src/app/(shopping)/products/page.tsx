@@ -20,7 +20,6 @@ import {
   Calendar,
   RefreshCw,
 } from "lucide-react";
-import PageHeader from "@/components/ui/PageHeader";
 import { useCart } from "@/hooks/useCart";
 import { useWishlist } from "@/hooks/useWishlist";
 import toast from "react-hot-toast";
@@ -28,7 +27,6 @@ import { api } from '@/services/api';
 import Loader from "@/components/Loader";
 import type { BrowseProduct, BrowseCategory, BrowseFormat } from '@/types/product';
 import { PageLoader } from "@/components/ui/loader";
-import Navbar from "@/components/home/Navbar";
 
 export default function ProfessionalProductsPage() {
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
@@ -41,9 +39,9 @@ export default function ProfessionalProductsPage() {
   const [viewMode, setViewMode] = useState<string>("grid");
   const [showFilters, setShowFilters] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [formats, setFormats] = useState<BrowseFormat[]>([]);
+  // const [formats, setFormats] = useState<BrowseFormat[]>([]);
   const [categories, setCategories] = useState<BrowseCategory[]>([]);
-  const [selectedFormats, setSelectedFormats] = useState<string[]>([]);
+  // const [selectedFormats, setSelectedFormats] = useState<string[]>([]);
   const { cart, addToCart, removeFromCart } = useCart();
   const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
 
@@ -54,7 +52,7 @@ export default function ProfessionalProductsPage() {
     try {
       const response = await api.public.getBrowseProducts(pageToFetch);
       if (response.success) {
-        setFormats(response.data.formats || []);
+        // setFormats(response.data.formats || []);
         setCategories(response.data.categories || []);
         setHasMore(response.data.hasMore);
         if (pageToFetch === 1) {
@@ -129,11 +127,11 @@ export default function ProfessionalProductsPage() {
       }
     }
     // Fix: Filter by selectedFormats
-    if (selectedFormats.length > 0) {
-      if (!selectedFormats.includes(product.format)) {
-        return false;
-      }
-    }
+    // if (selectedFormats.length > 0) {
+    //   if (!selectedFormats.includes(product.format)) {
+    //     return false;
+    //   }
+    // }
     if (
       searchQuery &&
       !product.product_name.toLowerCase().includes(searchQuery.toLowerCase()) &&
