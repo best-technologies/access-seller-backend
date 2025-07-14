@@ -8,7 +8,10 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { ApiResponse } from 'src/shared/helper-functions/response';
 import { formatAmount, formatDate } from 'src/shared/helper-functions/formatter';
 import { sendOrderConfirmationToBuyer, sendOrderNotificationToAdmin } from 'src/common/mailer/send-mail';
-import { VerifyAccountNumberDto } from './dto/paystack.dto';
+import { CheckoutFromCartDto, VerifyAccountNumberDto } from './dto/paystack.dto';
+import * as argon2 from 'argon2';
+import { generateOrderId } from '../shared/helper-functions/generator';
+
 
 @Injectable()
 export class PaystackService {
@@ -136,7 +139,6 @@ export class PaystackService {
           const phonePart = (phoneNumber || '').slice(-4);
           const plainPassword = `${firstPart}${lastPart}${emailPart}${phonePart}${Math.floor(Math.random() * 1000)}`;
           // Hash the password using argon2
-          const argon2 = require('argon2');
           const hashedPassword = await argon2.hash(plainPassword);
 
           user = await tx.user.create({
@@ -154,24 +156,35 @@ export class PaystackService {
         }
 
         // generate order id in this format acc/slr/<randomletterand number(6)> and it must be unique
-        const orderId = `acc/slr/${Math.random().toString(36).substring(2, 8)}`;
-        console.log(colors.yellow("Order id: "), orderId)
+        let orderId: string = '';
+        let isUnique = false;
+        for (let i = 0; i < 5; i++) {
+          const candidate = generateOrderId();
+          // orderId is a unique field, so this is valid. If type error, cast as any until prisma generate.
+          const exists = await tx.order.findUnique({ where: { orderId: candidate } } as any);
+          if (!exists) {
+            orderId = candidate;
+            isUnique = true;
+            break;
+          }
+        }
+        if (!isUnique) {
+          throw new Error('Failed to generate a unique orderId after several attempts');
+        }
+        console.log(colors.yellow("Order id: "), orderId);
 
         // 2. Create the order (initially, without paystack fields)
         const order = await tx.order.create({
           data: {
             userId: user.id,
             productid: productId,
-            // orderId: orderId,
+            orderId: orderId,
             storeId: storeId,
             status: 'pending',
             total_amount: totalAmount,
             total: totalAmount,
-            shippingAddress: fullShippingAddress,
-            state,
-            city,
+            shippingInfo: { address: fullShippingAddress, state, city, houseAddress },
             referralSlug,
-            houseAddress,
             trackingNumber: referralSlug || undefined,
           }
         });
@@ -260,8 +273,205 @@ export class PaystackService {
     }
   }
 
-  async verifyPaystackFunding(dto: verifyPaystackPaymentDto) {
-    console.log(colors.cyan("Verifying wallet funding with Paystack"));
+  async checkoutFromCartWithPaystackInitialisation(dto: CheckoutFromCartDto) {
+    console.log(colors.cyan("Checking out from cart with paystack initialisation"), dto);
+    // 1. Validate all products exist and have enough stock
+    for (const item of dto.items) {
+      const product = await this.prisma.product.findUnique({ where: { id: item.productId } });
+      if (!product) {
+        return ResponseHelper.error(`Product with ID ${item.productId} not found`, null, 404);
+      }
+      if (item.quantity > product.stock) {
+        return ResponseHelper.error(
+          `The available quantity for '${product.name}' is ${product.stock}, which is less than the quantity you want to purchase: (${item.quantity}). Please try reloading, check back later, or try again.`,
+          null,
+          400
+        );
+      }
+    }
+
+    // 2. Create order and order items in a transaction
+    let userForOrder: any = null;
+    const { order, orderItems, user } = await this.prisma.$transaction(async (tx) => {
+      // Create the order
+
+      let userId = '';
+      let user = await tx.user.findFirst({ where: { email: dto.shippingInfo?.email } });
+      if (user) {
+        userId = user.id;
+      } else {
+        // Create a new user with the supplied email and shipping info
+        const plainPassword = 'maximus123';
+        const hashedPassword = await argon2.hash(plainPassword);
+        user = await tx.user.create({
+          data: {
+            email: dto.shippingInfo?.email || '',
+            first_name: dto.shippingInfo?.firstName || '',
+            last_name: dto.shippingInfo?.lastName || '',
+            phone_number: dto.shippingInfo?.phone || '',
+            address: dto.shippingInfo?.address || '',
+            password: hashedPassword,
+            guest_password: plainPassword,
+            role: 'user',
+          }
+        });
+        userId = user.id;
+      }
+      if (!userId) {
+        console.log(colors.red("User ID could not be determined for order creation"))
+        throw new Error('User ID could not be determined for order creation');
+      }
+      userForOrder = user;
+
+      let storeId: string | undefined = undefined;
+      if (dto.items.length > 0) {
+        // Try to get the storeId from the first product
+        const firstProduct = await tx.product.findUnique({ where: { id: dto.items[0].productId } });
+        if (firstProduct && firstProduct.storeId) {
+          storeId = firstProduct.storeId;
+        }
+      }
+      let shippingAddressId: string | undefined = undefined;
+      // Hybrid: Save address snapshot and optionally create ShippingAddress record
+      if (dto.shippingInfo && userId) {
+        // Try to find an existing ShippingAddress for this user and address
+        let shippingAddress = await tx.shippingAddress.findFirst({
+          where: {
+            userId,
+            address: dto.shippingInfo.address || '',
+            city: dto.shippingInfo.city || '',
+            state: dto.shippingInfo.state || '',
+            houseAddress: dto.shippingInfo.houseAddress || '',
+          }
+        });
+        if (!shippingAddress) {
+          // Create new ShippingAddress
+          shippingAddress = await tx.shippingAddress.create({
+            data: {
+              userId,
+              firstName: dto.shippingInfo.firstName || '',
+              lastName: dto.shippingInfo.lastName || '',
+              email: dto.shippingInfo.email || '',
+              phone: dto.shippingInfo.phone || '',
+              state: dto.shippingInfo.state || '',
+              city: dto.shippingInfo.city || '',
+              houseAddress: dto.shippingInfo.houseAddress || '',
+              address: dto.shippingInfo.address || '',
+            }
+          });
+        }
+        shippingAddressId = shippingAddress.id;
+      }
+      const orderData: any = {
+        userId,
+        status: 'pending',
+        total: dto.total,
+        total_amount: dto.total,
+        shippingInfo: dto.shippingInfo || {},
+        shippingAddressId,
+        orderPaymentStatus: 'pending',
+        isPartialPayment: !!dto.partialPayment,
+        partialPayNow: dto.partialPayment?.payNow,
+        partialPayLater: dto.partialPayment?.payLater,
+        partialAllowedPercent: dto.partialPayment?.allowedPercentage,
+        partialSelectedPercent: dto.partialPayment?.selectedPercentage,
+        fullPayNow: dto.fullPayment?.payNow,
+        fullPayLater: dto.fullPayment?.payLater,
+        // New fields from frontend
+        referralCode: dto.referralCode,
+        // referralDiscountPercent: dto.referralDiscountPercent,
+        // referralDiscountAmount: dto.referralDiscountAmount,
+        shipping: dto.shipping,
+        promoCode: dto.promoCode,
+        promoDiscountPercent: dto.promoDiscountPercent,
+        promoDiscountAmount: dto.promoDiscountAmount,
+      };
+      if (storeId) {
+        orderData.storeId = storeId;
+      }
+      const order = await tx.order.create({ data: orderData });
+
+      // Create order items
+      const orderItems = await Promise.all(dto.items.map(item =>
+        tx.orderItem.create({
+          data: {
+            orderId: order.id,
+            productId: item.productId,
+            quantity: item.quantity,
+            price: item.price,
+            totalPrice: item.price * item.quantity,
+          }
+        })
+      ));
+
+      return { order, orderItems, user };
+    });
+
+    // 3. Prepare Paystack payload
+    const amount = Math.round((dto.partialPayment?.payNow || dto.total) * 100);
+    const payload = {
+      email: userForOrder?.email,
+      callback_url: dto.callbackUrl,
+      amount,
+      metadata: {
+        orderId: order.id,
+        userId: userForOrder?.id,
+        items: dto.items,
+        promoCode: dto.promoCode,
+        promoDiscountPercent: dto.promoDiscountPercent,
+        promoDiscountAmount: dto.promoDiscountAmount,
+        subtotal: dto.subtotal,
+        shipping: dto.shipping,
+        total: dto.total,
+        partialPayment: dto.partialPayment,
+        fullPayment: dto.fullPayment,
+      },
+    };
+
+    // 4. Initialise Paystack payment
+    let paystackResponse: any;
+    try {
+      paystackResponse = await axios.post(
+        'https://api.paystack.co/transaction/initialize',
+        payload,
+        {
+          headers: {
+            Authorization: `Bearer ${process.env.PAYSTACK_TEST_SECRET_KEY}`,
+            'Content-Type': 'application/json',
+          },
+        },
+      );
+
+      // 5. Update the order with paystack fields
+      await this.prisma.order.update({
+        where: { id: order.id },
+        data: {
+          paystackReference: paystackResponse.data.data.reference,
+          paystackAuthorizationUrl: paystackResponse.data.data.authorization_url,
+          paystackAccessCode: paystackResponse.data.data.access_code,
+        }
+      });
+    } catch (error) {
+      console.error('Paystack initialize error:', error.response?.data || error.message);
+      return ResponseHelper.error(error.response?.data?.message || error.message, error.response?.data, error.response?.status || 500);
+    }
+
+    // 6. Return formatted response
+    const formattedResponse = {
+      orderId: order.id,
+      userId: userForOrder?.id,
+      paystackResponse: paystackResponse?.data.data
+    };
+    return new ApiResponse(
+      true,
+      'Cart checkout payment successfully initiated',
+      formattedResponse
+    );
+  }
+
+  async verifyCartPayment(dto: verifyPaystackPaymentDto) {
+
+    console.log(colors.cyan("Verifying cart checkout with paystack"));
 
     console.log("Dto: ", dto.reference)
 
@@ -283,6 +493,253 @@ export class PaystackService {
         }
 
         const amountInKobo = existingOrder.total * 100;
+
+        // Verify transaction with Paystack
+        let response: any;
+        try {
+            response = await axios.get(`https://api.paystack.co/transaction/verify/${dto.reference}`, {
+                headers: {
+                    Authorization: `Bearer ${process.env.PAYSTACK_TEST_SECRET_KEY}`
+                }
+            });
+        } catch (error) {
+            console.error(colors.red(`Error verifying transaction with Paystack: ${error}`));
+            throw new Error(`Failed to verify transaction with Paystack: ${error.message}`);
+        }
+
+        // Extract relevant data from Paystack response
+        const { status: paystackStatus, amount: paystackKoboAmount } = response.data?.data;
+
+        if (paystackStatus !== 'success') {
+            console.log(colors.red("Payment was not completed or successful"));
+            return new ApiResponse(false, "Payment was not completed or successful");
+        }
+
+        console.log("Paystack kobo amount: ", paystackKoboAmount)
+        console.log("amount in kobo: ", amountInKobo)
+
+        // Determine if this is a partial payment
+        const isPartialPayment = !!existingOrder.isPartialPayment && !!existingOrder.partialPayNow;
+        const partialPayNowKobo = existingOrder.partialPayNow ? Math.round(existingOrder.partialPayNow * 100) : null;
+
+        // Validate that the amount paid matches the expected amount (allow full or partial payment)
+        if (paystackKoboAmount !== amountInKobo) {
+          if (!(isPartialPayment && paystackKoboAmount === partialPayNowKobo) &&
+              !(isPartialPayment && paystackKoboAmount === amountInKobo)) {
+            console.log(colors.red("Amount mismatch detected"));
+            return new ApiResponse(false, "Payment amount does not match transaction amount");
+          }
+        }
+
+        if (!dto.reference) {
+            throw new BadRequestException("Transaction reference is missing");
+        }
+
+        // update the payment status in db to success
+        const updatedOrder = await this.prisma.order.update({
+            where: { paystackReference: dto.reference },
+            data: { 
+              orderPaymentStatus: "paid",
+              shipmentStatus: "processing",
+              updatedAt: new Date() 
+            },
+            include: {
+              user: true,
+              items: {
+                include: {
+                  product: true
+                }
+              }
+            }
+          });
+
+        // Reduce stock for each product in the order
+        for (const item of updatedOrder.items) {
+          await this.prisma.product.update({
+            where: { id: item.productId },
+            data: {
+              stock: {
+                decrement: item.quantity
+              }
+            }
+          });
+        }
+
+        // Award commission if there's a referral slug
+        let commissionAmount: number | undefined;
+        let affiliateLink: any = null;
+        
+        if (updatedOrder.trackingNumber) {
+          try {
+            // Find the affiliate link by slug
+            affiliateLink = await this.prisma.affiliateLink.findUnique({
+              where: { slug: updatedOrder.trackingNumber },
+              include: {
+                user: true,
+                product: true
+              }
+            });
+
+            if (affiliateLink) {
+              console.log(colors.yellow("Affiliate link exists"))
+              
+              // Get the product from the order items to get its commission percentage
+              const orderItem = updatedOrder.items[0]; // Since affiliate orders have single items
+              const productCommission = orderItem.product.commission;
+              
+              // Calculate commission using the product's commission percentage
+              const commissionPercentage = productCommission ? parseFloat(productCommission) : 20; // Default to 20% if not set
+              commissionAmount = (updatedOrder.total * commissionPercentage) / 100;
+              console.log("order total value: ",existingOrder.total_amount)
+              console.log("commission amount: ",commissionAmount)
+
+              // Create commission record
+              await this.prisma.commission.create({
+                data: {
+                  userId: affiliateLink.userId,
+                  orderId: updatedOrder.id,
+                  totalPurchaseAmount: updatedOrder.total,
+                  commissionPercentage: commissionPercentage.toString(),
+                  amount: commissionAmount,
+                  status: 'pending'
+                }
+              });
+
+              // update users wallet
+              const wallet = await this.prisma.wallet.findUnique({ where: { userId: affiliateLink.userid } });
+              const amountEarned = 1000; // Replace with actual earned amount logic
+              const newTotalEarned = (wallet?.total_earned || 0) + amountEarned;
+              const newAvailableForWithdrawal = (wallet?.available_for_withdrawal || 0) + amountEarned;
+              const newBalanceBefore = wallet?.balance_after || 0;
+              const newBalanceAfter = newBalanceBefore + amountEarned;
+              
+              await this.prisma.wallet.update({
+                where: { userId: affiliateLink.userid },
+                data: {
+                  total_earned: newTotalEarned,
+                  available_for_withdrawal: newAvailableForWithdrawal,
+                  balance_before: newBalanceBefore,
+                  balance_after: newBalanceAfter,
+                  updatedAt: new Date()
+                }
+              });
+
+              // Update affiliate link stats
+              await this.prisma.affiliateLink.update({
+                where: { id: affiliateLink.id },
+                data: {
+                  orders: {
+                    increment: 1
+                  },
+                  commission: {
+                    increment: commissionAmount
+                  }
+                }
+              });
+
+              console.log(colors.green(`Commission awarded: ${commissionAmount} to affiliate ${affiliateLink.userId}`));
+            }
+          } catch (error) {
+            console.log(colors.red('Error awarding commission:'), error);
+          }
+        }
+
+        console.log(colors.cyan(`Transaction amount: , ${existingOrder.total_amount}`)); 
+
+        const formattedResponse = {
+          id: updatedOrder.id,
+          amount: formatAmount(updatedOrder.total_amount ?? 0),
+          description: "Payment for order purchase",
+          status: "success",
+          payment_method: "paystack",
+          date: formatDate(updatedOrder.updatedAt)
+        }
+
+        console.log(colors.green("Payment verified successfully"));
+
+        // Prepare email data
+        const shippingAddressString = (updatedOrder.shippingInfo && typeof updatedOrder.shippingInfo === 'object' && 'address' in updatedOrder.shippingInfo)
+          ? String(updatedOrder.shippingInfo.address)
+          : '';
+        const shippingState = (updatedOrder.shippingInfo && typeof updatedOrder.shippingInfo === 'object' && 'state' in updatedOrder.shippingInfo) ? String(updatedOrder.shippingInfo.state) : '';
+        const shippingCity = (updatedOrder.shippingInfo && typeof updatedOrder.shippingInfo === 'object' && 'city' in updatedOrder.shippingInfo) ? String(updatedOrder.shippingInfo.city) : '';
+        const shippingHouseAddress = (updatedOrder.shippingInfo && typeof updatedOrder.shippingInfo === 'object' && 'houseAddress' in updatedOrder.shippingInfo) ? String(updatedOrder.shippingInfo.houseAddress) : '';
+        const emailData = {
+          orderId: updatedOrder.id,
+          firstName: updatedOrder.user?.first_name || '',
+          lastName: updatedOrder.user?.last_name || '',
+          email: updatedOrder.user?.email || '',
+          orderTotal: formatAmount(updatedOrder.total_amount ?? 0),
+          state: shippingState,
+          city: shippingCity,
+          houseAddress: shippingHouseAddress,
+          trackingNumber: updatedOrder.trackingNumber || undefined,
+          paymentStatus: updatedOrder.orderPaymentStatus || 'paid',
+          shippingAddress: shippingAddressString,
+          orderCreated: formatDate(updatedOrder.createdAt),
+          updatedAt: formatDate(updatedOrder.updatedAt),
+          productName: updatedOrder.items[0]?.product?.name,
+          quantity: updatedOrder.items[0]?.quantity,
+          commissionAmount: commissionAmount ? formatAmount(commissionAmount) : undefined,
+          affiliateUserId: affiliateLink?.userId
+        };
+
+        // Send order confirmation email to buyer
+        try {
+          await sendOrderConfirmationToBuyer(emailData);
+          // console.log(colors.green("Order confirmation email sent to buyer"));
+        } catch (error) {
+          console.log(colors.red("Error sending order confirmation email to buyer:"), error);
+        }
+
+        // Send order notification email to admin
+        try {
+          await sendOrderNotificationToAdmin(emailData);
+          // console.log(colors.green("Order notification email sent to admin"));
+        } catch (error) {
+          console.log(colors.red("Error sending order notification email to admin:"), error);
+        }
+
+        return new ApiResponse(true, "Payment verified successfully", formattedResponse);
+
+    } catch (error) {
+        console.error(colors.red(`Verification error: ${error.message}`));
+        throw new Error(`Verification error: ${error.message}`);
+    }
+
+  }
+
+  async verifyPaystackFunding(dto: verifyPaystackPaymentDto) {
+    console.log(colors.cyan("Verifying wallet funding with Paystack"));
+
+    console.log("Dto: ", dto.reference)
+
+    try {
+        // Fetch the transaction from the database
+        const existingOrder = await this.prisma.order.findFirst({
+            where: { paystackReference: dto.reference }
+        });
+
+        // Validate transaction existence and amount
+        if (!existingOrder || !existingOrder.total) {
+            console.log(colors.red("Order not found or amount is missing"));
+            throw new NotFoundException("Order not found or amount is missing");
+        }
+
+        // Determine expected amount (handle partial payment)
+        let expectedAmount = existingOrder.total;
+        let isPartialPayment = false;
+        if (existingOrder.isPartialPayment && existingOrder.partialPayNow) {
+          expectedAmount = existingOrder.partialPayNow;
+          isPartialPayment = true;
+        }
+
+        if(existingOrder.orderPaymentStatus === "success") {
+            console.log(colors.red("Order payment status already verified"));
+            return new ApiResponse(false, "Transaction already verified");
+        }
+
+        const amountInKobo = Math.round(expectedAmount * 100);
 
         if (!dto.reference) {
             throw new BadRequestException("Transaction reference is missing");
@@ -311,12 +768,6 @@ export class PaystackService {
 
         console.log("Paystack kobo amount: ", paystackKoboAmount)
         console.log("amount in kobo: ", amountInKobo)
-
-        // Validate that the amount paid matches the expected amount
-        if (paystackKoboAmount !== amountInKobo) {
-            console.log(colors.red("Amount mismatch detected"));
-            return new ApiResponse(false, "Payment amount does not match transaction amount");
-        }
 
         // update the payment status in db to success
         const updatedOrder = await this.prisma.order.update({
@@ -440,18 +891,24 @@ export class PaystackService {
         console.log(colors.green("Payment verified successfully"));
 
         // Prepare email data
+        const shippingAddressString = (updatedOrder.shippingInfo && typeof updatedOrder.shippingInfo === 'object' && 'address' in updatedOrder.shippingInfo)
+          ? String(updatedOrder.shippingInfo.address)
+          : '';
+        const shippingState = (updatedOrder.shippingInfo && typeof updatedOrder.shippingInfo === 'object' && 'state' in updatedOrder.shippingInfo) ? String(updatedOrder.shippingInfo.state) : '';
+        const shippingCity = (updatedOrder.shippingInfo && typeof updatedOrder.shippingInfo === 'object' && 'city' in updatedOrder.shippingInfo) ? String(updatedOrder.shippingInfo.city) : '';
+        const shippingHouseAddress = (updatedOrder.shippingInfo && typeof updatedOrder.shippingInfo === 'object' && 'houseAddress' in updatedOrder.shippingInfo) ? String(updatedOrder.shippingInfo.houseAddress) : '';
         const emailData = {
           orderId: updatedOrder.id,
           firstName: updatedOrder.user?.first_name || '',
           lastName: updatedOrder.user?.last_name || '',
           email: updatedOrder.user?.email || '',
           orderTotal: formatAmount(updatedOrder.total_amount ?? 0),
-          state: updatedOrder.state || '',
-          city: updatedOrder.city || '',
-          houseAddress: updatedOrder.houseAddress || '',
+          state: shippingState,
+          city: shippingCity,
+          houseAddress: shippingHouseAddress,
           trackingNumber: updatedOrder.trackingNumber || undefined,
           paymentStatus: updatedOrder.orderPaymentStatus || 'paid',
-          shippingAddress: updatedOrder.shippingAddress || '',
+          shippingAddress: shippingAddressString,
           orderCreated: formatDate(updatedOrder.createdAt),
           updatedAt: formatDate(updatedOrder.updatedAt),
           productName: updatedOrder.items[0]?.product?.name,
@@ -482,7 +939,7 @@ export class PaystackService {
         console.error(colors.red(`Verification error: ${error.message}`));
         throw new Error(`Verification error: ${error.message}`);
     }
-}
+  }
 
   async getOrderById(orderId: string) {
 
@@ -501,12 +958,12 @@ export class PaystackService {
         lastName: order.user?.last_name,
         email: order.user?.email,
         orderTotal: formatAmount(order.total_amount),
-        state: order.state,
-        city: order.city,
-        houseAddress: order.houseAddress,
+        state: (order.shippingInfo && typeof order.shippingInfo === 'object' && 'state' in order.shippingInfo) ? String(order.shippingInfo.state) : '',
+        city: (order.shippingInfo && typeof order.shippingInfo === 'object' && 'city' in order.shippingInfo) ? String(order.shippingInfo.city) : '',
+        houseAddress: (order.shippingInfo && typeof order.shippingInfo === 'object' && 'houseAddress' in order.shippingInfo) ? String(order.shippingInfo.houseAddress) : '',
         trackingNumber: order.trackingNumber,
         paymentStatus: order.orderPaymentStatus,
-        shippingAddress: order.shippingAddress,
+        shippingAddress: (order.shippingInfo && typeof order.shippingInfo === 'object' && 'address' in order.shippingInfo) ? order.shippingInfo.address : '',
         orderCreated: formatDate(order.createdAt),
         updatedAt: formatDate(order.updatedAt),
       };

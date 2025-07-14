@@ -1,7 +1,8 @@
-import { Controller, Post, Body, UsePipes, ValidationPipe, UseGuards, Get, Param } from '@nestjs/common';
+import { Controller, Post, Body, Get, Param, Req } from '@nestjs/common';
 import { PaystackService } from './paystack.service';
 import { affiliateInitiatePaystackPayment, PaymentDataDto, verifyPaystackPaymentDto } from '../shared/dto/payment.dto';
-import { JwtGuard } from 'src/auth/guard';
+import { CheckoutFromCartDto } from './dto/paystack.dto';
+// import { JwtGuard } from 'src/auth/guard';
 import { Request } from 'express';
 import { VerifyAccountNumberDto } from './dto/paystack.dto';
 
@@ -19,10 +20,20 @@ export class PaystackController {
     return this.paystackService.affiliateInitiatePaystackPayment(paymentData);
   }
 
+  @Post('cart-checkout-initialise-paystack-payment')
+  async checkoutFromCartWithPaystackInitialisation(@Body() paymentData: CheckoutFromCartDto) {
+    return this.paystackService.checkoutFromCartWithPaystackInitialisation(paymentData);
+  }
+
   @Post('verify-paystack-funding')
     verifyPaystackFunding(@Body() dto: verifyPaystackPaymentDto) {
         return this.paystackService.verifyPaystackFunding(dto)
     }
+
+  @Post('verify-cart-payment')
+  async verifyCartPayment(@Body() dto: verifyPaystackPaymentDto) {
+    return this.paystackService.verifyCartPayment(dto);
+  }
 
   @Get('order/:id')
   async getOrderById(@Param('id') id: string) {
