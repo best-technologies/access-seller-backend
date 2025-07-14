@@ -17,7 +17,7 @@ export const loginOtpTemplate = (email: string, otp: string, otpExpiresAt: Date)
         <p style="margin-bottom: 15px;">If you didn't request this login, please ignore this email or contact support if you have concerns.</p>
 
         <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e2e8f0;">
-          <p style="margin: 0;">Best regards,<br><strong>SmartEdu Support Team</strong></p>
+          <p style="margin: 0;">Best regards,<br><strong>Access-Sellr Support Team</strong></p>
         </div>
       </div>
     </div>

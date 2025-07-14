@@ -87,7 +87,35 @@ export class AuthService {
                 console.log(colors.red("Invalid or expired OTP provided"));
                 throw new BadRequestException("Invalid or expired OTP provided");
             }
-    
+
+            // Generate a unique referral code for the new user if the user doesn't have a referral code before 
+            const existingReferralCode = await this.prisma.referralCode.findUnique({ where: { userId: user.id } });
+            if (!existingReferralCode) {
+                // Generate unique code (up to 5 attempts)
+                let code: string = '';
+                let isUnique = false;
+                for (let i = 0; i < 5; i++) {
+                    code = Array.from({ length: 8 }, () => 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'.charAt(Math.floor(Math.random() * 36))).join('');
+                    const exists = await this.prisma.referralCode.findUnique({ where: { code } });
+                    if (!exists) {
+                        isUnique = true;
+                        break;
+                    }
+                }
+                if (isUnique) {
+                    const REFERRAL_BASE_URL = process.env.REFERRAL_BASE_URL || 'https://www.access-sellr.com/ref';
+                    await this.prisma.referralCode.create({
+                        data: {
+                            code,
+                            url: `${REFERRAL_BASE_URL}/${code}`,
+                            userId: user.id,
+                        }
+                    });
+                } else {
+                    console.error(`Failed to generate unique referral code for user ${user.id}`);
+                }
+            }
+
             // Update `is_email_verified` and clear OTP
             await this.prisma.user.update({
                 where: { email: dto.email },
@@ -288,33 +316,6 @@ export class AuthService {
             });
 
             await sendLoginOtpByMail({ email: payload.email, otp })
-
-            
-
-            // Generate a unique referral code and URL for the new user
-            
-
-            // Handle referral logic if referral_code is provided
-            // if (payload.referral_code) {
-            //     // Find the referrer by referral code
-            //     const referrer = await this.prisma.referralCode.findUnique({
-            //         where: { code: payload.referral_code },
-            //         include: { user: true }
-            //     });
-            //     if (referrer && referrer.user) {
-            //         // Create a Referral record
-            //         await this.prisma.referral.create({
-            //             data: {
-            //                 referrerId: referrer.user.id,
-            //                 referredId: newUser.id,
-            //                 code: payload.referral_code,
-            //                 productId: '',
-            //             }
-            //         });
-            //     } else {
-            //         console.log(colors.yellow('Invalid referral code provided, skipping referral linkage.'));
-            //     }
-            // }
 
             const userResponse = {
                 id: newUser.id,

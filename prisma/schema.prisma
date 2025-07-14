@@ -172,6 +172,12 @@ enum OrderWithdrawalStatus {
   failed
 }
 
+enum ShipmentStatus {
+  awaiting_payment
+  processing
+  in_transit
+}
+
 model Store {
   id          String      @id @default(cuid())
   first_name  String
@@ -349,7 +355,7 @@ model Order {
   total              Float
   total_amount       Float                 @default(0) // Adding this field for compatibility
   shippingInfo       Json?
-  shipmentStatus     String?               @default("pending")
+  shipmentStatus     ShipmentStatus?       @default(awaiting_payment)
   shippingAddressId  String?
   shippingAddress    ShippingAddress?      @relation(fields: [shippingAddressId], references: [id])
   referralSlug       String?
