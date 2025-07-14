@@ -2,7 +2,6 @@
 
 import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import type { User } from '@/services/api';
 import { 
   BookOpen,
   Heart,
@@ -21,11 +20,10 @@ import { api } from "@/services/api";
 import Loader from "@/components/Loader";
 import Image from 'next/image';
 import Link from "next/link";
+import { useAuth } from "@/context/AuthContext";
 
 function ProfilePage() {
-  const [userData, setUserData] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { user: userData, isLoading: loading } = useAuth();
   const [activeTab, setActiveTab] = useState("profile");
   const searchParams = useSearchParams();
   const [affiliateDashboard, setAffiliateDashboard] = useState<Record<string, unknown> | null>(null);
@@ -52,21 +50,6 @@ function ProfilePage() {
   }, [searchParams]);
 
   useEffect(() => {
-    const fetchProfile = async () => {
-      try {
-        setLoading(true);
-        const response = await api.user.getProfile();
-        setUserData(response.data);
-      } catch (err: unknown) {
-        setError(err instanceof Error ? err.message : "Failed to load profile");
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchProfile();
-  }, []);
-
-  useEffect(() => {
     if (activeTab === "referrals") {
       setAffiliateLoading(true);
       setAffiliateError(null);
@@ -78,14 +61,14 @@ function ProfilePage() {
   }, [activeTab, refreshKey]);
 
   if (loading) return <Loader/>;
-  if (error) return <div className="min-h-screen flex items-center justify-center text-red-500">{error}</div>;
+  if (!userData && !loading) return <div className="min-h-screen flex items-center justify-center text-red-500">Failed to load profile</div>;
   if (!userData) return null;
 
   // Map userData to the expected structure for ProfileInfo and sidebar
   const mappedUserData = {
     name: `${userData.first_name} ${userData.last_name}`,
     email: userData.email,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            phone: (userData as { phone_number?: string }).phone_number || "",
+    phone: (userData as { phone_number?: string }).phone_number || "",
     address: (userData as { address?: string }).address || "",
     joinDate: (userData as { joined_date?: string }).joined_date || "",
     avatar: userData.profile_picture || "/images/icons/media.svg",
