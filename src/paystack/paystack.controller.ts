@@ -26,8 +26,8 @@ export class PaystackController {
   }
 
   @Post('verify-paystack-funding')
-    verifyPaystackFunding(@Body() dto: verifyPaystackPaymentDto) {
-        return this.paystackService.verifyPaystackFunding(dto)
+  verifyAffiliatePaystackPayment(@Body() dto: verifyPaystackPaymentDto) {
+        return this.paystackService.verifyAffiliatePaystackPayment(dto)
     }
 
   @Post('verify-cart-payment')

@@ -5,7 +5,7 @@ import { ApiResponse } from 'src/shared/helper-functions/response';
 import { requestAffiliatePermissionDto } from './dto/afiliate.dto';
 import { RequestCommissionPayoutDto, } from './dto/commission-payout.dto';
 import { AffiliateStatus } from '@prisma/client';
-import { formatAmount, formatDateWithoutTime } from 'src/shared/helper-functions/formatter';
+import { formatAmount, formatDate, formatDateWithoutTime } from 'src/shared/helper-functions/formatter';
 import { AddBankDto, DeleteBankDto, UpdateBankStatusDto } from './dto/bank.dto';
 import { RequestWithdrawalNewDto } from './dto/withdrawal-request.dto';
 // import { PayoutMethod } from './dto/withdrawal-request.dto';
@@ -143,83 +143,67 @@ export class UserService {
         },
       });
 
-      // 2. Fetch affiliate record
+      // 2. Fetch affiliate record and referral details
       const affiliate = await this.prisma.affiliate.findUnique({ where: { userId: user.id } });
+      const referral = await this.prisma.referral.findFirst({ where: { referredId: user.id } });
+      const referralCodeRecord = await this.prisma.referralCode.findUnique({ where: { userId: user.id } });
 
-      // Calculate available_for_withdrawal
-      const twoDaysAgo = new Date(Date.now() - 48 * 60 * 60 * 1000);
-      const availableAgg = await this.prisma.commission.aggregate({
-        _sum: { amount: true },
-        where: {
-          userId: user.id,
-          status: 'pending',
-          order: {
-            createdAt: { lte: twoDaysAgo }
-          }
-        }
-      });
-      const available_for_withdrawal = Number(availableAgg._sum.amount || 0);
+      // 2. Fetch wallet for stats
+      const wallet = await this.prisma.wallet.findUnique({ where: { userId: user.id } });
 
-      // 3. Fetch stats and recent orders
-      const [totalPurchases, totalEarned, totalWithdrawn, pendingWithdrawals, recentOrders] = await Promise.all([
-        this.prisma.order.count({
+      // 3. Fetch stats and recent commission/referral records
+      const [totalPurchases, recentRecords] = await Promise.all([
+        this.prisma.commissionReferral.count({
           where: {
-            commissions: { some: { userId: user.id } }
+            userId: user.id,
+            type: 'purchase',
           }
         }),
-        this.prisma.commission.aggregate({
-          _sum: { amount: true },
-          where: { userId: user.id }
-        }),
-        this.prisma.commission.aggregate({
-          _sum: { amount: true },
-          where: { userId: user.id, status: 'paid' }
-        }),
-        this.prisma.commission.aggregate({
-          _sum: { amount: true },
-          where: { userId: user.id, status: 'pending' }
-        }),
-        this.prisma.order.findMany({
+        this.prisma.commissionReferral.findMany({
           where: {
-            commissions: { some: { userId: user.id } }
+            userId: user.id
           },
           include: {
-            user: { select: { first_name: true, last_name: true, email: true } },
-            commissions: true,
-            items: {
-              select: {
-                product: { select: { displayImages: true } }
+            order: {
+              include: {
+                user: { select: { first_name: true, last_name: true, email: true } },
+                items: {
+                  select: {
+                    product: { select: { displayImages: true } }
+                  }
+                }
               }
-            }
+            },
+            product: true
           },
           orderBy: { createdAt: 'desc' },
           take: 10
         })
       ]);
 
-      // 4. Format table analysis
-      const tableAnalysis = recentOrders.map(order => {
+      // 4. Format table analysis (using CommissionReferral)
+      const tableAnalysis = recentRecords.map(record => {
+        const order = record.order;
         const fourDaysAgo = new Date();
         fourDaysAgo.setDate(fourDaysAgo.getDate() - 2);
-        const approved = order.createdAt < fourDaysAgo;
+        const approved = order && order.createdAt < fourDaysAgo;
         return {
-          id: order.id,
-          // orderId: order.orderId,
-          buyerName: order.user.first_name + ' ' + order.user.last_name,
-          buyerEmail: order.user.email,
-          orderAmount: formatAmount(order.total),
-          withdrawalStatus: order.withdrawalStatus,
-          displayImage: order.items?.[0]?.product?.displayImages?.[0]?.secure_url,
-          commissionEarned: formatAmount(order.commissions
-            .filter(c => c.userId === user.id)
-            .reduce((sum, c) => sum + c.amount, 0)),
-          orderDate: formatDateWithoutTime(order.createdAt),
-          status: approved ? order.status : "inactive",
+          id: record.id,
+          orderId: order?.orderId,
+          buyerName: order ? order.user.first_name + ' ' + order.user.last_name : '',
+          buyerEmail: order ? order.user.email : '',
+          orderAmount: order ? formatAmount(order.total) : '',
+          // withdrawalStatus: order ? order.withdrawalStatus : '',
+          displayImage: order?.items?.[0]?.product?.displayImages?.[0]?.secure_url,
+          commissionEarned: formatAmount(record.amount || 0),
+          orderDate: order ? formatDateWithoutTime(order.createdAt) : '',
+          status: approved ? order?.status : "inactive",
           approved,
+          channel: record.type,
         };
       });
 
-      // 6. Fetch payouts (withdrawal requests)
+      // 5. Fetch payouts (withdrawal requests)
       const withdrawals = await this.prisma.withdrawalRequest.findMany({
         where: { userId: user.id },
         orderBy: { requestedAt: 'desc' }
@@ -235,20 +219,22 @@ export class UserService {
                w.payoutStatus // fallback
       }));
 
-      // 5. Build response
+      // 6. Build response (stats from wallet)
       const dashboard = {
+        referralCode: referralCodeRecord?.code || "",
         is_affiliate: user.isAffiliate,
         affiliate_status: user.affiliateStatus,
-        createdAt: affiliate?.createdAt || null,
-        affiliate,
         stats: {
           totalPurchases,
-          totalEarned: totalEarned._sum.amount || 0,
-          totalWithdrawn: totalWithdrawn._sum.amount || 0,
-          pendingWithdrawals: formatAmount(pendingWithdrawals._sum.amount || 0),
-          available_for_withdrawal: formatAmount(available_for_withdrawal || 0)
+          totalEarned: wallet?.total_earned || 0,
+          totalWithdrawn: wallet?.total_withdrawn || 0,
+          pendingApproval: wallet?.awaiting_approval || 0,
+          available_for_withdrawal: wallet?.available_for_withdrawal || 0
         },
+        joined: affiliate?.createdAt ? formatDate(affiliate.createdAt) : null,
         banks: bankDetails || [],
+        affiliate, 
+        referral,
         tableAnalysis,
         payouts
       };

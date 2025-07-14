@@ -408,10 +408,10 @@ export async function sendOrderConfirmationToBuyer(data: OrderConfirmationMailDa
         console.log(colors.green(`Order confirmation email sent to buyer: ${email}`));
     } catch (error) {
         console.log(colors.red("Error sending order confirmation email to buyer: "), error);
-        throw ResponseHelper.error(
-            "Error sending order confirmation email",
-            error.message
-        );
+        // throw ResponseHelper.error(
+        //     "Error sending order confirmation email",
+        //     error.message
+        // );
     }
 }
 

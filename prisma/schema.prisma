@@ -177,6 +177,12 @@ enum ShipmentStatus {
   processing
   in_transit
 }
+enum orderPaymentStatus {
+  awaiting_payment
+  completed
+  partial
+  cancelled
+}
 
 model Store {
   id          String      @id @default(cuid())
@@ -247,20 +253,23 @@ model User {
   updatedAt             DateTime        @updatedAt
 
   // Relations
-  store              Store?              @relation(fields: [store_id], references: [id])
-  orders             Order[]
-  cart               Cart?
-  referrals_made     Referral[]          @relation("Referrer")
-  referredBy         Referral[]          @relation("Referred")
-  commissions        Commission[]
-  referralCode       ReferralCode?
-  Affiliate          Affiliate?
-  AffiliateLink      AffiliateLink[]
-  CommissionPayout   CommissionPayout[]
-  banks              Bank[]
-  withdrawalRequests WithdrawalRequest[]
-  wallet             Wallet?
-  shippingAddresses  ShippingAddress[]
+  store                       Store?               @relation(fields: [store_id], references: [id])
+  orders                      Order[]
+  cart                        Cart?
+  referrals_made              Referral[]           @relation("Referrer")
+  referredBy                  Referral[]           @relation("Referred")
+  commissions                 Commission[]
+  referralCode                ReferralCode?
+  Affiliate                   Affiliate?
+  AffiliateLink               AffiliateLink[]
+  CommissionPayout            CommissionPayout[]
+  banks                       Bank[]
+  withdrawalRequests          WithdrawalRequest[]
+  wallet                      Wallet?
+  shippingAddresses           ShippingAddress[]
+  CommissionReferral          CommissionReferral[]
+  commissionReferralsMade     CommissionReferral[] @relation("CommissionReferralReferrer")
+  commissionReferralsReceived CommissionReferral[] @relation("CommissionReferralReferred")
 }
 
 model Product {
@@ -297,9 +306,10 @@ model Product {
   orderItems OrderItem[]
   referrals  Referral[]
 
-  isFeatured    Boolean         @default(false)
-  PromoCode     PromoCode[]
-  AffiliateLink AffiliateLink[]
+  isFeatured         Boolean              @default(false)
+  PromoCode          PromoCode[]
+  AffiliateLink      AffiliateLink[]
+  CommissionReferral CommissionReferral[]
 }
 
 model Category {
@@ -351,7 +361,7 @@ model Order {
   productid          String?
   userId             String
   storeId            String
-  status             OrderStatus           @default(pending)
+  status             OrderStatus?          @default(pending)
   total              Float
   total_amount       Float                 @default(0) // Adding this field for compatibility
   shippingInfo       Json?
@@ -359,7 +369,7 @@ model Order {
   shippingAddressId  String?
   shippingAddress    ShippingAddress?      @relation(fields: [shippingAddressId], references: [id])
   referralSlug       String?
-  orderPaymentStatus String                @default("awaiting-payment")
+  orderPaymentStatus orderPaymentStatus?   @default(awaiting_payment)
   trackingNumber     String?
   withdrawalStatus   OrderWithdrawalStatus @default(none)
   createdAt          DateTime              @default(now())
@@ -386,11 +396,12 @@ model Order {
   paystackAccessCode       String?
 
   // Relations
-  user               User                @relation(fields: [userId], references: [id])
-  store              Store               @relation(fields: [storeId], references: [id])
+  user               User                 @relation(fields: [userId], references: [id])
+  store              Store                @relation(fields: [storeId], references: [id])
   items              OrderItem[]
   commissions        Commission[]
   withdrawalRequests WithdrawalRequest[]
+  CommissionReferral CommissionReferral[]
 }
 
 model OrderItem {
@@ -611,8 +622,10 @@ model WithdrawalRequest {
   bank       Bank?       @relation(fields: [bankId], references: [id])
   commission Commission? @relation(fields: [commissionId], references: [id])
 
-  createdAt DateTime? @default(now())
-  updatedAt DateTime? @updatedAt
+  createdAt            DateTime?           @default(now())
+  updatedAt            DateTime?           @updatedAt
+  CommissionReferral   CommissionReferral? @relation(fields: [commissionReferralId], references: [id])
+  commissionReferralId String?
 
   @@index([userId])
   @@index([orderId])
@@ -669,4 +682,36 @@ model ShippingAddress {
 
   user   User?   @relation(fields: [userId], references: [id])
   orders Order[]
+}
+
+model CommissionReferral {
+  id                   String   @id @default(cuid())
+  userId               String
+  orderId              String?
+  referrerId           String?
+  referredId           String?
+  productId            String?
+  type                 String?
+  code                 String?  @unique
+  status               String?  @default("pending") // pending, completed, cancelled, paid, reversed
+  isUsed               Boolean? @default(false)
+  totalPurchaseAmount  Float?
+  commissionPercentage String?
+  amount               Float?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  // Relations
+  user               User?               @relation(fields: [userId], references: [id])
+  order              Order?              @relation(fields: [orderId], references: [id])
+  referrer           User?               @relation("CommissionReferralReferrer", fields: [referrerId], references: [id])
+  referred           User?               @relation("CommissionReferralReferred", fields: [referredId], references: [id])
+  product            Product?            @relation(fields: [productId], references: [id])
+  withdrawalRequests WithdrawalRequest[]
+
+  @@index([userId])
+  @@index([orderId])
+  @@index([referrerId])
+  @@index([referredId])
+  @@index([productId])
 }
