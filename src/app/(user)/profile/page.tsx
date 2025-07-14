@@ -53,10 +53,30 @@ function ProfilePage() {
     if (activeTab === "referrals") {
       setAffiliateLoading(true);
       setAffiliateError(null);
-      api.user.getAffiliateDashboard()
-        .then((res) => setAffiliateDashboard(res.data))
+
+      // Caching logic
+      const CACHE_KEY = 'affiliate_dashboard_cache';
+      const CACHE_TIME_KEY = 'affiliate_dashboard_cache_time';
+      const CACHE_DURATION = 10 * 60 * 1000; // 10 minutes
+      const now = Date.now();
+      const cache = typeof window !== 'undefined' ? localStorage.getItem(CACHE_KEY) : null;
+      const cacheTime = typeof window !== 'undefined' ? localStorage.getItem(CACHE_TIME_KEY) : null;
+
+      if (cache && cacheTime && now - parseInt(cacheTime) < CACHE_DURATION) {
+        setAffiliateDashboard(JSON.parse(cache));
+        setAffiliateLoading(false);
+      } else {
+        api.user.getAffiliateDashboard()
+        .then((res) => {
+          setAffiliateDashboard(res.data);
+          if (typeof window !== 'undefined') {
+            localStorage.setItem(CACHE_KEY, JSON.stringify(res.data));
+            localStorage.setItem(CACHE_TIME_KEY, Date.now().toString());
+          }
+        })
         .catch((err) => setAffiliateError(err.message || "Failed to load affiliate dashboard"))
         .finally(() => setAffiliateLoading(false));
+      }
     }
   }, [activeTab, refreshKey]);
 

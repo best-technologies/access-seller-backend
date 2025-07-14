@@ -43,6 +43,7 @@ type TableAnalysisRow = {
   approved?: boolean;
   withdrawalStatus?: 'none' | 'pending' | 'processing' | 'completed' | 'rejected' | 'failed';
   commissionId?: string;
+  channel?: string; // Added for table analysis
 };
 
 export default function ReferralEarnings({ affiliateDashboard, refreshAffiliateDashboard }: ReferralEarningsProps) {
@@ -79,22 +80,83 @@ export default function ReferralEarnings({ affiliateDashboard, refreshAffiliateD
   const [withdrawAmount, setWithdrawAmount] = useState('');
   const [withdrawAmountError, setWithdrawAmountError] = useState<string | null>(null);
   const [withdrawBank, setWithdrawBank] = useState('');
-  // Use optional chaining and fallback for stats
-  const stats = affiliateDashboard?.stats ?? {};
-  // Calculate available for withdrawal from tableAnalysis
-  const tableAnalysis = (affiliateDashboard?.tableAnalysis as Array<Record<string, unknown>>) || [];
-  const totalEarned = (stats as { totalEarned?: string })?.totalEarned ?? "0";
-  const availableForWithdrawal = totalEarned;
-  // Remove the unused function 'formatWithCommas'.
-  const totalWithdrawn = (stats as { totalWithdrawn?: string })?.totalWithdrawn ?? "0";
-  const totalPurchases = (stats as { totalPurchases?: string })?.totalPurchases ?? "0";
+  // Caching logic for affiliate dashboard
+  const [dashboardData, setDashboardData] = useState<Record<string, unknown> | null>(null);
+  const [dashboardLoading, setDashboardLoading] = useState(true);
+  const CACHE_KEY = 'affiliate_dashboard_cache';
+  const CACHE_TIME_KEY = 'affiliate_dashboard_cache_time';
+  const CACHE_DURATION = 10 * 60 * 1000; // 10 minutes
+  const [copiedTop, setCopiedTop] = useState(false);
 
-  // Data extraction
-  const data = affiliateDashboard || {};
+  // Helper to fetch dashboard data from API and cache it
+  const fetchAndCacheDashboard = async () => {
+    setDashboardLoading(true);
+    try {
+      const res = await api.user.getAffiliateDashboard();
+      // If AxiosResponse, use res.data.success and res.data.data
+      const responseData = res && res.data ? res.data : res;
+      if (responseData && responseData.success && responseData.data) {
+        setDashboardData(responseData.data);
+        localStorage.setItem(CACHE_KEY, JSON.stringify(responseData.data));
+        localStorage.setItem(CACHE_TIME_KEY, Date.now().toString());
+      }
+    } finally {
+      setDashboardLoading(false);
+    }
+  };
+
+  // On mount, check cache or fetch
+  useEffect(() => {
+    if (typeof window === 'undefined') return; // Only run on client
+
+    if (affiliateDashboard && Object.keys(affiliateDashboard).length > 0) {
+      setDashboardData(affiliateDashboard);
+      setDashboardLoading(false);
+      // Always cache the latest prop
+      localStorage.setItem(CACHE_KEY, JSON.stringify(affiliateDashboard));
+      localStorage.setItem(CACHE_TIME_KEY, Date.now().toString());
+      return;
+    }
+    // Otherwise, check cache or fetch
+    const cache = localStorage.getItem(CACHE_KEY);
+    const cacheTime = localStorage.getItem(CACHE_TIME_KEY);
+    const now = Date.now();
+    if (cache && cacheTime && now - parseInt(cacheTime) < CACHE_DURATION) {
+      setDashboardData(JSON.parse(cache));
+      setDashboardLoading(false);
+    } else {
+      fetchAndCacheDashboard();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [affiliateDashboard]);
+
+  // Hard refresh handler: always fetch fresh and update cache
+  const handleHardRefresh = () => {
+    fetchAndCacheDashboard();
+  };
+
+  // Use dashboardData if available, else fallback to affiliateDashboard prop
+  const data = dashboardData || affiliateDashboard || {};
+  // Use new root-level fields
   const isAffiliate = data.is_affiliate as boolean;
   const affiliateStatus = data.affiliate_status as string;
-  const createdAt = data.created_at as string;
-  // Helper for 3-day check
+  const createdAt = data.createdAt as string; // updated: root-level
+  // Use new stats structure (numbers)
+  type Stats = {
+    totalPurchases?: number;
+    totalEarned?: number;
+    totalWithdrawn?: number;
+    pendingApproval?: number;
+    available_for_withdrawal?: number;
+  };
+  const stats = (data.stats ?? {}) as Stats;
+  const totalEarned = typeof stats.totalEarned === 'number' ? stats.totalEarned : 0;
+  const availableForWithdrawal = typeof stats.available_for_withdrawal === 'number' ? stats.available_for_withdrawal : totalEarned;
+  const totalWithdrawn = typeof stats.totalWithdrawn === 'number' ? stats.totalWithdrawn : 0;
+  const totalPurchases = typeof stats.totalPurchases === 'number' ? stats.totalPurchases : 0;
+  // Table analysis: now array of objects, orderAmount/commissionEarned as string (with commas)
+  const tableAnalysis = Array.isArray(data.tableAnalysis) ? data.tableAnalysis : [];
+  // Helper for 3-day check (use root-level createdAt)
   let canContactSupport = false;
   if (createdAt) {
     const created = new Date(createdAt);
@@ -102,6 +164,11 @@ export default function ReferralEarnings({ affiliateDashboard, refreshAffiliateD
     const diff = (now.getTime() - created.getTime()) / (1000 * 60 * 60 * 24);
     canContactSupport = diff >= 3;
   }
+
+  // Extract referralCode
+  const referralCode = typeof data.referralCode === 'string' ? data.referralCode : '';
+  // Format join date
+  // const joinDate = createdAt ? new Date(createdAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : '';
 
   const handleAffiliateRequest = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -257,7 +324,7 @@ export default function ReferralEarnings({ affiliateDashboard, refreshAffiliateD
 
   // If affiliate, show dashboard
   // tableAnalysis already declared above
-  console.log("Table analysis: ", tableAnalysis)
+  // console.log("Table analysis: ", tableAnalysis)
 
   // Fetch affiliate links when products tab is active
   useEffect(() => {
@@ -304,7 +371,7 @@ export default function ReferralEarnings({ affiliateDashboard, refreshAffiliateD
     setTimeout(() => setCopiedLinkId(null), 1500);
   };
 
-  // Use real payouts data from affiliateDashboard
+  // Use real payouts data from affiliateDashboard (amount is number, date is ISO string)
   type Payout = {
     id: string;
     payoutId?: string;
@@ -322,13 +389,13 @@ export default function ReferralEarnings({ affiliateDashboard, refreshAffiliateD
   const [banks, setBanks] = useState<{ id: number; name: string; code: string }[]>([]);
   const [banksLoading, setBanksLoading] = useState(false);
   const [banksError, setBanksError] = useState<string | null>(null);
-  // Use real banks data from affiliateDashboard
+  // Use real banks data from affiliateDashboard (now with string id)
   type UserBank = {
     bankName: string;
     accountNumber: string;
     accountName: string;
     bankCode: string;
-    id?: string; // Add optional id field in case backend provides it
+    id?: string; // id is string
   };
   const userBanks: UserBank[] = Array.isArray((data as { banks?: UserBank[] })?.banks)
     ? (data as { banks: UserBank[] }).banks
@@ -510,8 +577,8 @@ export default function ReferralEarnings({ affiliateDashboard, refreshAffiliateD
 
   if (affiliateStatusUI) return affiliateStatusUI;
 
-  // For calculations, parse availableForWithdrawal as number
-  const availableForWithdrawalNumber = Number((totalEarned + '').replace(/,/g, '')) || 0;
+  // For calculations, use availableForWithdrawal as number
+  const availableForWithdrawalNumber = typeof availableForWithdrawal === 'number' ? availableForWithdrawal : 0;
 
   return (
     <div className="space-y-6">
@@ -552,6 +619,25 @@ export default function ReferralEarnings({ affiliateDashboard, refreshAffiliateD
       {/* Tab Content */}
       {activeTab === 'dashboard' && (
         <>
+          {/* Referral Code Badge at the very top, right-aligned (always visible) */}
+          <div className="w-full flex justify-end mb-4">
+            <span className="px-3 py-1 rounded-full bg-indigo-600 text-white text-xs font-bold tracking-widest shadow inline-flex items-center gap-2">
+              Referral Code: {referralCode || 'N/A'}
+              <button
+                  className="ml-1 p-1 rounded bg-indigo-700 hover:bg-indigo-800 transition-colors"
+                  onClick={() => {
+                    navigator.clipboard.writeText(referralCode);
+                    setCopiedTop(true);
+                    setTimeout(() => setCopiedTop(false), 1500);
+                  }}
+                  title="Copy referral code"
+                  type="button"
+                >
+                  <Copy className="w-4 h-4 text-white" />
+                </button>
+              {copiedTop && <span className="ml-2 text-green-200 font-semibold text-xs">Copied!</span>}
+            </span>
+          </div>
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gray-900">Account Details</h3>
@@ -559,12 +645,12 @@ export default function ReferralEarnings({ affiliateDashboard, refreshAffiliateD
                 {/* Refresh Button */}
                 <button
                   type="button"
-                  onClick={refreshAffiliateDashboard}
+                  onClick={handleHardRefresh}
                   className="p-2 rounded-full hover:bg-gray-100 transition-colors relative group"
                   title="Refresh"
                   aria-label="Refresh"
                 >
-                  <RefreshCw className={`w-5 h-5 ${submitting ? 'animate-spin' : ''}`} />
+                  <RefreshCw className={`w-5 h-5 ${dashboardLoading ? 'animate-spin' : ''}`} />
                   <span className="absolute left-1/2 -translate-x-1/2 mt-2 w-20 bg-gray-800 text-white text-xs rounded-lg px-2 py-1 opacity-0 group-hover:opacity-100 pointer-events-none z-50 transition-opacity duration-200 text-center">Refresh</span>
                 </button>
                 <button
@@ -880,7 +966,7 @@ export default function ReferralEarnings({ affiliateDashboard, refreshAffiliateD
                       <div className="flex items-center justify-between">
                         <div>
                           <h4 className="text-sm font-medium text-green-800">Available for Withdrawal</h4>
-                          <p className="text-2xl font-bold text-green-600">₦{String(availableForWithdrawal)}</p>
+                          <p className="text-2xl font-bold text-green-600">₦{String(availableForWithdrawal).toLocaleString()}</p>
                         </div>
                         <div className="p-3 bg-green-100 rounded-lg">
                           <DollarSign className="h-6 w-6 text-green-600" />
@@ -907,7 +993,7 @@ export default function ReferralEarnings({ affiliateDashboard, refreshAffiliateD
                               setWithdrawAmountError(null);
                             }
                           }}
-                          placeholder={`Enter amount (max ₦${String(availableForWithdrawal)})`}
+                          placeholder={`Enter amount (max ₦${String(availableForWithdrawal).toLocaleString()})`}
                           required
                           disabled={submitting}
                           inputMode="numeric"
@@ -973,12 +1059,12 @@ export default function ReferralEarnings({ affiliateDashboard, refreshAffiliateD
             )}
           </div>
           {/* Stats Overview */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-500">Total Earned</p>
-                  <p className="text-2xl font-semibold text-gray-900">₦{totalEarned}</p>
+                  <p className="text-2xl font-semibold text-gray-900">₦{totalEarned.toLocaleString()}</p>
                 </div>
                 <div className="p-3 bg-green-50 rounded-lg">
                   <DollarSign className="h-6 w-6 text-green-600" />
@@ -989,7 +1075,7 @@ export default function ReferralEarnings({ affiliateDashboard, refreshAffiliateD
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-500">Available for Withdrawal</p>
-                  <p className="text-2xl font-semibold text-indigo-700">₦{String(availableForWithdrawal)}</p>
+                  <p className="text-2xl font-semibold text-indigo-700">₦{availableForWithdrawal.toLocaleString()}</p>
                 </div>
                 <div className="p-3 bg-indigo-50 rounded-lg">
                   <DollarSign className="h-6 w-6 text-indigo-600" />
@@ -1007,7 +1093,7 @@ export default function ReferralEarnings({ affiliateDashboard, refreshAffiliateD
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-500">Total Purchases</p>
-                  <p className="text-2xl font-semibold text-gray-900">{(totalPurchases)}</p>
+                  <p className="text-2xl font-semibold text-gray-900">{totalPurchases.toLocaleString()}</p>
                 </div>
                 <div className="p-3 bg-blue-50 rounded-lg">
                   <Users className="h-6 w-6 text-blue-600" />
@@ -1018,10 +1104,21 @@ export default function ReferralEarnings({ affiliateDashboard, refreshAffiliateD
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-500">Total Withdrawn</p>
-                  <p className="text-2xl font-semibold text-gray-900">₦{totalWithdrawn}</p>
+                  <p className="text-2xl font-semibold text-gray-900">₦{totalWithdrawn.toLocaleString()}</p>
                 </div>
                 <div className="p-3 bg-yellow-50 rounded-lg">
                   <DollarSign className="h-6 w-6 text-yellow-600" />
+                </div>
+              </div>
+            </div>
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-500">Pending Approval</p>
+                  <p className="text-2xl font-semibold text-gray-900">{(typeof stats.pendingApproval === 'number' ? stats.pendingApproval : 0).toLocaleString()}</p>
+                </div>
+                <div className="p-3 bg-gray-50 rounded-lg">
+                  <RefreshCw className="h-6 w-6 text-gray-600" />
                 </div>
               </div>
             </div>
@@ -1029,7 +1126,7 @@ export default function ReferralEarnings({ affiliateDashboard, refreshAffiliateD
           {/* Table Analysis Placeholder */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             {/* Sub-tabs for Analysis and Payouts */}
-            <div className="flex gap-2 mb-4">
+            <div className="flex flex-wrap items-center gap-2 mb-4">
               <button
                 className={`px-3 py-1 text-sm font-semibold rounded transition-all duration-150 focus:outline-none ${analysisTab === 'analysis' ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-100 text-gray-500 hover:text-indigo-600'}`}
                 onClick={() => setAnalysisTab('analysis')}
@@ -1042,52 +1139,72 @@ export default function ReferralEarnings({ affiliateDashboard, refreshAffiliateD
               >
                 Payouts
               </button>
+             
             </div>
             {/* Content for each sub-tab */}
             {analysisTab === 'analysis' ? (
               <>
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Analysis</h3>
+                {/* <h3 className="text-lg font-semibold text-gray-900 mb-4">Analysis</h3> */}
                 {(tableAnalysis as Array<TableAnalysisRow>).length === 0 ? (
                   <p className="text-gray-500">No analysis data available.</p>
                 ) : (
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th className="px-4 py-2 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Image</th>
-                          <th className="px-4 py-2 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Order ID</th>
-                          <th className="px-4 py-2 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Buyer Name</th>
-                          <th className="px-4 py-2 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Amount</th>
-                          <th className="px-4 py-2 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Commission</th>
-                          <th className="px-4 py-2 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Date</th>
-                          <th className="px-4 py-2 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Status</th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-100">
-                        {(tableAnalysis as Array<TableAnalysisRow>).map((order, idx) => (
-                          <tr key={order.orderId || idx}>
-                            <td className="px-4 py-2">
-                              {order.displayImage ? (
-                                <div className="w-14 h-20 relative rounded overflow-hidden border border-gray-200">
-                                  <Image src={order.displayImage} alt="Order" fill className="object-cover rounded" />
-                                </div>
-                              ) : (
-                                <span className="text-gray-400">N/A</span>
-                              )}
-                            </td>
-                            <td className="px-4 py-2 font-mono text-xs">{order.orderId}</td>
-                            <td className="px-4 py-2">{order.buyerName}</td>
-                            <td className="px-4 py-2">₦{order.orderAmount}</td>
-                            <td className="px-4 py-2">₦{order.commissionEarned}</td>
-                            <td className="px-4 py-2">{order.orderDate ? order.orderDate : ''}</td>
-                            <td className="px-4 py-2">
-                              <span className={`inline-block px-2 py-1 rounded text-xs font-semibold ${order.status === 'pending' ? 'bg-yellow-100 text-yellow-700' : order.status === 'completed' ? 'bg-green-100 text-green-700' : order.status === 'inactive' ? 'bg-gray-200 text-gray-500' : 'bg-gray-100 text-gray-500'}`}>{order.status}</span>
-                            </td>
+                  <>
+                    <div className="w-full flex justify-end mb-2">
+                   
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-gray-200 rounded-xl shadow-md border border-gray-100 bg-white">
+                        <thead className="bg-gray-50 sticky top-0 z-10">
+                          <tr>
+                            <th className="px-4 py-2 text-left text-xs font-bold text-gray-700 uppercase tracking-wider rounded-tl-xl">Image</th>
+                            <th className="px-4 py-2 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Order ID</th>
+                            <th className="px-4 py-2 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Buyer Name</th>
+                            <th className="px-4 py-2 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Buyer Email</th>
+                            <th className="px-4 py-2 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Amount</th>
+                            <th className="px-4 py-2 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Commission</th>
+                            <th className="px-4 py-2 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Date</th>
+                            {/* <th className="px-4 py-2 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Status</th> */}
+                            {/* <th className="px-4 py-2 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Approved</th> */}
+                            <th className="px-4 py-2 text-left text-xs font-bold text-gray-700 uppercase tracking-wider rounded-tr-xl">Channel</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-100">
+                          {(tableAnalysis as Array<TableAnalysisRow>).map((order, idx) => (
+                            <tr key={order.orderId || idx} className={idx % 2 === 0 ? 'bg-white hover:bg-indigo-50/40 transition-colors' : 'bg-indigo-50/30 hover:bg-indigo-100/60 transition-colors'}>
+                              <td className="px-4 py-2">
+                                {order.displayImage ? (
+                                  <div className="w-14 h-20 relative rounded overflow-hidden border border-gray-200 shadow-sm">
+                                    <Image src={order.displayImage} alt="Order" fill className="object-cover rounded" />
+                                  </div>
+                                ) : (
+                                  <span className="text-gray-400">N/A</span>
+                                )}
+                              </td>
+                              <td className="px-4 py-2 font-mono text-xs">{order.orderId}</td>
+                              <td className="px-4 py-2">{order.buyerName}</td>
+                              <td className="px-4 py-2">{order.buyerEmail}</td>
+                              <td className="px-4 py-2">₦{order.orderAmount}</td>
+                              <td className="px-4 py-2">₦{order.commissionEarned}</td>
+                              <td className="px-4 py-2">{order.orderDate ? order.orderDate : ''}</td>
+                              {/* <td className="px-4 py-2">
+                                <span className={`inline-block px-2 py-1 rounded text-xs font-semibold ${order.status === 'pending' ? 'bg-yellow-100 text-yellow-700' : order.status === 'completed' ? 'bg-green-100 text-green-700' : order.status === 'inactive' ? 'bg-gray-200 text-gray-500' : 'bg-gray-100 text-gray-500'}`}>{order.status}</span>
+                              </td> */}
+                              {/* <td className="px-4 py-2">{order.approved ? <span className="text-green-600 font-bold">Yes</span> : <span className="text-red-500 font-bold">No</span>}</td> */}
+                              <td className="px-4 py-2">
+                                {order.channel === 'affiliate_link' ? (
+                                  <span className="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700 border border-blue-200 shadow-sm">Affiliate Link</span>
+                                ) : order.channel === 'referral_code' ? (
+                                  <span className="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700 border border-green-200 shadow-sm">Referral Code</span>
+                                ) : (
+                                  <span className="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-500 border border-gray-200">{order.channel}</span>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
                 )}
               </>
             ) : (
@@ -1151,7 +1268,7 @@ export default function ReferralEarnings({ affiliateDashboard, refreshAffiliateD
                         .map((p) => (
                           <tr key={p.id}>
                             <td className="px-4 py-2 font-medium text-gray-900">{p.payoutId || p.id}</td>
-                            <td className="px-4 py-2 text-gray-700">₦{p.amount}</td>
+                            <td className="px-4 py-2 text-gray-700">₦{p.amount.toLocaleString()}</td>
                             <td className="px-4 py-2 text-gray-700">{new Date(p.date).toLocaleDateString()}</td>
                             <td className="px-4 py-2">
                               <span className={`inline-block px-2 py-1 rounded text-xs font-semibold ${
@@ -1313,7 +1430,7 @@ export default function ReferralEarnings({ affiliateDashboard, refreshAffiliateD
                   .map((p) => (
                     <tr key={p.id}>
                       <td className="px-4 py-2 font-medium text-gray-900">{p.payoutId || p.id}</td>
-                      <td className="px-4 py-2 text-gray-700">₦{p.amount}</td>
+                      <td className="px-4 py-2 text-gray-700">₦{p.amount.toLocaleString()}</td>
                       <td className="px-4 py-2 text-gray-700">{new Date(p.date).toLocaleDateString()}</td>
                       <td className="px-4 py-2">
                         <span className={`inline-block px-2 py-1 rounded text-xs font-semibold ${
