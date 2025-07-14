@@ -25,8 +25,9 @@ import { useWishlist } from "@/hooks/useWishlist";
 import toast from "react-hot-toast";
 import { api } from '@/services/api';
 import Loader from "@/components/Loader";
-import type { BrowseProduct, BrowseCategory, BrowseFormat } from '@/types/product';
+import type { BrowseProduct, BrowseCategory } from '@/types/product';
 import { PageLoader } from "@/components/ui/loader";
+import Navbar from "@/components/home/Navbar";
 
 export default function ProfessionalProductsPage() {
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
@@ -148,6 +149,7 @@ export default function ProfessionalProductsPage() {
     <>
       
       <div className="min-h-screen bg-gray-50 pt-16">
+        <Navbar/>
         {/* Compact Header */}
         <div className="bg-white border-b border-gray-200 sticky top-0 z-40">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -394,18 +396,32 @@ export default function ProfessionalProductsPage() {
                                 if (isInCart(String(product.id))) {
                                   removeFromCart(String(product.id));
                                 } else {
-                                  addToCart({
+                                  const cartItem = {
                                     productId: String(product.id),
                                     quantity: 1,
-                                    price: product.selling_price,
-                                    sellingPrice: product.selling_price,
-                                    normalPrice: product.nomral_price ?? product.selling_price,
+                                    price: (typeof product.selling_price === 'number' && product.selling_price > 0)
+                                      ? product.selling_price
+                                      : (typeof product.nomral_price === 'number' && product.nomral_price > 0
+                                          ? product.nomral_price
+                                          : 0),
+                                    sellingPrice: (typeof product.selling_price === 'number' && product.selling_price > 0)
+                                      ? product.selling_price
+                                      : (typeof product.nomral_price === 'number' && product.nomral_price > 0
+                                          ? product.nomral_price
+                                          : 0),
+                                    normalPrice: (typeof product.nomral_price === 'number' && product.nomral_price > 0)
+                                      ? product.nomral_price
+                                      : ((typeof product.selling_price === 'number' && product.selling_price > 0)
+                                          ? product.selling_price
+                                          : 0),
                                     product: {
                                       name: product.product_name,
                                       image: typeof product.display_picture === 'string' ? product.display_picture : '/placeholder.png',
                                       category: product.format
                                     }
-                                  });
+                                  };
+                                  console.log('Adding to cart:', cartItem);
+                                  addToCart(cartItem);
                                 }
                               }}
                               className={`p-2 rounded-full transition-colors shadow-sm ml-1 ${
@@ -499,18 +515,32 @@ export default function ProfessionalProductsPage() {
                                     if (isInCart(String(product.id))) {
                                       removeFromCart(String(product.id));
                                     } else {
-                                      addToCart({
+                                      const cartItem = {
                                         productId: String(product.id),
                                         quantity: 1,
-                                        price: product.selling_price,
-                                        sellingPrice: product.selling_price,
-                                        normalPrice: product.nomral_price ?? product.selling_price,
+                                        price: (typeof product.selling_price === 'number' && product.selling_price > 0)
+                                          ? product.selling_price
+                                          : (typeof product.nomral_price === 'number' && product.nomral_price > 0
+                                              ? product.nomral_price
+                                              : 0),
+                                        sellingPrice: (typeof product.selling_price === 'number' && product.selling_price > 0)
+                                          ? product.selling_price
+                                          : (typeof product.nomral_price === 'number' && product.nomral_price > 0
+                                              ? product.nomral_price
+                                              : 0),
+                                        normalPrice: (typeof product.nomral_price === 'number' && product.nomral_price > 0)
+                                          ? product.nomral_price
+                                          : ((typeof product.selling_price === 'number' && product.selling_price > 0)
+                                              ? product.selling_price
+                                              : 0),
                                         product: {
                                           name: product.product_name,
-                                          image: product.display_picture || undefined,
+                                          image: typeof product.display_picture === 'string' ? product.display_picture : '/placeholder.png',
                                           category: product.format
                                         }
-                                      });
+                                      };
+                                      console.log('Adding to cart:', cartItem);
+                                      addToCart(cartItem);
                                     }
                                   }}
                                   className={`px-3 py-1.5 rounded text-sm font-medium transition-all ${

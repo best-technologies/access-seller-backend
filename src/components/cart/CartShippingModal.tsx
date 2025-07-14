@@ -22,8 +22,23 @@ interface CartShippingModalProps {
   shippingForm: ShippingForm;
   setShippingForm: (cb: (prev: ShippingForm) => ShippingForm) => void;
   isAuthenticated: boolean;
-  typedUser: any;
-  cartItems: any[];
+  typedUser: {
+    first_name: string;
+    last_name: string;
+    email: string;
+    phone: string;
+  } | null;
+  cartItems: {
+    productId: string;
+    name: string;
+    quantity: number;
+    price: number;
+    sellingPrice: number;
+    product?: {
+      name: string;
+      stock: number;
+    };
+  }[];
   onSubmit: () => void;
   onQuantityChange: (productId: string, quantity: number) => void;
   allowedPartPayment?: number | null;
@@ -56,8 +71,23 @@ export default function CartShippingModal({
     return sum + (isNaN(price) || isNaN(qty) ? 0 : price * qty);
   }, 0);
   // Helper to get value from typedUser or shippingForm
-  const getField = (field: keyof ShippingForm) =>
-    (isAuthenticated && typedUser?.[field.replace(/([A-Z])/g, '_$1').toLowerCase()]) || shippingForm[field];
+  const userFieldMap: Record<keyof ShippingForm, string | null> = {
+    firstName: 'first_name',
+    lastName: 'last_name',
+    email: 'email',
+    phone: 'phone',
+    state: null,
+    city: null,
+    houseAddress: null,
+    address: null,
+  };
+  const getField = (field: keyof ShippingForm) => {
+    const userKey = userFieldMap[field];
+    if (isAuthenticated && typedUser && userKey) {
+      return typedUser[userKey as keyof typeof typedUser];
+    }
+    return shippingForm[field];
+  };
   const allFieldsFilled = [
     getField('firstName'),
     getField('lastName'),
@@ -84,10 +114,10 @@ export default function CartShippingModal({
         </div>
         <div className="p-6">
           {isProcessingPayment ? (
-            <div className="text-center py-12">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
-              <p className="text-lg font-semibold text-gray-900 mb-2">Processing Payment...</p>
-              <p className="text-base text-gray-600">Please wait while we secure your order</p>
+            <div className="flex flex-col items-center justify-center py-16">
+              <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-indigo-600 mb-6"></div>
+              <p className="text-xl font-bold text-gray-900 mb-2">Processing Payment...</p>
+              <p className="text-base text-gray-600">Please wait while we redirect you to complete your payment.</p>
             </div>
           ) : (
             <form onSubmit={e => { e.preventDefault(); onSubmit(); }} className="space-y-6">
@@ -188,7 +218,7 @@ export default function CartShippingModal({
                           quantity={item.quantity}
                           setQuantity={(q) => onQuantityChange(item.productId, q)}
                           stock={item.product?.stock ?? 100}
-                          toast={(msg) => {}}
+                          toast={() => {}}
                         />
                         <span className="text-xs text-gray-700 ml-2">Total: ₦{((item.sellingPrice ?? item.price ?? 0) * item.quantity).toLocaleString()}</span>
                       </div>

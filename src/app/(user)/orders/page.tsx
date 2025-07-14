@@ -65,7 +65,7 @@ export default function OrdersPage() {
   }, [currentPage]);
 
   const filteredOrders = orders.filter(order => 
-    order.orderId.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (order.orderId?.toLowerCase() || order.id.toLowerCase()).includes(searchQuery.toLowerCase()) ||
     order.items.some(item => 
       item.productName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       item.productPublisher.toLowerCase().includes(searchQuery.toLowerCase())
@@ -202,11 +202,17 @@ export default function OrdersPage() {
                         <h2 className="text-xl font-semibold text-gray-900">
                           Order {order.orderId}
                         </h2>
-                        <span className={`px-3 py-1 rounded-full text-sm font-medium ${statusColors[order.status] || 'bg-gray-100 text-gray-800'}`}>
-                          {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+                        <span className="flex items-center gap-2">
+                          <span className="text-xs text-gray-500 font-medium">Shipment Status:</span>
+                          <span className={`px-3 py-1 rounded-full text-sm font-medium ${statusColors[order.status] || 'bg-gray-100 text-gray-800'}`}>
+                            {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+                          </span>
                         </span>
-                        <span className={`px-3 py-1 rounded-full text-sm font-medium ${paymentStatusColors[order.orderPaymentStatus] || 'bg-gray-100 text-gray-800'}`}>
-                          {order.orderPaymentStatus.charAt(0).toUpperCase() + order.orderPaymentStatus.slice(1)}
+                        <span className="flex items-center gap-2">
+                          <span className="text-xs text-gray-500 font-medium">Payment Status:</span>
+                          <span className={`px-3 py-1 rounded-full text-sm font-medium ${paymentStatusColors[order.orderPaymentStatus] || 'bg-gray-100 text-gray-800'}`}>
+                            {order.orderPaymentStatus.charAt(0).toUpperCase() + order.orderPaymentStatus.slice(1)}
+                          </span>
                         </span>
                       </div>
                       <div className="flex items-center gap-4 text-sm text-gray-500">

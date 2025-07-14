@@ -235,27 +235,53 @@ export const tokenManager = {
   }
 };
 
+// Type for cart order data
+export interface CartOrderData {
+  items: Array<{
+    productId: string;
+    quantity: number;
+    price: number;
+    subtotal: number;
+    category?: string;
+  }>;
+  totalItems: number;
+  referralCode?: string | null;
+  referralDiscountPercent?: number;
+  referralDiscountAmount?: number;
+  subtotal: number;
+  shipping: number;
+  total: number;
+  partialPayment?: {
+    allowedPercentage: number;
+    selectedPercentage: number;
+    payNow: number;
+    payLater: number;
+    toBalance: number;
+  } | null;
+  fullPayment: {
+    total: number;
+    payNow: number;
+    payLater: number;
+  };
+  shippingInfo: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string;
+    state: string;
+    city: string;
+    houseAddress: string;
+    address: string;
+  };
+  callbackUrl?: string;
+}
+
 // Pure API methods - NO token storage or state management
 export const api = { 
   auth: {
     login: (email: string, password: string): Promise<LoginResponse> =>
       
       axiosInstance.post('/auth/sign-in', { email, password }),
-
-    // register: (data: RegistrationData): Promise<RegisterResponse> =>
-    //   axiosInstance.post('/auth/signup', {
-    //     email: data.email,
-    //     password: data.password,
-    //     firstName: data.firstName,
-    //     lastName: data.lastName,
-    //     middleName: data.middleName,
-    //     phone: data.phone,
-    //     gender: data.gender,
-    //     country: data.country,
-    //     referral_code: data.referralCode,
-    //     updates_opt_in: data.updatesOptIn,
-    //     agreeToTerms: data.agreeToTerms,
-    //   }),
 
     register: (data: RegistrationData): Promise<RegisterResponse> =>
       axiosInstance.post('/auth/register', {
@@ -506,9 +532,16 @@ export const api = {
       // Sends backendData to /paystack/affiliate-initialise-paystack-payment
       return axiosInstance.post('/paystack/affiliate-initialise-paystack-payment', data);
     },
+    cartCheckoutInitialisePayment: async (orderData: CartOrderData) => {
+      // Sends orderData to /paystack/cart-checkout-initialise-paystack-payment
+      return axiosInstance.post('/paystack/cart-checkout-initialise-paystack-payment', orderData);
+    },
     verifyPaystackFunding: async (reference: string) => {
       // Calls /paystack/verify-paystack-funding with the reference or trxref
       return axiosInstance.post('/paystack/verify-paystack-funding', { reference });
+    },
+    verifyCheckoutPayment: async (reference: string) => {
+      return axiosInstance.post('/paystack/verify-cart-payment', { reference });
     },
     getOrderById: async (id: string) => {
       // Calls /paystack/order/:id to fetch order details

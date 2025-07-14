@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import PageHeader from "@/components/ui/PageHeader";
 import { useCart } from "@/hooks/useCart";
 import GeneralNavbar from "@/components/GeneralNavbar";
-import { api } from '@/services/api';
+import { api, CartOrderData } from '@/services/api';
 import toast from 'react-hot-toast';
 import CartHeader from "@/components/cart/CartHeader";
 import CartTrustBadges from "@/components/cart/CartTrustBadges";
@@ -14,22 +14,38 @@ import CartConfirmationModal from "@/components/cart/CartConfirmationModal";
 import ManualPaymentModal from "@/components/cart/ManualPaymentModal";
 import CartShippingModal from '@/components/cart/CartShippingModal';
 import { useAuth } from '@/hooks/useAuth';
+import { Loader } from "@/components/ui/loader";
+import { useRouter } from 'next/navigation';
+
+function PaymentStatusModal({ open, message }: { open: boolean; message: string }) {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-50 flex items-center justify-center">
+      <div className="bg-white rounded-xl shadow-lg p-8 flex flex-col items-center gap-4 min-w-[260px]">
+        <Loader size="md" variant="primary" />
+        <p className="text-base font-medium text-gray-800 text-center">{message}</p>
+      </div>
+    </div>
+  );
+}
 
 export default function ProfessionalCartPage() {
+  const router = useRouter();
   const { cart, updateQuantity, removeFromCart, clearCart } = useCart();
   const [referralCode, setReferralCode] = useState("");
-  const [referralApplied, setReferralApplied] = useState(false);
+  const [referralApplied] = useState(false);
   const [selected, setSelected] = useState<string[]>(cart.map(item => item.productId));
   const [isLoading, setIsLoading] = useState(false);
   const [search] = useState("");
   const [allowedPartPayment, setAllowedPartPayment] = useState<number | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [referralDiscountPercent, setReferralDiscountPercent] = useState<number>(0);
+  const [referralDiscountPercent] = useState<number>(0);
   // Confirmation modal state
   const [confirmDelete, setConfirmDelete] = useState<{ open: boolean; productId: string | null }>({ open: false, productId: null });
   const [confirmClear, setConfirmClear] = useState(false);
   const [paymentPercent, setPaymentPercent] = useState(100);
   const [showManualModal, setShowManualModal] = useState(false);
+  const [showOrderCompleteModal, setShowOrderCompleteModal] = useState(false);
 
   // Add shipping modal state and form
   const [showShippingModal, setShowShippingModal] = useState(false);
@@ -97,11 +113,11 @@ export default function ProfessionalCartPage() {
   // const [paymentPercent, setPaymentPercent] = useState(100);
 
   // Update handleCheckout to accept shipping info
-  const handleCheckout = async (shippingInfo?: typeof shippingForm) => {
+  const handleCheckout = async () => {
     setIsLoading(true);
     try {
       // Prepare order data
-      const orderData = {
+      const orderData: CartOrderData = {
         items: selectedItems.map((item: typeof cart[0]) => ({
           productId: item.productId,
           quantity: item.quantity,
@@ -132,19 +148,31 @@ export default function ProfessionalCartPage() {
           payLater: isAuthenticated && allowedPartPayment && allowedPartPayment > 0 ? payLater : 0
         },
         // Shipping info
-        shippingInfo: getShippingInfo()
+        shippingInfo: getShippingInfo(),
+        // Callback URL for Paystack redirect
+        callbackUrl: typeof window !== 'undefined' ? window.location.href : ''
       };
       
-      console.log("=== CHECKOUT DATA TO BE SENT TO BACKEND ===");
-      console.log("Order Data:", JSON.stringify(orderData, null, 2));
-      console.log("=== END CHECKOUT DATA ===");
-      
-      // Call the API (mock endpoint, replace with real one)
-      // const response = await api.orders.createOrder(orderData);
-      // For now, just mock a response
-      const response = { success: true, message: "Order placed successfully!" };
-      console.log("Checkout API response:", response);
-      toast.success(response.message);
+      // Call the real backend endpoint for cart checkout
+      const response = await api.paystack.cartCheckoutInitialisePayment(orderData);
+      const responseData = response.data;
+      // Try to find the authorization_url in the response
+      let authorizationUrl = null;
+      if (responseData?.data?.paystackResponse?.authorization_url) {
+        authorizationUrl = responseData.data.paystackResponse.authorization_url;
+      } else if (responseData?.authorization_url) {
+        authorizationUrl = responseData.authorization_url;
+      } else if (responseData?.data?.authorization_url) {
+        authorizationUrl = responseData.data.authorization_url;
+      } else if (responseData?.paystackResponse?.authorization_url) {
+        authorizationUrl = responseData.paystackResponse.authorization_url;
+      }
+      if (authorizationUrl) {
+        window.location.href = authorizationUrl;
+        return;
+      } else {
+        toast.error('Failed to initialize payment. Please try again.');
+      }
     } catch (error: unknown) {
       console.error("Checkout error:", error);
       toast.error(error instanceof Error ? error.message : "Checkout failed");
@@ -152,6 +180,40 @@ export default function ProfessionalCartPage() {
       setIsLoading(false);
     }
   };
+
+  // On redirect back from Paystack, verify payment
+  useEffect(() => {
+    const currentSelected = selected;
+    const currentRemoveFromCart = removeFromCart;
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const reference = urlParams.get('reference') || urlParams.get('trxref');
+      if (reference) {
+        setIsLoading(true);
+        api.paystack.verifyPaystackFunding(reference)
+          .then((res) => {
+            const responseData = res as unknown as { success: boolean; message?: string };
+            if (responseData.success) {
+              // Remove paid items from cart
+              currentSelected.forEach(pid => currentRemoveFromCart(pid));
+              toast.success('Payment verified! Order placed successfully.');
+              setShowOrderCompleteModal(true);
+              // Remove query params from URL after verification
+              const url = new URL(window.location.href);
+              url.searchParams.delete('reference');
+              url.searchParams.delete('trxref');
+              window.history.replaceState({}, document.title, url.pathname);
+            } else {
+              toast.error(responseData.message || 'Payment verification failed');
+            }
+          })
+          .catch((err: { message?: string }) => {
+            toast.error(err?.message || 'Payment verification failed');
+          })
+          .finally(() => setIsLoading(false));
+      }
+    }
+  }, [removeFromCart, selected]);
 
   // Debug: log when onCheckout is called
   const handleShowShippingModal = () => {
@@ -164,38 +226,6 @@ export default function ProfessionalCartPage() {
     const id = item.productId.toLowerCase();
     return name.includes(search.toLowerCase()) || id.includes(search.toLowerCase());
   });
-
-  // Verify promo code 
-  const handleVerifyReferralCode = async () => {
-    setIsLoading(true);
-    try {
-      // Get a productId from the selected items (use the first one for now)
-      const productId = selectedItems[0]?.productId;
-      if (!productId) {
-        toast.error("No product selected for promo code application.");
-        setIsLoading(false);
-        return;
-      }
-      const res = await api.discount.verifyPromoCode(referralCode, productId);
-      const result = res.data as { discountPercent?: string | number };
-      const discountPercent = result.discountPercent ? Number(result.discountPercent) : 0;
-      if (discountPercent) {
-        setReferralApplied(true);
-        setReferralDiscountPercent(discountPercent);
-        toast.success(`🎉 Referral code applied! You get ${discountPercent}% off.`);
-      } else {
-        setReferralApplied(false);
-        setReferralDiscountPercent(0);
-        toast.error("Referral code is invalid.");
-      }
-    } catch (error: unknown) {
-      setReferralApplied(false);
-      setReferralDiscountPercent(0);
-      toast.error(error instanceof Error ? error.message : "Failed to verify promo code.");
-    } finally {
-      setIsLoading(false);
-    }
-  }
 
   // Calculate the full total (for display)
   const fullTotal = Number(subtotal - promoDiscount + shipping /* + tax */);
@@ -222,12 +252,43 @@ export default function ProfessionalCartPage() {
       firstName: isAuthenticated && typedUser?.first_name ? typedUser.first_name : shippingForm.firstName,
       lastName: isAuthenticated && typedUser?.last_name ? typedUser.last_name : shippingForm.lastName,
       email: isAuthenticated && typedUser?.email ? typedUser.email : shippingForm.email,
-      phone: isAuthenticated && (typedUser as any)?.phone ? (typedUser as any).phone : shippingForm.phone,
+      phone: (isAuthenticated && (typedUser as { phone?: string })?.phone ? (typedUser as { phone?: string }).phone : shippingForm.phone) || '',
       state: shippingForm.state,
       city: shippingForm.city,
       houseAddress: shippingForm.houseAddress,
       address: shippingForm.address,
     };
+  }
+
+  if (isLoading) return <PaymentStatusModal open={true} message={typeof window !== 'undefined' && (window.location.search.includes('reference') || window.location.search.includes('trxref')) ? 'Payment being verified...' : 'Opening secure payment gateway...'} />;
+
+  function OrderCompleteModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+    if (!open) return null;
+    return (
+      <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-50 flex items-center justify-center">
+        <div className="bg-white rounded-xl shadow-lg p-8 flex flex-col items-center gap-6 min-w-[320px] max-w-[90vw]">
+          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-2">
+            <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+          </div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-1">Order Completed!</h2>
+          <p className="text-gray-700 mb-4 text-center">Thank you for your purchase. Your order has been placed successfully.</p>
+          <div className="flex flex-col sm:flex-row gap-3 w-full">
+            <button
+              className="flex-1 py-2 rounded-lg bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition"
+              onClick={() => { onClose(); router.push('/orders'); }}
+            >
+              View My Orders
+            </button>
+            <button
+              className="flex-1 py-2 rounded-lg bg-gray-100 text-gray-700 font-semibold hover:bg-gray-200 transition"
+              onClick={() => { onClose(); router.push('/'); }}
+            >
+              Go to Home
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -264,7 +325,6 @@ export default function ProfessionalCartPage() {
                 promoApplied={referralApplied}
                 isLoading={isLoading}
                 onPromoCodeChange={setReferralCode}
-                onApplyPromo={handleVerifyReferralCode}
                 discountPercent={referralDiscountPercent}
                 selectedItems={selectedItems}
                 subtotal={subtotal}
@@ -291,11 +351,23 @@ export default function ProfessionalCartPage() {
           shippingForm={shippingForm}
           setShippingForm={setShippingForm}
           isAuthenticated={isAuthenticated}
-          typedUser={typedUser}
-          cartItems={selectedItems}
+          typedUser={typedUser ? {
+            first_name: (typedUser as unknown as { first_name?: string }).first_name || '',
+            last_name: (typedUser as unknown as { last_name?: string }).last_name || '',
+            email: (typedUser as unknown as { email?: string }).email || '',
+            phone: (typedUser as unknown as { phone?: string }).phone || '',
+          } : null}
+          cartItems={selectedItems.map(item => ({
+            productId: item.productId,
+            name: item.product?.name || '',
+            quantity: item.quantity,
+            price: item.price,
+            sellingPrice: item.sellingPrice,
+            product: item.product ? { name: item.product.name, stock: 100 } : undefined,
+          }))}
           onSubmit={() => {
             setShowShippingModal(false);
-            handleCheckout(shippingForm);
+            handleCheckout();
           }}
           onQuantityChange={updateQuantity}
           allowedPartPayment={allowedPartPayment}
@@ -327,6 +399,7 @@ export default function ProfessionalCartPage() {
           }}
         />
         <ManualPaymentModal isOpen={showManualModal} onClose={() => setShowManualModal(false)} payNow={payNow} />
+        <OrderCompleteModal open={showOrderCompleteModal} onClose={() => setShowOrderCompleteModal(false)} />
       </div>
     </>
   );

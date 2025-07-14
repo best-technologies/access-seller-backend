@@ -1,5 +1,3 @@
-import { CheckCircle } from "lucide-react";
-
 interface CartPromoCodeProps {
   promoCode: string;
   promoApplied: boolean;

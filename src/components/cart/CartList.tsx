@@ -1,8 +1,9 @@
 import CartItem from "./CartItem";
 import CartEmptyState from "./CartEmptyState";
+import type { CartItem as CartItemType } from "@/types/cart";
 
 interface CartListProps {
-  items: any[];
+  items: CartItemType[];
   selected: string[];
   onToggle: (id: string) => void;
   onRemove: (id: string) => void;

@@ -1,8 +1,9 @@
 import Image from "next/image";
 import { Trash2, Minus, Plus } from "lucide-react";
+import type { CartItem as CartItemType } from "@/types/cart";
 
 interface CartItemProps {
-  item: any;
+  item: CartItemType;
   checked: boolean;
   onToggle: () => void;
   onRemove: () => void;
@@ -70,7 +71,7 @@ export default function CartItem({ item, checked, onToggle, onRemove, onQuantity
               </button>
             </div>
             <span className="text-sm text-gray-500">
-              Price: ₦{item.price.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}
+              Price: ₦{!isNaN(Number(item.price)) ? Number(item.price).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2}) : '0.00'}
             </span>
           </div>
         </div>

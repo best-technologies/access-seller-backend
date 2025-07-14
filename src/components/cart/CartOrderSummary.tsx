@@ -1,13 +1,12 @@
-import CartPromoCode from "./CartPromoCode";
+import type { CartItem as CartItemType } from "@/types/cart";
 
 interface CartOrderSummaryProps {
   promoCode: string;
   promoApplied: boolean;
   isLoading: boolean;
   onPromoCodeChange: (v: string) => void;
-  onApplyPromo: () => void;
   discountPercent: number;
-  selectedItems: any[];
+  selectedItems: CartItemType[];
   subtotal: number;
   savings: number;
   shipping: number;
@@ -28,7 +27,6 @@ export default function CartOrderSummary({
   promoApplied,
   isLoading,
   onPromoCodeChange,
-  onApplyPromo,
   discountPercent,
   selectedItems,
   subtotal,
