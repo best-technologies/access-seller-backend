@@ -190,7 +190,7 @@ export default function ProfessionalCartPage() {
       const reference = urlParams.get('reference') || urlParams.get('trxref');
       if (reference) {
         setIsLoading(true);
-        api.paystack.verifyPaystackFunding(reference)
+        api.paystack.verifyCheckoutPayment(reference)
           .then((res) => {
             const responseData = res as unknown as { success: boolean; message?: string };
             if (responseData.success) {

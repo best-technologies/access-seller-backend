@@ -537,10 +537,11 @@ export const api = {
       return axiosInstance.post('/paystack/cart-checkout-initialise-paystack-payment', orderData);
     },
     verifyPaystackFunding: async (reference: string) => {
-      // Calls /paystack/verify-paystack-funding with the reference or trxref
+      console.log("calling endpoint: /paystack/verify-paystack-funding")
       return axiosInstance.post('/paystack/verify-paystack-funding', { reference });
     },
     verifyCheckoutPayment: async (reference: string) => {
+      console.log("calling endpoint: /paystack/verify-cart-payment")
       return axiosInstance.post('/paystack/verify-cart-payment', { reference });
     },
     getOrderById: async (id: string) => {

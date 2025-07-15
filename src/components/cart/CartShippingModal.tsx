@@ -70,34 +70,18 @@ export default function CartShippingModal({
     const qty = Number(item.quantity ?? 1);
     return sum + (isNaN(price) || isNaN(qty) ? 0 : price * qty);
   }, 0);
-  // Helper to get value from typedUser or shippingForm
-  const userFieldMap: Record<keyof ShippingForm, string | null> = {
-    firstName: 'first_name',
-    lastName: 'last_name',
-    email: 'email',
-    phone: 'phone',
-    state: null,
-    city: null,
-    houseAddress: null,
-    address: null,
+  // Merge shipping info from typedUser and shippingForm for validation
+  const mergedShipping = {
+    firstName: isAuthenticated && typedUser?.first_name ? typedUser.first_name : shippingForm.firstName,
+    lastName: isAuthenticated && typedUser?.last_name ? typedUser.last_name : shippingForm.lastName,
+    email: isAuthenticated && typedUser?.email ? typedUser.email : shippingForm.email,
+    phone: isAuthenticated && typedUser?.phone ? typedUser.phone : shippingForm.phone,
+    state: shippingForm.state,
+    city: shippingForm.city,
+    houseAddress: shippingForm.houseAddress,
+    address: shippingForm.address,
   };
-  const getField = (field: keyof ShippingForm) => {
-    const userKey = userFieldMap[field];
-    if (isAuthenticated && typedUser && userKey) {
-      return typedUser[userKey as keyof typeof typedUser];
-    }
-    return shippingForm[field];
-  };
-  const allFieldsFilled = [
-    getField('firstName'),
-    getField('lastName'),
-    getField('email'),
-    getField('phone'),
-    getField('state'),
-    getField('city'),
-    getField('houseAddress'),
-    getField('address'),
-  ].every(Boolean);
+  const allFieldsFilled = Object.values(mergedShipping).every(val => val && val.toString().trim() !== "");
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/10 backdrop-blur-sm transition-all">
       <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:w-full sm:max-w-md mx-auto max-h-[90vh] min-h-[400px] min-w-[320px] sm:min-w-[400px] overflow-y-auto border border-gray-200">
