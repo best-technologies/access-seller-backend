@@ -177,6 +177,7 @@ enum ShipmentStatus {
   processing
   in_transit
 }
+
 enum orderPaymentStatus {
   awaiting_payment
   completed
@@ -360,7 +361,7 @@ model Order {
   orderId            String?               @unique
   productid          String?
   userId             String
-  storeId            String
+  storeId            String?
   status             OrderStatus?          @default(pending)
   total              Float
   total_amount       Float                 @default(0) // Adding this field for compatibility
@@ -376,8 +377,9 @@ model Order {
   updatedAt          DateTime              @updatedAt
 
   // New fields for frontend order data
-  referralCode         String? // Referral code used
-  shipping             Float? // Shipping cost
+  referralCode         String?
+  shipping             Float?
+  shippingCost         Float? @default(0)
   promoCode            String? // Promo code used
   promoDiscountPercent Float? // Discount percent from promo
   promoDiscountAmount  Float? // Discount amount from promo
@@ -396,8 +398,8 @@ model Order {
   paystackAccessCode       String?
 
   // Relations
-  user               User                 @relation(fields: [userId], references: [id])
-  store              Store                @relation(fields: [storeId], references: [id])
+  user               User?                @relation(fields: [userId], references: [id])
+  store              Store?               @relation(fields: [storeId], references: [id])
   items              OrderItem[]
   commissions        Commission[]
   withdrawalRequests WithdrawalRequest[]

@@ -321,8 +321,8 @@ export class DashboardService {
 
         return orders.map((order, index) => ({
             id: order.id,
-            customerName: `${order.user.first_name} ${order.user.last_name}`,
-            customerEmail: order.user.email,
+            customerName: `${order.user?.first_name} ${order.user?.last_name}`,
+            customerEmail: order.user?.email,
             orderNumber: `#ORD-${order.id.slice(-8).toUpperCase()}`,
             amount: Math.round(order.total),
             status: order.status,

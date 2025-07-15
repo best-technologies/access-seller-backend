@@ -190,8 +190,8 @@ export class UserService {
         return {
           id: record.id,
           orderId: order?.orderId,
-          buyerName: order ? order.user.first_name + ' ' + order.user.last_name : '',
-          buyerEmail: order ? order.user.email : '',
+          buyerName: order ? order.user?.first_name + ' ' + order.user?.last_name : '',
+          buyerEmail: order ? order.user?.email : '',
           orderAmount: order ? formatAmount(order.total) : '',
           // withdrawalStatus: order ? order.withdrawalStatus : '',
           displayImage: order?.items?.[0]?.product?.displayImages?.[0]?.secure_url,

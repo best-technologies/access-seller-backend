@@ -11,6 +11,7 @@ import { sendOrderConfirmationToBuyer, sendOrderNotificationToAdmin } from 'src/
 import { CheckoutFromCartDto, VerifyAccountNumberDto } from './dto/paystack.dto';
 import * as argon2 from 'argon2';
 import { generateOrderId, generateTrackingId } from '../shared/helper-functions/generator';
+import { ShipmentStatus } from '@prisma/client';
 
 
 @Injectable()
@@ -526,7 +527,7 @@ export class PaystackService {
   }
 
   async checkoutFromCartWithPaystackInitialisation(dto: CheckoutFromCartDto) {
-    console.log(colors.cyan("Checking out from cart with paystack initialisation"), dto);
+    console.log(colors.cyan("Checking out from cart with paystack initialisation"));
     // 1. Validate all products exist and have enough stock
     for (const item of dto.items) {
       const product = await this.prisma.product.findUnique({ where: { id: item.productId } });
@@ -542,51 +543,56 @@ export class PaystackService {
       }
     }
 
-    // 2. Create order and order items in a transaction
-    let userForOrder: any = null;
-    const { order, orderItems, user } = await this.prisma.$transaction(async (tx) => {
-      // Create the order
-
-      let userId = '';
-      let user = await tx.user.findFirst({ where: { email: dto.shippingInfo?.email } });
-      if (user) {
-        userId = user.id;
-      } else {
-        // Create a new user with the supplied email and shipping info
-        const plainPassword = 'maximus123';
-        const hashedPassword = await argon2.hash(plainPassword);
-        user = await tx.user.create({
-          data: {
-            email: dto.shippingInfo?.email || '',
-            first_name: dto.shippingInfo?.firstName || '',
-            last_name: dto.shippingInfo?.lastName || '',
-            phone_number: dto.shippingInfo?.phone || '',
-            address: dto.shippingInfo?.address || '',
-            password: hashedPassword,
-            guest_password: plainPassword,
-            role: 'user',
-          }
-        });
-        userId = user.id;
-      }
-      if (!userId) {
-        console.log(colors.red("User ID could not be determined for order creation"))
-        throw new Error('User ID could not be determined for order creation');
-      }
-      userForOrder = user;
-
-      let storeId: string | undefined = undefined;
-      if (dto.items.length > 0) {
-        // Try to get the storeId from the first product
-        const firstProduct = await tx.product.findUnique({ where: { id: dto.items[0].productId } });
-        if (firstProduct && firstProduct.storeId) {
-          storeId = firstProduct.storeId;
+    // --- Move non-DB operations outside transaction ---
+    // Prepare user info
+    let user = await this.prisma.user.findFirst({ where: { email: dto.shippingInfo?.email } });
+    let userId = user?.id;
+    let userForOrder = user;
+    let createdUser = false;
+    if (!user) {
+      // Hash password outside transaction
+      const plainPassword = 'maximus123';
+      const hashedPassword = await argon2.hash(plainPassword);
+      user = await this.prisma.user.create({
+        data: {
+          email: dto.shippingInfo?.email || '',
+          first_name: dto.shippingInfo?.firstName || '',
+          last_name: dto.shippingInfo?.lastName || '',
+          phone_number: dto.shippingInfo?.phone || '',
+          address: dto.shippingInfo?.address || '',
+          password: hashedPassword,
+          guest_password: plainPassword,
+          role: 'user',
         }
+      });
+      userId = user.id;
+      userForOrder = user;
+      createdUser = true;
+    }
+    if (!userId) {
+      console.log(colors.red("User ID could not be determined for order creation"))
+      throw new Error('User ID could not be determined for order creation');
+    }
+
+    // Generate unique tracking number outside transaction
+    let trackingNumber = '';
+    for (let i = 0; i < 5; i++) { // Try up to 5 times
+      const candidate = generateTrackingId();
+      const exists = await this.prisma.order.findFirst({ where: { trackingNumber: candidate } });
+      if (!exists) {
+        trackingNumber = candidate;
+        break;
       }
+    }
+    if (!trackingNumber) {
+      throw new Error('Failed to generate unique tracking number');
+    }
+
+    // --- Start transaction for DB-only operations ---
+    const { order } = await this.prisma.$transaction(async (tx) => {
+      // Find or create shipping address
       let shippingAddressId: string | undefined = undefined;
-      // Hybrid: Save address snapshot and optionally create ShippingAddress record
       if (dto.shippingInfo && userId) {
-        // Try to find an existing ShippingAddress for this user and address
         let shippingAddress = await tx.shippingAddress.findFirst({
           where: {
             userId,
@@ -597,7 +603,6 @@ export class PaystackService {
           }
         });
         if (!shippingAddress) {
-          // Create new ShippingAddress
           shippingAddress = await tx.shippingAddress.create({
             data: {
               userId,
@@ -614,14 +619,30 @@ export class PaystackService {
         }
         shippingAddressId = shippingAddress.id;
       }
+
+      // Find storeId from first product or fallback to first store
+      let storeId: string | undefined = undefined;
+      if (dto.items.length > 0) {
+        const firstProduct = await tx.product.findUnique({ where: { id: dto.items[0].productId } });
+        if (firstProduct && firstProduct.storeId) {
+          storeId = firstProduct.storeId;
+        }
+      }
+      if (!storeId) {
+        const firstStore = await tx.store.findFirst();
+        if (!firstStore) throw new Error('No store found in the database to attach to the order.');
+        storeId = firstStore.id;
+      }
+
+      // Prepare order data
       const orderData: any = {
-        userId,
         status: 'pending',
         total: dto.total,
         total_amount: dto.total,
         shippingInfo: dto.shippingInfo || {},
-        shippingAddressId,
-        orderPaymentStatus: 'pending',
+        orderPaymentStatus: 'awaiting_payment',
+        shipmentStatus: "awaiting_payment",
+        trackingNumber,
         isPartialPayment: !!dto.partialPayment,
         partialPayNow: dto.partialPayment?.payNow,
         partialPayLater: dto.partialPayment?.payLater,
@@ -629,22 +650,22 @@ export class PaystackService {
         partialSelectedPercent: dto.partialPayment?.selectedPercentage,
         fullPayNow: dto.fullPayment?.payNow,
         fullPayLater: dto.fullPayment?.payLater,
-        // New fields from frontend
         referralCode: dto.referralCode,
-        // referralDiscountPercent: dto.referralDiscountPercent,
-        // referralDiscountAmount: dto.referralDiscountAmount,
-        shipping: dto.shipping,
+        shippingCost: dto.shipping || 0,
         promoCode: dto.promoCode,
         promoDiscountPercent: dto.promoDiscountPercent,
         promoDiscountAmount: dto.promoDiscountAmount,
+        user: { connect: { id: userId } },
+        store: { connect: { id: storeId } },
       };
-      if (storeId) {
-        orderData.storeId = storeId;
+      if (shippingAddressId) {
+        orderData.shippingAddress = { connect: { id: shippingAddressId } };
       }
+      console.log("orderData just before create:", orderData);
       const order = await tx.order.create({ data: orderData });
 
       // Create order items
-      const orderItems = await Promise.all(dto.items.map(item =>
+      await Promise.all(dto.items.map(item =>
         tx.orderItem.create({
           data: {
             orderId: order.id,
@@ -656,8 +677,8 @@ export class PaystackService {
         })
       ));
 
-      return { order, orderItems, user };
-    });
+      return { order };
+    }, { timeout: 20000 }); // 20 seconds
 
     // 3. Prepare Paystack payload
     const amount = Math.round((dto.partialPayment?.payNow || dto.total) * 100);
@@ -723,7 +744,7 @@ export class PaystackService {
 
   async verifyCartPayment(dto: verifyPaystackPaymentDto) {
 
-    console.log(colors.cyan("Verifying cart checkout with paystack"));
+    console.log(colors.cyan("Verifying cart checkout payment with paystack"));
 
     console.log("Dto: ", dto.reference)
 
@@ -739,10 +760,10 @@ export class PaystackService {
             throw new NotFoundException("Order not found or amount is missing");
         }
 
-        if(existingOrder.orderPaymentStatus === "completed") {
-            console.log(colors.red("Order payment status already verified"));
-            return new ApiResponse(false, "Transaction already verified");
-        }
+        // if(existingOrder.orderPaymentStatus === "completed") {
+        //     console.log(colors.red("Order payment status already verified"));
+        //     return new ApiResponse(false, "Transaction already verified");
+        // }
 
         const amountInKobo = existingOrder.total * 100;
 
@@ -767,17 +788,21 @@ export class PaystackService {
             return new ApiResponse(false, "Payment was not completed or successful");
         }
 
-        console.log("Paystack kobo amount: ", paystackKoboAmount)
-        console.log("amount in kobo: ", amountInKobo)
-
         // Determine if this is a partial payment
         const isPartialPayment = !!existingOrder.isPartialPayment && !!existingOrder.partialPayNow;
         const partialPayNowKobo = existingOrder.partialPayNow ? Math.round(existingOrder.partialPayNow * 100) : null;
 
+        // Log expected and actual payment amounts
+        console.log(colors.yellow('Expected amount (kobo):'), amountInKobo);
+        console.log(colors.yellow('Paystack paid amount (kobo):'), paystackKoboAmount);
+        if (isPartialPayment) {
+          console.log(colors.yellow('Partial pay now (kobo):'), partialPayNowKobo);
+        }
+
         // Validate that the amount paid matches the expected amount (allow full or partial payment)
-        if (paystackKoboAmount !== amountInKobo) {
-          if (!(isPartialPayment && paystackKoboAmount === partialPayNowKobo) &&
-              !(isPartialPayment && paystackKoboAmount === amountInKobo)) {
+        if (Math.round(paystackKoboAmount) !== Math.round(amountInKobo)) {
+          if (!(isPartialPayment && Math.round(paystackKoboAmount) === Math.round(partialPayNowKobo ?? 0)) &&
+              !(isPartialPayment && Math.round(paystackKoboAmount) === Math.round(amountInKobo))) {
             console.log(colors.red("Amount mismatch detected"));
             return new ApiResponse(false, "Payment amount does not match transaction amount");
           }
@@ -824,86 +849,87 @@ export class PaystackService {
         let commissionType: string | undefined;
 
         // Check for referral slug (affiliate link)
-        if (updatedOrder.referralSlug) {
-          try {
-            affiliateLink = await this.prisma.affiliateLink.findUnique({
-              where: { slug: updatedOrder.referralSlug },
-              include: {
-                user: true,
-                product: true
-              }
-            });
+        // if (updatedOrder.referralSlug) {
+        //   try {
+        //     affiliateLink = await this.prisma.affiliateLink.findUnique({
+        //       where: { slug: updatedOrder.referralSlug },
+        //       include: {
+        //         user: true,
+        //         product: true
+        //       }
+        //     });
 
-            if (affiliateLink) {
-              commissionType = 'affiliate_link';
-              // Get the product from the order items to get its commission percentage
-              const orderItem = updatedOrder.items[0]; // Since affiliate orders have single items
-              const productCommission = orderItem.product.commission;
-              // Calculate commission using the product's commission percentage
-              const commissionPercentage = productCommission ? parseFloat(productCommission) : 20; // Default to 20% if not set
-              commissionAmount = (updatedOrder.total * commissionPercentage) / 100;
+        //     if (affiliateLink) {
+        //       commissionType = 'affiliate_link';
+        //       // Get the product from the order items to get its commission percentage
+        //       const orderItem = updatedOrder.items[0]; // Since affiliate orders have single items
+        //       const productCommission = orderItem.product.commission;
+        //       // Calculate commission using the product's commission percentage
+        //       const commissionPercentage = productCommission ? parseFloat(productCommission) : 20; // Default to 20% if not set
+        //       commissionAmount = (updatedOrder.total * commissionPercentage) / 100;
 
-              // Create commission referral record
-              await this.prisma.commissionReferral.create({
-                data: {
-                  userId: affiliateLink.userId,
-                  orderId: updatedOrder.id,
-                  productId: orderItem.productId,
-                  type: commissionType,
-                  totalPurchaseAmount: updatedOrder.total,
-                  commissionPercentage: commissionPercentage.toString(),
-                  amount: commissionAmount,
-                  status: 'awaiting_approval',
-                  createdAt: new Date(),
-                  updatedAt: new Date(),
-                }
-              });
+        //       // Create commission referral record
+        //       await this.prisma.commissionReferral.create({
+        //         data: {
+        //           userId: affiliateLink.userId,
+        //           orderId: updatedOrder.id,
+        //           productId: orderItem.productId,
+        //           type: commissionType,
+        //           totalPurchaseAmount: updatedOrder.total,
+        //           commissionPercentage: commissionPercentage.toString(),
+        //           amount: commissionAmount,
+        //           status: 'awaiting_approval',
+        //           createdAt: new Date(),
+        //           updatedAt: new Date(),
+        //         }
+        //       });
 
-              // amount earned should be 22% of the total purchase, for now
-              const amountEarned = (updatedOrder.total || 0) * 0.22;
+        //       // amount earned should be 22% of the total purchase, for now
+        //       const amountEarned = (updatedOrder.total || 0) * 0.22;
 
-              // update users wallet (logic unchanged)
-              const wallet = await this.prisma.wallet.findUnique({ where: { userId: affiliateLink.userId } });
-              const newTotalEarned = (wallet?.total_earned || 0) + amountEarned;
-              const newAvailableForWithdrawal = (wallet?.available_for_withdrawal || 0) + amountEarned;
-              const newBalanceBefore = wallet?.balance_after || 0;
-              const newBalanceAfter = newBalanceBefore + amountEarned;
+        //       // update users wallet (logic unchanged)
+        //       const wallet = await this.prisma.wallet.findUnique({ where: { userId: affiliateLink.userId } });
+        //       const newTotalEarned = (wallet?.total_earned || 0) + amountEarned;
+        //       const newAvailableForWithdrawal = (wallet?.available_for_withdrawal || 0) + amountEarned;
+        //       const newBalanceBefore = wallet?.balance_after || 0;
+        //       const newBalanceAfter = newBalanceBefore + amountEarned;
               
-              await this.prisma.wallet.update({
-                where: { userId: affiliateLink.userId },
-                data: {
-                  total_earned: newTotalEarned,
-                  available_for_withdrawal: newAvailableForWithdrawal,
-                  balance_before: newBalanceBefore,
-                  balance_after: newBalanceAfter,
-                  updatedAt: new Date()
-                }
-              });
+        //       await this.prisma.wallet.update({
+        //         where: { userId: affiliateLink.userId },
+        //         data: {
+        //           total_earned: newTotalEarned,
+        //           available_for_withdrawal: newAvailableForWithdrawal,
+        //           balance_before: newBalanceBefore,
+        //           balance_after: newBalanceAfter,
+        //           updatedAt: new Date()
+        //         }
+        //       });
 
-              // Update affiliate link stats (logic unchanged)
-              await this.prisma.affiliateLink.update({
-                where: { id: affiliateLink.id },
-                data: {
-                  orders: {
-                    increment: 1
-                  },
-                  commission: {
-                    increment: commissionAmount
-                  }
-                }
-              });
+        //       // Update affiliate link stats (logic unchanged)
+        //       await this.prisma.affiliateLink.update({
+        //         where: { id: affiliateLink.id },
+        //         data: {
+        //           orders: {
+        //             increment: 1
+        //           },
+        //           commission: {
+        //             increment: commissionAmount
+        //           }
+        //         }
+        //       });
 
-              console.log(colors.green(`Commission awarded: ${commissionAmount} to affiliate ${affiliateLink.userId}`));
-            }
-          } catch (error) {
-            console.log(colors.red('Error awarding commission:'), error);
-          }
-        }
+        //       console.log(colors.green(`Commission awarded: ${commissionAmount} to affiliate ${affiliateLink.userId}`));
+        //     }
+        //   } catch (error) {
+        //     console.log(colors.red('Error awarding commission:'), error);
+        //   }
+        // }
 
         // Check for referral code (referral code owner)
         if (updatedOrder.referralCode) {
-
+          console.log(colors.blue("Referral code exists"), updatedOrder.referralCode)
           const commissionPercentage = parseFloat(process.env.AFFILIATE_COMMISSION_PERCENT || '20');
+          console.log(colors.green("Set commission percentage"), commissionPercentage)
           commissionAmount = (updatedOrder.total * commissionPercentage) / 100;
 
           try {
@@ -913,11 +939,11 @@ export class PaystackService {
               
 
               // Create commission referral record
+              
               await this.prisma.commissionReferral.create({
                 data: {
                   userId: referralCodeOwner.userId,
                   orderId: updatedOrder.id,
-                  productId: updatedOrder.id,
                   type: commissionType,
                   totalPurchaseAmount: updatedOrder.total,
                   commissionPercentage: commissionPercentage.toString(),
@@ -928,17 +954,34 @@ export class PaystackService {
                 }
               });
 
-              // amount earned should be 22% of the total purchase, for now
-              const amountEarned = (updatedOrder.total || 0) * 0.22;
-
+              // amount earned should be the commission amount (not commissionPercentage * total)
+              const amountEarned = commissionAmount;
+              console.log(colors.yellow("Total purchase cost: "), updatedOrder.total_amount)
+              console.log(colors.cyan("Total referral earning: "), amountEarned)
+              
+              
               // update users wallet (logic unchanged)
-              const wallet = await this.prisma.wallet.findUnique({ where: { userId: referralCodeOwner.userId } });
+              let wallet = await this.prisma.wallet.findUnique({ where: { userId: referralCodeOwner.userId } });
+              if (!wallet) {
+                wallet = await this.prisma.wallet.create({
+                  data: {
+                    userId: referralCodeOwner.userId,
+                    total_earned: 0,
+                    available_for_withdrawal: 0,
+                    total_withdrawn: 0,
+                    balance_before: 0,
+                    balance_after: 0,
+                  }
+                });
+              }
+              console.log(colors.magenta("Referree initial wallet balance: "), wallet)
+
               const newTotalEarned = (wallet?.total_earned || 0) + amountEarned;
               const newAvailableForWithdrawal = (wallet?.available_for_withdrawal || 0) + amountEarned;
               const newBalanceBefore = wallet?.balance_after || 0;
               const newBalanceAfter = newBalanceBefore + amountEarned;
-              
-              await this.prisma.wallet.update({
+
+              const updatedWallet = await this.prisma.wallet.update({
                 where: { userId: referralCodeOwner.userId },
                 data: {
                   total_earned: newTotalEarned,
@@ -948,6 +991,8 @@ export class PaystackService {
                   updatedAt: new Date()
                 }
               });
+
+              console.log(colors.magenta("Referree final wallet balance: "), updatedWallet)
 
               console.log(colors.green(`Commission awarded: ${commissionAmount} to referral code owner ${referralCodeOwner.userId}`));
             }

@@ -25,19 +25,20 @@ async function bootstrap() {
   await app.listen(process.env.PORT || 3000);
 
   // Get AppService instance from Nest application context
-  const appService = app.get(AppService);
 
   // Cron job setup
-  cron.schedule('*/5 * * * *', async () => {
-    console.log('Running a task every 5 minutes');
-    try {
-      const url = 'https://access-sellr-dusky.vercel.app/api/v1';
-      const response = await axios.get(url);
-      console.log('Pinged endpoint, response:', response.data);
-    } catch (err) {
-      console.error('Error pinging endpoint:', err.message);
-    }
-  });
+  if (process.env.NODE_ENV === 'development') {
+    cron.schedule('*/10 * * * *', async () => {
+      console.log('Running a task every 10 minutes');
+      try {
+        const url = 'https://access-seller-backend.onrender.com/api/v1/hello';
+        const response = await axios.get(url);
+        console.log('Pinged endpoint, response:', response.data);
+      } catch (err) {
+        console.error('Error pinging endpoint:', err.message);
+      }
+    });
+  }
 
   console.log("Server is running on port", process.env.PORT ?? 2000);
 }
