@@ -272,7 +272,7 @@ export default function FeaturedBooks({ books = [], available_categories = [], l
 
                         {/* Add to Cart Button */}
                         <button 
-                          onClick={e => {
+                          onClick={e => { 
                             e.preventDefault();
                             e.stopPropagation();
                             if (isInCart(String(b.id))) {

@@ -18,6 +18,8 @@ interface CategoriesProps {
 }
 
 export default function Categories({ categories = [], loading = false, error = null }: CategoriesProps) {
+  // Debug: log categories data
+  console.log("Categories data:", categories);
   return (
     <div className="px-4 sm:px-0">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 sm:mb-12">
@@ -30,44 +32,45 @@ export default function Categories({ categories = [], loading = false, error = n
           <ArrowRight className="w-3 h-3 sm:w-4 sm:h-4 ml-1 sm:ml-2" />
         </Button> */}
       </div>
-
-      <div className="flex overflow-x-auto pb-6 gap-3 px-4 sm:px-0 sm:grid sm:grid-cols-2 lg:grid-cols-4 sm:gap-6">
-        {loading ? (
-          <div className="flex justify-center items-center w-full min-h-[200px]"><Loader size="lg" variant="primary" /></div>
-        ) : error ? (
-          <div className="flex justify-center items-center w-full min-h-[200px] text-red-500">{error}</div>
-        ) : categories.length === 0 ? (
-          <div className="flex justify-center items-center w-full min-h-[200px] text-gray-500">No categories at the moment.</div>
-        ) : (
-          categories.map((cat) => (
-            <Card key={cat.name} className="group relative overflow-hidden border-none shadow-lg hover:shadow-xl transition-all duration-300 min-w-[200px] sm:min-w-0">
-              <div className="aspect-square w-full bg-gray-100 relative overflow-hidden">
-                <div className="relative w-full h-full">
-                  <Image 
-                    src={cat.image} 
-                    alt={cat.name}
-                    fill
-                    className="object-cover group-hover:scale-105 transition-transform duration-300"
-                  />
-                </div>
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
-                
-                <div className="absolute inset-0 p-3 sm:p-6 flex flex-col justify-end">
-                  <div className="text-white">
-                    <h3 className="text-lg sm:text-2xl font-bold mb-1 sm:mb-2">{cat.name}</h3>
-                    <p className="text-xs sm:text-sm text-gray-200 mb-2 sm:mb-3">{cat.description}</p>
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs sm:text-sm font-medium">{cat.count}</span>
-                      {/* <Button size="sm" className="bg-white text-indigo-600 hover:bg-gray-100 rounded-full h-6 sm:h-8 text-xs sm:text-sm px-2 sm:px-3">
-                        Explore
-                      </Button> */}
+      {/* Only the row and gradients are wrapped in relative */}
+      <div className="relative w-full">
+        <div className="flex overflow-x-auto pb-6 gap-3 px-2 sm:px-0 scrollbar-hide scroll-smooth w-full">
+          {loading ? (
+            <div className="flex justify-center items-center w-full min-h-[200px]"><Loader size="lg" variant="primary" /></div>
+          ) : error ? (
+            <div className="flex justify-center items-center w-full min-h-[200px] text-red-500">{error}</div>
+          ) : categories.length === 0 ? (
+            <div className="flex justify-center items-center w-full min-h-[200px] text-gray-500">No categories at the moment.</div>
+          ) : (
+            categories.map((cat) => (
+              <Card key={cat.name} className="group relative overflow-hidden border-none shadow-lg hover:shadow-xl transition-all duration-300 min-w-[200px]">
+                <div className="aspect-square w-full bg-gray-100 relative overflow-hidden">
+                  <div className="relative w-full h-full">
+                    <Image 
+                      src={cat.image} 
+                      alt={cat.name}
+                      fill
+                      className="object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+                  </div>
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
+                  <div className="absolute inset-0 p-3 sm:p-6 flex flex-col justify-end">
+                    <div className="text-white">
+                      <h3 className="text-lg sm:text-2xl font-bold mb-1 sm:mb-2">{cat.name}</h3>
+                      <p className="text-xs sm:text-sm text-gray-200 mb-2 sm:mb-3">{cat.description}</p>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs sm:text-sm font-medium">{cat.count}</span>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            </Card>
-          ))
-        )}
+              </Card>
+            ))
+          )}
+        </div>
+        {/* Gradient Fade Effects */}
+        <div className="hidden sm:block pointer-events-none absolute right-0 top-0 bottom-8 w-32 bg-gradient-to-l from-white via-white/80 to-transparent z-10" />
+        <div className="hidden sm:block pointer-events-none absolute left-0 top-0 bottom-8 w-32 bg-gradient-to-r from-white via-white/80 to-transparent z-10" />
       </div>
     </div>
   );

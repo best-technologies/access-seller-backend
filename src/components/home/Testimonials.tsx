@@ -48,7 +48,7 @@ export default function Testimonials() {
         </p>
       </div>
 
-      <div className="flex overflow-x-auto pb-6 gap-3 px-4 sm:px-0 sm:grid sm:grid-cols-3 sm:gap-6 sm:mb-12">
+      <div className="flex overflow-x-auto pb-6 gap-3 px-4 sm:px-0">
         {testimonials.map((t, i) => (
           <div key={i} className="relative min-w-[240px] sm:min-w-0">
             <div className="bg-white rounded-xl sm:rounded-2xl p-4 sm:p-6 shadow-lg hover:shadow-xl transition-shadow duration-300">

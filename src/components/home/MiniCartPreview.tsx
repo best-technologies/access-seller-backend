@@ -31,7 +31,7 @@ export default function MiniCartPreview() {
               <li key={item.productId} className="py-2 flex justify-between items-center">
                 <span className="truncate">{item.product?.name || item.productId}</span>
                 <span className="text-gray-600 text-sm">x{item.quantity}</span>
-                <span className="font-medium">${item.price}</span>
+                <span className="font-medium">₦{item.price}</span>
               </li>
             ))}
           </ul>

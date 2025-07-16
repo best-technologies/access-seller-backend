@@ -5,7 +5,7 @@ import toast from "react-hot-toast";
 interface CartContextType {
   cart: CartItem[];
   addToCart: (item: CartItem) => void;
-  removeFromCart: (productId: string) => void;
+  removeFromCart: (productId: string, suppressToast?: boolean) => void;
   updateQuantity: (productId: string, quantity: number) => void;
   clearCart: () => void;
 }
@@ -64,10 +64,10 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     });
   };
 
-  const removeFromCart = (productId: string) => {
+  const removeFromCart = (productId: string, suppressToast = false) => {
     setCart(prev => {
       const itemToRemove = prev.find(ci => ci.productId === productId);
-      if (itemToRemove) {
+      if (itemToRemove && !suppressToast) {
         showToast(`${itemToRemove.product?.name || 'Item'} removed from cart!`, 'error');
       }
       return prev.filter(ci => ci.productId !== productId);

@@ -100,7 +100,7 @@ export default function ReferralHighlight() {
                 <div className="flex justify-between items-center p-6 bg-gray-50 rounded-2xl">
                   <div>
                     <p className="text-sm text-gray-500 mb-1">Total Earnings</p>
-                    <p className="text-3xl font-bold text-indigo-600">#1,234.56</p>
+                    <p className="text-3xl font-bold text-indigo-600">#3,530,430</p>
                   </div>
                   <div className="text-green-500 text-sm font-medium bg-green-50 px-3 py-1 rounded-full">+15% this month</div>
                 </div>
@@ -108,9 +108,9 @@ export default function ReferralHighlight() {
                 <div className="flex justify-between items-center p-6 bg-gray-50 rounded-2xl">
                   <div>
                     <p className="text-sm text-gray-500 mb-1">Successful Referrals</p>
-                    <p className="text-3xl font-bold text-indigo-600">48</p>
+                    <p className="text-3xl font-bold text-indigo-600">121</p>
                   </div>
-                  <div className="text-green-500 text-sm font-medium bg-green-50 px-3 py-1 rounded-full">+12 this month</div>
+                  <div className="text-green-500 text-sm font-medium bg-green-50 px-3 py-1 rounded-full">+23 this month</div>
                 </div>
 
                 <div className="flex justify-between items-center p-6 bg-gray-50 rounded-2xl">

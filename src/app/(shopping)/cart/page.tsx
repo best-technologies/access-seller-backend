@@ -66,6 +66,8 @@ export default function ProfessionalCartPage() {
   // Update selected when cart changes
   useEffect(() => {
     setSelected(cart.map(item => item.productId));
+    // Log cart items to the console whenever cart changes
+    // console.log('Cart items:', cart);
   }, [cart]);
 
   useEffect(() => {
@@ -96,6 +98,8 @@ export default function ProfessionalCartPage() {
   const deleteSelected = () => {
     selected.forEach(pid => removeFromCart(pid));
   };
+
+  // format and properly convert the prices to numbers before using it in the below code 
 
   // Only selected items for checkout
   const selectedItems = cart.filter(item => selected.includes(item.productId));
@@ -197,8 +201,8 @@ export default function ProfessionalCartPage() {
             const responseData = res as unknown as { success: boolean; message?: string };
             if (responseData.success) {
               // Remove paid items from cart
-              currentSelected.forEach(pid => currentRemoveFromCart(pid));
-              toast.success('Payment verified! Order placed successfully.');
+              currentSelected.forEach(pid => currentRemoveFromCart(pid, true));
+              toast.success('Payment verified! Order placed successfully. Cart cleared!');
               setShowOrderCompleteModal(true);
               // Remove query params from URL after verification
               const url = new URL(window.location.href);

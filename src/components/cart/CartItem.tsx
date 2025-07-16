@@ -71,7 +71,11 @@ export default function CartItem({ item, checked, onToggle, onRemove, onQuantity
               </button>
             </div>
             <span className="text-sm text-gray-500">
-              Price: ₦{!isNaN(Number(item.price)) ? Number(item.price).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2}) : '0.00'}
+              Price: ₦{
+                !isNaN(Number(String(item.price).replace(/,/g, "")))
+                  ? Number(String(item.price).replace(/,/g, "")).toLocaleString()
+                  : '0'
+              }
             </span>
           </div>
         </div>

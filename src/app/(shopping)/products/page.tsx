@@ -22,7 +22,6 @@ import {
   Star,
   X,
   ArrowRight,
-  Shield,
   ThumbsUp
 } from "lucide-react";
 import { useCart } from "@/hooks/useCart";
@@ -147,16 +146,17 @@ export default function ProfessionalProductsPage() {
       removeFromCart(productId);
       // toast.success(`${product.product_name} removed from cart`);
     } else {
+      
       addToCart({
         productId: productId,
         quantity: 1,
-        price: (product.selling_price),
-        sellingPrice: (product.selling_price),
-        normalPrice: (product.nomral_price),
+        price: Number(product.selling_price),
+        sellingPrice: Number(product.selling_price),
+        normalPrice: Number(product.nomral_price),
         product: {
           name: product.product_name,
           image: typeof product.display_picture === 'string' ? product.display_picture : '/placeholder.png',
-          category: product.format
+          category: String(product.format ?? '')
         }
       });
       // toast.success(`${product.product_name} added to cart`);
@@ -597,13 +597,13 @@ export default function ProfessionalProductsPage() {
               </div>
 
               {/* Price Range - Coming Soon */}
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 opacity-60">
+              {/* <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 opacity-60">
                 <h3 className="font-bold text-gray-900 mb-4 text-lg">Price Range</h3>
                 <div className="text-center text-gray-500 py-8">
                   <Shield className="h-8 w-8 mx-auto mb-2" />
                   <p className="text-sm">Coming Soon</p>
                 </div>
-              </div>
+              </div> */}
             </div>
           </div>
 
