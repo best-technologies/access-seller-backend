@@ -38,6 +38,13 @@ export interface BrowseProductsData {
   categories: BrowseCategory[];
   formats: BrowseFormat[];
   products: BrowseProduct[];
+  // New structure: products grouped by categories
+  productsByCategory?: CategoryProducts[];
+}
+
+export interface CategoryProducts {
+  categoryName: string;
+  products: BrowseProduct[];
 }
 
 export interface BrowseCategory {
