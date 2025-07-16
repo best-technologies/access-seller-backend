@@ -574,6 +574,15 @@ export class PaystackService {
       throw new Error('User ID could not be determined for order creation');
     }
 
+    // generate unique order id
+    let orderId: string = '';
+    while (true) {
+      orderId = generateOrderId();
+      const exists = await this.prisma.order.findFirst({ where: { orderId } });
+      if (!exists) break;
+    }
+    console.log(colors.yellow("Order id: "), orderId);
+
     // Generate unique tracking number outside transaction
     let trackingNumber = '';
     for (let i = 0; i < 5; i++) { // Try up to 5 times
@@ -637,6 +646,7 @@ export class PaystackService {
       // Prepare order data
       const orderData: any = {
         status: 'pending',
+        orderId,
         total: dto.total,
         total_amount: dto.total,
         shippingInfo: dto.shippingInfo || {},
@@ -661,7 +671,7 @@ export class PaystackService {
       if (shippingAddressId) {
         orderData.shippingAddress = { connect: { id: shippingAddressId } };
       }
-      console.log("orderData just before create:", orderData);
+      // console.log("orderData just before create:", orderData);
       const order = await tx.order.create({ data: orderData });
 
       // Create order items
@@ -735,6 +745,8 @@ export class PaystackService {
       userId: userForOrder?.id,
       paystackResponse: paystackResponse?.data.data
     };
+
+    console.log(colors.america("New order successfully created"))
     return new ApiResponse(
       true,
       'Cart checkout payment successfully initiated',
@@ -948,7 +960,7 @@ export class PaystackService {
                   totalPurchaseAmount: updatedOrder.total,
                   commissionPercentage: commissionPercentage.toString(),
                   amount: commissionAmount,
-                  status: 'pending',
+                  status: 'awaiting_approval',
                   createdAt: new Date(),
                   updatedAt: new Date(),
                 }
@@ -968,6 +980,7 @@ export class PaystackService {
                     userId: referralCodeOwner.userId,
                     total_earned: 0,
                     available_for_withdrawal: 0,
+                    awaiting_approval: 0,
                     total_withdrawn: 0,
                     balance_before: 0,
                     balance_after: 0,
@@ -977,17 +990,19 @@ export class PaystackService {
               console.log(colors.magenta("Referree initial wallet balance: "), wallet)
 
               const newTotalEarned = (wallet?.total_earned || 0) + amountEarned;
-              const newAvailableForWithdrawal = (wallet?.available_for_withdrawal || 0) + amountEarned;
-              const newBalanceBefore = wallet?.balance_after || 0;
-              const newBalanceAfter = newBalanceBefore + amountEarned;
+              const newAwaitingApproval = (wallet?.awaiting_approval || 0) + amountEarned
+              // const newAvailableForWithdrawal = (wallet?.available_for_withdrawal || 0) + amountEarned;
+              // const newBalanceBefore = wallet?.balance_after || 0;
+              // const newBalanceAfter = newBalanceBefore + amountEarned;
 
               const updatedWallet = await this.prisma.wallet.update({
                 where: { userId: referralCodeOwner.userId },
                 data: {
                   total_earned: newTotalEarned,
-                  available_for_withdrawal: newAvailableForWithdrawal,
-                  balance_before: newBalanceBefore,
-                  balance_after: newBalanceAfter,
+                  awaiting_approval: newAwaitingApproval,
+                  // available_for_withdrawal: newAvailableForWithdrawal,
+                  // balance_before: newBalanceBefore,
+                  // balance_after: newBalanceAfter,
                   updatedAt: new Date()
                 }
               });

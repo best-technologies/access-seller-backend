@@ -24,11 +24,11 @@ export class ReferralsService {
                 totalConversions,
                 pendingPayoutsAgg
             ] = await Promise.all([
-                this.prisma.commission.aggregate({ _sum: { amount: true } }),
+                this.prisma.commissionReferral.aggregate({ _sum: { amount: true } }),
                 this.prisma.affiliate.count({}),
                 this.prisma.referral.count(),
                 this.prisma.referral.count({ where: { isUsed: true } }),
-                this.prisma.commission.aggregate({ _sum: { amount: true }, where: { status: 'pending' } })
+                this.prisma.commissionReferral.aggregate({ _sum: { amount: true }, where: { status: 'awaiting_approval' } })
             ]);
 
             const kpiCards = {
@@ -36,7 +36,7 @@ export class ReferralsService {
                 totalAffiliates: totalAffiliates,
                 totalClicks: totalClicks,
                 totalConversions: totalConversions,
-                pendingPayouts: Number(pendingPayoutsAgg._sum.amount || 0)
+                pendingPayouts: Number(pendingPayoutsAgg._sum?.amount || 0)
             };
 
             // 2. Affiliate Settings (mocked or configurable)
@@ -47,83 +47,80 @@ export class ReferralsService {
                 expirationDays: 30
             };
 
-            // 3. Leaderboard (top affiliates by revenue)
-            const leaderboardUsersRaw = await this.prisma.affiliate.findMany({
-                take: 20, // fetch more to allow filtering
-                orderBy: { requestedAt: 'asc' },
+            // 3. Leaderboard (top affiliates by total earned in wallet)
+            const leaderboardWallets = await this.prisma.wallet.findMany({
+                orderBy: { total_earned: 'desc' },
+                take: 10,
                 include: {
-                    user: true
+                    user: {
+                        select: {
+                            id: true,
+                            first_name: true,
+                            last_name: true,
+                            email: true,
+                            createdAt: true
+                        }
+                    }
                 }
             });
-            // Only include affiliates with status 'approved' or 'active'
-            const leaderboardUsers = leaderboardUsersRaw.filter(
-                aff => aff.status === AffiliateStatus.approved || aff.status === AffiliateStatus.active
-            ).slice(0, 10); // limit to top 10 after filtering
-            // For each affiliate, calculate revenue, clicks, conversions
-            const leaderboard = await Promise.all(leaderboardUsers.map(async (aff) => {
-                const revenueAgg = await this.prisma.commission.aggregate({
-                    _sum: { amount: true },
-                    where: { userId: aff.userId }
-                });
-                const clicks = await this.prisma.referral.count({ where: { referrerId: aff.userId } });
-                const conversions = await this.prisma.referral.count({ where: { referrerId: aff.userId, isUsed: true } });
+            const leaderboard = await Promise.all(leaderboardWallets.map(async (w) => {
+                const affiliate = await this.prisma.affiliate.findUnique({ where: { userId: w.userId } });
                 return {
-                    id: aff.userId,
-                    name: aff.userName,
-                    email: aff.userEmail,
-                    revenue: Number(revenueAgg._sum.amount || 0),
-                    clicks,
-                    conversions,
-                    status: aff.status,
-                    joinedAt: aff.createdAt.toISOString()
+                    id: w.userId,
+                    name: w.user?.first_name + ' ' + w.user?.last_name,
+                    email: w.user?.email,
+                    totalEarned: w.total_earned,
+                    status: affiliate?.status,
+                    joinedAt: affiliate?.createdAt ? formatDate(affiliate.createdAt) : null
                 };
             }));
 
             // 4. Overview (summary and trends)
-            // For demo, use 'This Month' as selected timeframe
+            // Use 'This Year' as selected timeframe
             const now = new Date();
-            const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-            const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+            const startOfYear = new Date(now.getFullYear(), 0, 1);
+            const endOfYear = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
             const [
-                monthRevenueAgg,
-                monthClicks,
-                monthConversions,
-                monthNewAffiliates
+                yearRevenueAgg,
+                yearClicks,
+                yearConversions,
+                yearNewAffiliates
             ] = await Promise.all([
-                this.prisma.commission.aggregate({ _sum: { amount: true }, where: { createdAt: { gte: startOfMonth, lte: endOfMonth } } }),
-                this.prisma.referral.count({ where: { createdAt: { gte: startOfMonth, lte: endOfMonth } } }),
-                this.prisma.referral.count({ where: { isUsed: true, createdAt: { gte: startOfMonth, lte: endOfMonth } } }),
-                this.prisma.affiliate.count({ where: { createdAt: { gte: startOfMonth, lte: endOfMonth } } })
+                this.prisma.commissionReferral.aggregate({ _sum: { amount: true }, where: { createdAt: { gte: startOfYear, lte: endOfYear } } }),
+                this.prisma.referral.count({ where: { createdAt: { gte: startOfYear, lte: endOfYear } } }),
+                this.prisma.referral.count({ where: { isUsed: true, createdAt: { gte: startOfYear, lte: endOfYear } } }),
+                this.prisma.affiliate.count({ where: { createdAt: { gte: startOfYear, lte: endOfYear } } })
             ]);
-            // Trend data: last 7 days
-            const trendData = await Promise.all(Array.from({ length: 7 }).map(async (_, i) => {
-                const date = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
-                const nextDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i + 1);
-                const revenueAgg = await this.prisma.commission.aggregate({ _sum: { amount: true }, where: { createdAt: { gte: date, lt: nextDate } } });
-                const clicks = await this.prisma.referral.count({ where: { createdAt: { gte: date, lt: nextDate } } });
-                const conversions = await this.prisma.referral.count({ where: { isUsed: true, createdAt: { gte: date, lt: nextDate } } });
+            // Trend data: last 12 months
+            const trendData = await Promise.all(Array.from({ length: 12 }).map(async (_, i) => {
+                const month = i;
+                const year = now.getFullYear();
+                const start = new Date(year, month, 1);
+                const end = new Date(year, month + 1, 1);
+                const revenueAgg = await this.prisma.commissionReferral.aggregate({ _sum: { amount: true }, where: { createdAt: { gte: start, lt: end } } });
+                const clicks = await this.prisma.referral.count({ where: { createdAt: { gte: start, lt: end } } });
+                const conversions = await this.prisma.referral.count({ where: { isUsed: true, createdAt: { gte: start, lt: end } } });
                 return {
-                    date: date.toISOString().split('T')[0],
+                    date: start.toISOString().slice(0, 7), // YYYY-MM
                     revenue: Number(revenueAgg._sum.amount || 0),
                     clicks,
                     conversions
                 };
             }));
-            trendData.reverse(); // Chronological order
             const overview = {
                 timeframes: ['Today', 'This Week', 'This Month', 'This Year'],
-                selectedTimeframe: 'This Month',
+                selectedTimeframe: 'This Year',
                 summary: {
-                    revenue: Number(monthRevenueAgg._sum.amount || 0),
-                    clicks: monthClicks,
-                    conversions: monthConversions,
-                    newAffiliates: monthNewAffiliates
+                    revenue: Number(yearRevenueAgg._sum.amount || 0),
+                    clicks: yearClicks,
+                    conversions: yearConversions,
+                    newAffiliates: yearNewAffiliates
                 },
                 trendData
             };
 
             // 5. Payouts (pending and completed commissions)
-            const payoutsRaw = await this.prisma.commission.findMany({
+            const payoutsRaw = await this.prisma.withdrawalRequest.findMany({
                 orderBy: { createdAt: 'desc' },
                 take: 10
             });
@@ -149,10 +146,10 @@ export class ReferralsService {
                     payoutId: p.id,
                     affiliateId: p.userId,
                     affiliateName: affiliate?.userName || '',
-                    amount: Number(p.amount),
-                    status: p.status,
-                    requestedAt: p.createdAt.toISOString(),
-                    paidAt: p.status === 'paid' ? p.updatedAt.toISOString() : null,
+                    amount: Number(p.withdrawal_amount),
+                    status: p.payoutStatus,
+                    requestedAt: p.createdAt?.toISOString(),
+                    paidAt: p.payoutStatus === 'paid' ? p.updatedAt?.toISOString() : null,
                     // Bank account details
                     accountDetails: (withdrawalRequests.length > 0 && withdrawalRequests[0].bank) ? {
                         bankName: withdrawalRequests[0].bank?.bankName,
@@ -223,29 +220,29 @@ export class ReferralsService {
                 };
             }));
 
-            // 7. Analytics (conversion rate, avg order value, top sources, geo)
-            const [totalReferrals, usedReferrals, avgOrderAgg] = await Promise.all([
-                this.prisma.referral.count(),
-                this.prisma.referral.count({ where: { isUsed: true } }),
-                this.prisma.order.aggregate({ _avg: { total: true } })
-            ]);
-            const conversionRate = totalReferrals > 0 ? (usedReferrals / totalReferrals) * 100 : 0;
-            // Top sources (mocked, as no source field in schema)
-            const topSources = [
-                { source: 'Facebook', clicks: 5000, conversions: 120 },
-                { source: 'Twitter', clicks: 3000, conversions: 60 }
-            ];
-            // Geo distribution (mocked, as no geo field in schema)
-            const geoDistribution = [
-                { country: 'Nigeria', clicks: 7000, conversions: 150 },
-                { country: 'Ghana', clicks: 3000, conversions: 60 }
-            ];
-            const analytics = {
-                conversionRate: Number(conversionRate.toFixed(2)),
-                averageOrderValue: Number(avgOrderAgg._avg.total || 0),
-                topSources,
-                geoDistribution
-            };
+            // // 7. Analytics (conversion rate, avg order value, top sources, geo)
+            // const [totalReferrals, usedReferrals, avgOrderAgg] = await Promise.all([
+            //     this.prisma.referral.count(),
+            //     this.prisma.referral.count({ where: { isUsed: true } }),
+            //     this.prisma.order.aggregate({ _avg: { total: true } })
+            // ]);
+            // const conversionRate = totalReferrals > 0 ? (usedReferrals / totalReferrals) * 100 : 0;
+            // // Top sources (mocked, as no source field in schema)
+            // const topSources = [
+            //     { source: 'Facebook', clicks: 5000, conversions: 120 },
+            //     { source: 'Twitter', clicks: 3000, conversions: 60 }
+            // ];
+            // // Geo distribution (mocked, as no geo field in schema)
+            // const geoDistribution = [
+            //     { country: 'Nigeria', clicks: 7000, conversions: 150 },
+            //     { country: 'Ghana', clicks: 3000, conversions: 60 }
+            // ];
+            // const analytics = {
+            //     conversionRate: Number(conversionRate.toFixed(2)),
+            //     averageOrderValue: Number(avgOrderAgg._avg.total || 0),
+            //     topSources,
+            //     geoDistribution
+            // };
 
             // Final formatted response
             const formattedResponse = {
@@ -256,7 +253,7 @@ export class ReferralsService {
                 payouts,
                 formatted_withdrawal_request,
                 events,
-                analytics
+                // analytics
             };
 
             console.log(colors.magenta("Affiliate dashboard successfully returned"))

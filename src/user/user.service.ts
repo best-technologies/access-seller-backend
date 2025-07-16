@@ -177,7 +177,7 @@ export class UserService {
             product: true
           },
           orderBy: { createdAt: 'desc' },
-          take: 10
+          take: 5
         })
       ]);
 
@@ -197,7 +197,7 @@ export class UserService {
           displayImage: order?.items?.[0]?.product?.displayImages?.[0]?.secure_url,
           commissionEarned: formatAmount(record.amount || 0),
           orderDate: order ? formatDateWithoutTime(order.createdAt) : '',
-          status: approved ? order?.status : "inactive",
+          status: record.status,
           approved,
           channel: record.type,
         };

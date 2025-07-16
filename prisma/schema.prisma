@@ -695,7 +695,7 @@ model CommissionReferral {
   productId            String?
   type                 String?
   code                 String?  @unique
-  status               String?  @default("pending") // pending, completed, cancelled, paid, reversed
+  status               CommissionReferralStatus?  @default(pending) // pending, completed, cancelled, paid, reversed
   isUsed               Boolean? @default(false)
   totalPurchaseAmount  Float?
   commissionPercentage String?
@@ -716,4 +716,11 @@ model CommissionReferral {
   @@index([referrerId])
   @@index([referredId])
   @@index([productId])
+}
+
+enum CommissionReferralStatus {
+  awaiting_approval
+  pending
+  approved
+  rejected
 }

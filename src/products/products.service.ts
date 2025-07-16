@@ -152,8 +152,13 @@ export class ProductsService {
       });
       const total = await this.prisma.product.count();
 
-      // Fetch categories with product count
+      // Fetch categories with product count (only those with at least one product)
       const available_categories = await this.prisma.category.findMany({
+        where: {
+          products: {
+            some: {}
+          }
+        },
         select: {
           id: true,
           name: true,
@@ -162,6 +167,32 @@ export class ProductsService {
           }
         }
       });
+
+      // For each category, fetch up to 10 products
+      const categoriesWithProducts = await Promise.all(
+        available_categories.map(async (cat) => {
+          const products = await this.prisma.product.findMany({
+            where: {
+              categories: {
+                some: { id: cat.id }
+              }
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 10,
+            select: {
+              id: true,
+              name: true,
+              // add other fields as needed
+            }
+          });
+          return {
+            id: cat.id,
+            name: cat.name,
+            productCount: cat._count.products,
+            products
+          };
+        })
+      );
 
       const available_formats = await this.prisma.format.findMany({
         select: {
@@ -180,10 +211,10 @@ export class ProductsService {
           total_books: total,
           icon: 'BookOpen'
         },
-        ...available_categories.map(cat => ({
+        ...categoriesWithProducts.map(cat => ({
           id: cat.id,
           name: cat.name,
-          total_books: cat._count.products,
+          total_books: cat.productCount,
           // icon: getCategoryIcon(cat.name)
         }))
       ];
