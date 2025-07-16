@@ -27,7 +27,7 @@ async function bootstrap() {
   // Get AppService instance from Nest application context
 
   // Cron job setup
-  if (process.env.NODE_ENV === 'development') {
+  if (process.env.NODE_ENV === 'production') {
     cron.schedule('*/10 * * * *', async () => {
       console.log('Running a task every 10 minutes');
       try {

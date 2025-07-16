@@ -7,6 +7,505 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model Store {
+  id             String         @id @default(cuid())
+  first_name     String
+  last_name      String
+  description    String?
+  email          String         @unique
+  phone          String
+  address        String
+  logo           String?
+  status         StoreStatus    @default(pending)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  cacId          String?        @unique
+  utilityBillId  String?        @unique
+  taxClearanceId String?        @unique
+  categories     Category[]
+  notifications  Notification[]
+  orders         Order[]
+  products       Product[]
+  cac            Document?      @relation("CACDoc", fields: [cacId], references: [id])
+  tax_clearance  Document?      @relation("TaxClearanceDoc", fields: [taxClearanceId], references: [id])
+  utility_bill   Document?      @relation("UtilityBillDoc", fields: [utilityBillId], references: [id])
+  users          User[]
+}
+
+model Document {
+  id                String @id @default(cuid())
+  secure_url        String
+  public_id         String
+  storeCac          Store? @relation("CACDoc")
+  storeTaxClearance Store? @relation("TaxClearanceDoc")
+  storeUtilityBill  Store? @relation("UtilityBillDoc")
+}
+
+model User {
+  id                          String               @id @default(cuid())
+  store_id                    String?
+  email                       String               @unique
+  password                    String
+  guest_password              String?
+  first_name                  String
+  last_name                   String
+  phone_number                String?
+  display_picture             String?
+  address                     String?
+  gender                      Gender               @default(other)
+  role                        UserRole             @default(user)
+  status                      UserStatus           @default(active)
+  is_active                   Boolean              @default(true)
+  level                       UserLevel            @default(bronze)
+  otp                         String?              @default("")
+  otp_expires_at              DateTime?
+  is_email_verified           Boolean?             @default(false)
+  is_otp_verified             Boolean?             @default(false)
+  allowedPartialPayment       Float?               @default(0)
+  referralPercentage          Float?
+  referralPaymentCount        Int?
+  isAffiliate                 Boolean              @default(false)
+  affiliateStatus             AffiliateStatus      @default(not_affiliate)
+  createdAt                   DateTime             @default(now())
+  updatedAt                   DateTime             @updatedAt
+  Affiliate                   Affiliate?
+  AffiliateLink               AffiliateLink[]
+  banks                       Bank[]
+  cart                        Cart?
+  commissions                 Commission[]
+  CommissionPayout            CommissionPayout[]
+  commissionReferralsReceived CommissionReferral[] @relation("CommissionReferralReferred")
+  commissionReferralsMade     CommissionReferral[] @relation("CommissionReferralReferrer")
+  CommissionReferral          CommissionReferral[]
+  orders                      Order[]
+  referredBy                  Referral[]           @relation("Referred")
+  referrals_made              Referral[]           @relation("Referrer")
+  referralCode                ReferralCode?
+  shippingAddresses           ShippingAddress[]
+  store                       Store?               @relation(fields: [store_id], references: [id])
+  wallet                      Wallet?
+  withdrawalRequests          WithdrawalRequest[]
+}
+
+model Product {
+  id                  String               @id @default(cuid())
+  name                String
+  description         String?
+  sellingPrice        Float
+  normalPrice         Float
+  stock               Int
+  displayImages       Json?
+  storeId             String?
+  commission          String?
+  BookFormat          BookFormat           @default(hardcover)
+  isActive            Boolean              @default(true)
+  status              String               @default("active")
+  rated               String?
+  isbn                String?              @unique
+  publisher           String?
+  author              String?
+  pages               Int?
+  publishedDate       DateTime?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  isFeatured          Boolean              @default(false)
+  bookId              String?
+  sku                 String?
+  shortDescription    String?
+  taxStatus           String?
+  backorders          Boolean?
+  soldIndividually    Boolean?
+  weight              Float?
+  length              Float?
+  width               Float?
+  height              Float?
+  allowCustomerReview Boolean?
+  purchaseNote        String?
+  tags                String[]
+  AffiliateLink       AffiliateLink[]
+  cartItems           CartItem[]
+  CommissionReferral  CommissionReferral[]
+  orderItems          OrderItem[]
+  store               Store?               @relation(fields: [storeId], references: [id])
+  PromoCode           PromoCode[]
+  referrals           Referral[]
+  categories          Category[]           @relation("ProductCategories")
+  formats             Format[]             @relation("ProductFormats")
+  genres              Genre[]              @relation("ProductGenres")
+  languages           Language[]           @relation("ProductLanguages")
+}
+
+model Category {
+  id             String    @id @default(cuid())
+  name           String
+  description    String?
+  storeId        String
+  isActive       Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  createdByName  String?
+  createdByEmail String?
+  store          Store     @relation(fields: [storeId], references: [id])
+  products       Product[] @relation("ProductCategories")
+
+  @@unique([name, storeId])
+}
+
+model Cart {
+  id        String     @id @default(cuid())
+  userId    String     @unique
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  user      User       @relation(fields: [userId], references: [id])
+  items     CartItem[]
+}
+
+model CartItem {
+  id        String   @id @default(cuid())
+  cartId    String
+  productId String
+  quantity  Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  cart      Cart     @relation(fields: [cartId], references: [id])
+  product   Product  @relation(fields: [productId], references: [id])
+
+  @@unique([cartId, productId])
+}
+
+model Order {
+  id                       String                @id @default(cuid())
+  orderId                  String?               @unique
+  productid                String?
+  userId                   String
+  storeId                  String?
+  status                   OrderStatus?          @default(pending)
+  total                    Float
+  total_amount             Float                 @default(0)
+  shippingInfo             Json?
+  shipmentStatus           ShipmentStatus?       @default(awaiting_payment)
+  shippingAddressId        String?
+  referralSlug             String?
+  orderPaymentStatus       orderPaymentStatus?   @default(awaiting_payment)
+  trackingNumber           String?
+  withdrawalStatus         OrderWithdrawalStatus @default(none)
+  createdAt                DateTime              @default(now())
+  updatedAt                DateTime              @updatedAt
+  referralCode             String?
+  shipping                 Float?
+  shippingCost             Float?                @default(0)
+  promoCode                String?
+  promoDiscountPercent     Float?
+  promoDiscountAmount      Float?
+  isPartialPayment         Boolean               @default(false)
+  partialPayNow            Float?
+  partialPayLater          Float?
+  partialAllowedPercent    Int?
+  partialSelectedPercent   Int?
+  fullPayNow               Float?
+  fullPayLater             Float?
+  paystackReference        String?               @unique
+  paystackAuthorizationUrl String?
+  paystackAccessCode       String?
+  commissions              Commission[]
+  CommissionReferral       CommissionReferral[]
+  shippingAddress          ShippingAddress?      @relation(fields: [shippingAddressId], references: [id])
+  store                    Store?                @relation(fields: [storeId], references: [id])
+  user                     User                  @relation(fields: [userId], references: [id])
+  items                    OrderItem[]
+  withdrawalRequests       WithdrawalRequest[]
+}
+
+model OrderItem {
+  id         String   @id @default(cuid())
+  orderId    String
+  productId  String
+  quantity   Int
+  price      Float
+  totalPrice Float?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  order      Order    @relation(fields: [orderId], references: [id])
+  product    Product  @relation(fields: [productId], references: [id])
+}
+
+model Referral {
+  id         String   @id @default(cuid())
+  referrerId String
+  referredId String
+  productId  String
+  code       String   @unique
+  status     String   @default("pending")
+  isUsed     Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  product    Product  @relation(fields: [productId], references: [id])
+  referred   User     @relation("Referred", fields: [referredId], references: [id])
+  referrer   User     @relation("Referrer", fields: [referrerId], references: [id])
+}
+
+model Commission {
+  id                   String              @id @default(cuid())
+  userId               String
+  orderId              String
+  totalPurchaseAmount  Float
+  commissionPercentage String
+  amount               Float
+  status               CommissionStatus    @default(pending)
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+  order                Order               @relation(fields: [orderId], references: [id])
+  user                 User                @relation(fields: [userId], references: [id])
+  withdrawalRequests   WithdrawalRequest[]
+}
+
+model Notification {
+  id          String   @id @default(cuid())
+  store_id    String
+  title       String
+  description String
+  type        String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  store       Store    @relation(fields: [store_id], references: [id])
+}
+
+model Genre {
+  id             String    @id @default(cuid())
+  name           String    @unique
+  description    String?
+  isActive       Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  createdByName  String?
+  createdByEmail String?
+  products       Product[] @relation("ProductGenres")
+}
+
+model Language {
+  id             String    @id @default(cuid())
+  name           String    @unique
+  description    String?
+  isActive       Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  createdByName  String?
+  createdByEmail String?
+  products       Product[] @relation("ProductLanguages")
+}
+
+model Format {
+  id             String    @id @default(cuid())
+  name           String    @unique
+  description    String?
+  isActive       Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  createdByName  String?
+  createdByEmail String?
+  products       Product[] @relation("ProductFormats")
+}
+
+model AgeRating {
+  id             String   @id @default(cuid())
+  name           String   @unique
+  description    String?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  createdByName  String?
+  createdByEmail String?
+}
+
+model PromoCode {
+  id              String   @id @default(cuid())
+  code            String   @unique
+  description     String?
+  discountPercent Float
+  isActive        Boolean  @default(true)
+  createdBy       String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @default(now())
+  productId       String?
+  product         Product? @relation(fields: [productId], references: [id])
+}
+
+model ReferralCode {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  url       String   @unique
+  userId    String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+model ReferralSetting {
+  id                   String   @id @default(cuid())
+  referralPercentage   Float    @default(5)
+  referralPaymentCount Int      @default(1)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+}
+
+model Affiliate {
+  id              String          @id @default(cuid())
+  userId          String          @unique
+  userName        String
+  userEmail       String
+  status          AffiliateStatus @default(pending)
+  requestedAt     DateTime        @default(now())
+  category        String?
+  reason          String?
+  reviewedAt      DateTime?
+  reviewedByName  String?
+  reviewedByEmail String?
+  notes           String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  user            User            @relation(fields: [userId], references: [id])
+}
+
+model AffiliateLink {
+  id         String   @id @default(cuid())
+  userId     String
+  productId  String
+  slug       String   @unique
+  createdAt  DateTime @default(now())
+  clicks     Int      @default(0)
+  orders     Int      @default(0)
+  commission Float    @default(0)
+  product    Product  @relation(fields: [productId], references: [id])
+  user       User     @relation(fields: [userId], references: [id])
+
+  @@unique([userId, productId])
+}
+
+model CommissionPayout {
+  id          String    @id @default(cuid())
+  userId      String
+  amount      Float
+  status      String    @default("pending")
+  method      String
+  reference   String    @unique
+  requestedAt DateTime  @default(now())
+  paidAt      DateTime?
+  user        User      @relation(fields: [userId], references: [id])
+}
+
+model WithdrawalRequest {
+  id                   String              @id @default(cuid())
+  payoutId             String?             @unique
+  userId               String
+  orderId              String?
+  commissionId         String?
+  buyerName            String?
+  buyerEmail           String?
+  totalPurchaseAmount  Float?
+  commissionAmount     Float?
+  withdrawal_amount    Float?
+  commissionPercentage String?
+  payoutMethod         String
+  bankId               String?
+  payoutStatus         WithdrawalStatus    @default(pending)
+  reference            String              @unique
+  requestedAt          DateTime            @default(now())
+  processedAt          DateTime?
+  processedBy          String?
+  notes                String?
+  rejectionReason      String?
+  createdAt            DateTime?           @default(now())
+  updatedAt            DateTime?           @updatedAt
+  commissionReferralId String?
+  bank                 Bank?               @relation(fields: [bankId], references: [id])
+  commission           Commission?         @relation(fields: [commissionId], references: [id])
+  CommissionReferral   CommissionReferral? @relation(fields: [commissionReferralId], references: [id])
+  order                Order?              @relation(fields: [orderId], references: [id])
+  user                 User                @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([orderId])
+  @@index([payoutStatus])
+}
+
+model Bank {
+  id                 String              @id @default(cuid())
+  userId             String
+  bankName           String
+  bankCode           String
+  accountNumber      String
+  accountName        String
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  user               User                @relation(fields: [userId], references: [id])
+  withdrawalRequests WithdrawalRequest[]
+
+  @@index([userId])
+}
+
+model Wallet {
+  id                       String   @id @default(cuid())
+  userId                   String   @unique
+  total_earned             Float    @default(0)
+  awaiting_approval        Float?   @default(0)
+  available_for_withdrawal Float    @default(0)
+  total_withdrawn          Float    @default(0)
+  balance_before           Float    @default(0)
+  balance_after            Float    @default(0)
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+  user                     User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}
+
+model ShippingAddress {
+  id           String   @id @default(cuid())
+  userId       String?
+  firstName    String
+  lastName     String
+  email        String
+  phone        String
+  state        String
+  city         String
+  houseAddress String
+  address      String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  orders       Order[]
+  user         User?    @relation(fields: [userId], references: [id])
+}
+
+model CommissionReferral {
+  id                   String                    @id @default(cuid())
+  userId               String
+  orderId              String?
+  referrerId           String?
+  referredId           String?
+  productId            String?
+  type                 String?
+  code                 String?                   @unique
+  status               CommissionReferralStatus? @default(pending)
+  isUsed               Boolean?                  @default(false)
+  totalPurchaseAmount  Float?
+  commissionPercentage String?
+  amount               Float?
+  createdAt            DateTime                  @default(now())
+  updatedAt            DateTime                  @updatedAt
+  order                Order?                    @relation(fields: [orderId], references: [id])
+  product              Product?                  @relation(fields: [productId], references: [id])
+  referred             User?                     @relation("CommissionReferralReferred", fields: [referredId], references: [id])
+  referrer             User?                     @relation("CommissionReferralReferrer", fields: [referrerId], references: [id])
+  user                 User                      @relation(fields: [userId], references: [id])
+  withdrawalRequests   WithdrawalRequest[]
+
+  @@index([userId])
+  @@index([orderId])
+  @@index([referrerId])
+  @@index([referredId])
+  @@index([productId])
+}
+
 enum StoreStatus {
   not_verified
   pending
@@ -183,539 +682,6 @@ enum orderPaymentStatus {
   completed
   partial
   cancelled
-}
-
-model Store {
-  id          String      @id @default(cuid())
-  first_name  String
-  last_name   String
-  description String?
-  email       String      @unique
-  phone       String
-  address     String
-  logo        String?
-  status      StoreStatus @default(pending)
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-
-  // Document verification
-  cacId          String? @unique
-  utilityBillId  String? @unique
-  taxClearanceId String? @unique
-
-  cac           Document? @relation("CACDoc", fields: [cacId], references: [id])
-  utility_bill  Document? @relation("UtilityBillDoc", fields: [utilityBillId], references: [id])
-  tax_clearance Document? @relation("TaxClearanceDoc", fields: [taxClearanceId], references: [id])
-
-  // Relations
-  products      Product[]
-  users         User[]
-  orders        Order[]
-  categories    Category[]
-  notifications Notification[]
-}
-
-model Document {
-  id         String @id @default(cuid())
-  secure_url String
-  public_id  String
-
-  storeCac          Store? @relation("CACDoc")
-  storeUtilityBill  Store? @relation("UtilityBillDoc")
-  storeTaxClearance Store? @relation("TaxClearanceDoc")
-}
-
-model User {
-  id                    String          @id @default(cuid())
-  store_id              String?
-  email                 String          @unique
-  password              String
-  guest_password        String?
-  first_name            String
-  last_name             String
-  phone_number          String?
-  display_picture       String?
-  address               String?
-  gender                Gender          @default(other)
-  role                  UserRole        @default(user)
-  status                UserStatus      @default(active)
-  is_active             Boolean         @default(true)
-  level                 UserLevel       @default(bronze)
-  otp                   String?         @default("")
-  otp_expires_at        DateTime?
-  is_email_verified     Boolean?        @default(false)
-  is_otp_verified       Boolean?        @default(false)
-  allowedPartialPayment Float?          @default(0)
-  referralPercentage    Float? // null means use global
-  referralPaymentCount  Int? // null means use global
-  isAffiliate           Boolean         @default(false)
-  affiliateStatus       AffiliateStatus @default(not_affiliate)
-  createdAt             DateTime        @default(now())
-  updatedAt             DateTime        @updatedAt
-
-  // Relations
-  store                       Store?               @relation(fields: [store_id], references: [id])
-  orders                      Order[]
-  cart                        Cart?
-  referrals_made              Referral[]           @relation("Referrer")
-  referredBy                  Referral[]           @relation("Referred")
-  commissions                 Commission[]
-  referralCode                ReferralCode?
-  Affiliate                   Affiliate?
-  AffiliateLink               AffiliateLink[]
-  CommissionPayout            CommissionPayout[]
-  banks                       Bank[]
-  withdrawalRequests          WithdrawalRequest[]
-  wallet                      Wallet?
-  shippingAddresses           ShippingAddress[]
-  CommissionReferral          CommissionReferral[]
-  commissionReferralsMade     CommissionReferral[] @relation("CommissionReferralReferrer")
-  commissionReferralsReceived CommissionReferral[] @relation("CommissionReferralReferred")
-}
-
-model Product {
-  id            String     @id @default(cuid())
-  name          String
-  description   String?
-  sellingPrice  Float
-  normalPrice   Float
-  stock         Int
-  displayImages Json? // [{ secure_url: string, public_id: string }]
-  storeId       String?
-  commission    String?
-  BookFormat    BookFormat @default(hardcover)
-  isActive      Boolean    @default(true)
-  status        String     @default("active") // active, inactive, suspended
-  rated         String?
-  isbn          String?    @unique
-  publisher     String? // Publisher name
-  author        String? // Author name
-  pages         Int? // Number of pages
-  publishedDate DateTime? // Publication date
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
-
-  // Add many-to-many relations:
-  categories Category[] @relation("ProductCategories")
-  languages  Language[] @relation("ProductLanguages")
-  genres     Genre[]    @relation("ProductGenres")
-  formats    Format[]   @relation("ProductFormats")
-
-  // Relations
-  store      Store?      @relation(fields: [storeId], references: [id])
-  cartItems  CartItem[]
-  orderItems OrderItem[]
-  referrals  Referral[]
-
-  isFeatured         Boolean              @default(false)
-  PromoCode          PromoCode[]
-  AffiliateLink      AffiliateLink[]
-  CommissionReferral CommissionReferral[]
-}
-
-model Category {
-  id             String    @id @default(cuid())
-  name           String
-  description    String?
-  storeId        String
-  isActive       Boolean   @default(true)
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-  createdByName  String?
-  createdByEmail String?
-  // Relations
-  store          Store     @relation(fields: [storeId], references: [id])
-  products       Product[] @relation("ProductCategories")
-
-  @@unique([name, storeId])
-}
-
-model Cart {
-  id        String   @id @default(cuid())
-  userId    String   @unique
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
-  user  User       @relation(fields: [userId], references: [id])
-  items CartItem[]
-}
-
-model CartItem {
-  id        String   @id @default(cuid())
-  cartId    String
-  productId String
-  quantity  Int
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
-  cart    Cart    @relation(fields: [cartId], references: [id])
-  product Product @relation(fields: [productId], references: [id])
-
-  @@unique([cartId, productId])
-}
-
-model Order {
-  id                 String                @id @default(cuid())
-  orderId            String?               @unique
-  productid          String?
-  userId             String
-  storeId            String?
-  status             OrderStatus?          @default(pending)
-  total              Float
-  total_amount       Float                 @default(0) // Adding this field for compatibility
-  shippingInfo       Json?
-  shipmentStatus     ShipmentStatus?       @default(awaiting_payment)
-  shippingAddressId  String?
-  shippingAddress    ShippingAddress?      @relation(fields: [shippingAddressId], references: [id])
-  referralSlug       String?
-  orderPaymentStatus orderPaymentStatus?   @default(awaiting_payment)
-  trackingNumber     String?
-  withdrawalStatus   OrderWithdrawalStatus @default(none)
-  createdAt          DateTime              @default(now())
-  updatedAt          DateTime              @updatedAt
-
-  // New fields for frontend order data
-  referralCode         String?
-  shipping             Float?
-  shippingCost         Float? @default(0)
-  promoCode            String? // Promo code used
-  promoDiscountPercent Float? // Discount percent from promo
-  promoDiscountAmount  Float? // Discount amount from promo
-
-  // Partial/Full payment fields
-  isPartialPayment       Boolean @default(false)
-  partialPayNow          Float?
-  partialPayLater        Float?
-  partialAllowedPercent  Int?
-  partialSelectedPercent Int?
-  fullPayNow             Float?
-  fullPayLater           Float?
-
-  paystackReference        String? @unique
-  paystackAuthorizationUrl String?
-  paystackAccessCode       String?
-
-  // Relations
-  user               User?                @relation(fields: [userId], references: [id])
-  store              Store?               @relation(fields: [storeId], references: [id])
-  items              OrderItem[]
-  commissions        Commission[]
-  withdrawalRequests WithdrawalRequest[]
-  CommissionReferral CommissionReferral[]
-}
-
-model OrderItem {
-  id         String   @id @default(cuid())
-  orderId    String
-  productId  String
-  quantity   Int
-  price      Float
-  totalPrice Float?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-
-  // Relations
-  order   Order   @relation(fields: [orderId], references: [id])
-  product Product @relation(fields: [productId], references: [id])
-}
-
-model Referral {
-  id         String   @id @default(cuid())
-  referrerId String
-  referredId String
-  productId  String
-  code       String   @unique
-  status     String   @default("pending") // pending, completed, cancelled
-  isUsed     Boolean  @default(false)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-
-  // Relations
-  referrer User    @relation("Referrer", fields: [referrerId], references: [id])
-  referred User    @relation("Referred", fields: [referredId], references: [id])
-  product  Product @relation(fields: [productId], references: [id])
-}
-
-model Commission {
-  id                   String           @id @default(cuid())
-  userId               String
-  orderId              String
-  totalPurchaseAmount  Float
-  commissionPercentage String
-  amount               Float
-  status               CommissionStatus @default(pending)
-  createdAt            DateTime         @default(now())
-  updatedAt            DateTime         @updatedAt
-
-  // Relations
-  user               User                @relation(fields: [userId], references: [id])
-  order              Order               @relation(fields: [orderId], references: [id])
-  withdrawalRequests WithdrawalRequest[]
-}
-
-model Notification {
-  id          String   @id @default(cuid())
-  store_id    String
-  title       String
-  description String
-  type        String // e.g., "order", "commission", "system"
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  // Relations
-  store Store @relation(fields: [store_id], references: [id])
-}
-
-model Genre {
-  id             String    @id @default(cuid())
-  name           String    @unique
-  description    String?
-  isActive       Boolean   @default(true)
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-  createdByName  String?
-  createdByEmail String?
-  products       Product[] @relation("ProductGenres")
-}
-
-model Language {
-  id             String    @id @default(cuid())
-  name           String    @unique
-  description    String?
-  isActive       Boolean   @default(true)
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-  createdByName  String?
-  createdByEmail String?
-  products       Product[] @relation("ProductLanguages")
-}
-
-model Format {
-  id             String    @id @default(cuid())
-  name           String    @unique
-  description    String?
-  isActive       Boolean   @default(true)
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-  createdByName  String?
-  createdByEmail String?
-  products       Product[] @relation("ProductFormats")
-}
-
-model AgeRating {
-  id             String   @id @default(cuid())
-  name           String   @unique
-  description    String?
-  isActive       Boolean  @default(true)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  createdByName  String?
-  createdByEmail String?
-}
-
-model PromoCode {
-  id              String   @id @default(cuid())
-  code            String   @unique
-  description     String?
-  discountPercent Float
-  isActive        Boolean  @default(true)
-  createdBy       String
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @default(now())
-
-  // New fields for product-specific promo codes
-  productId String? // Nullable: null means general promo code
-  product   Product? @relation(fields: [productId], references: [id])
-}
-
-model ReferralCode {
-  id        String   @id @default(cuid())
-  code      String   @unique
-  url       String   @unique
-  userId    String   @unique
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  user User @relation(fields: [userId], references: [id])
-}
-
-model ReferralSetting {
-  id                   String   @id @default(cuid())
-  referralPercentage   Float    @default(5)
-  referralPaymentCount Int      @default(1) // -1 or null for unlimited
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
-}
-
-model Affiliate {
-  id              String          @id @default(cuid())
-  userId          String          @unique
-  userName        String
-  userEmail       String
-  status          AffiliateStatus @default(pending)
-  requestedAt     DateTime        @default(now())
-  category        String?
-  reason          String?
-  reviewedAt      DateTime?
-  reviewedByName  String?
-  reviewedByEmail String?
-  notes           String?
-  user            User            @relation(fields: [userId], references: [id])
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model AffiliateLink {
-  id         String   @id @default(cuid())
-  user       User     @relation(fields: [userId], references: [id])
-  userId     String
-  product    Product  @relation(fields: [productId], references: [id])
-  productId  String
-  slug       String   @unique
-  createdAt  DateTime @default(now())
-  clicks     Int      @default(0)
-  orders     Int      @default(0)
-  commission Float    @default(0)
-
-  @@unique([userId, productId])
-}
-
-model CommissionPayout {
-  id          String    @id @default(cuid())
-  userId      String
-  amount      Float
-  status      String    @default("pending") // pending, completed, rejected, cancelled
-  method      String // e.g. "bank", "wallet", "paypal"
-  reference   String    @unique
-  requestedAt DateTime  @default(now())
-  paidAt      DateTime?
-
-  user User @relation(fields: [userId], references: [id])
-}
-
-model WithdrawalRequest {
-  id                   String           @id @default(cuid())
-  payoutId             String?          @unique // Unique payout identifier in format out/accXXXXXX
-  userId               String
-  orderId              String?
-  commissionId         String? // Link to the commission record
-  buyerName            String?
-  buyerEmail           String?
-  totalPurchaseAmount  Float?
-  commissionAmount     Float?
-  withdrawal_amount    Float?
-  commissionPercentage String?
-  payoutMethod         String // "bank", "wallet", "paypal"
-  bankId               String? // If payout method is bank
-  payoutStatus         WithdrawalStatus @default(pending)
-  reference            String           @unique
-  requestedAt          DateTime         @default(now())
-  processedAt          DateTime?
-  processedBy          String? // Admin who processed it
-  notes                String? // Admin notes for rejection/cancellation
-  rejectionReason      String? // Specific reason if rejected
-
-  // Relations
-  user       User        @relation(fields: [userId], references: [id])
-  order      Order?      @relation(fields: [orderId], references: [id])
-  bank       Bank?       @relation(fields: [bankId], references: [id])
-  commission Commission? @relation(fields: [commissionId], references: [id])
-
-  createdAt            DateTime?           @default(now())
-  updatedAt            DateTime?           @updatedAt
-  CommissionReferral   CommissionReferral? @relation(fields: [commissionReferralId], references: [id])
-  commissionReferralId String?
-
-  @@index([userId])
-  @@index([orderId])
-  @@index([payoutStatus])
-}
-
-model Bank {
-  id            String   @id @default(cuid())
-  userId        String
-  bankName      String
-  bankCode      String
-  accountNumber String
-  accountName   String
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  user               User                @relation(fields: [userId], references: [id])
-  withdrawalRequests WithdrawalRequest[]
-
-  @@index([userId])
-}
-
-model Wallet {
-  id                       String   @id @default(cuid())
-  userId                   String   @unique
-  total_earned             Float    @default(0)
-  awaiting_approval        Float?   @default(0)
-  available_for_withdrawal Float    @default(0)
-  total_withdrawn          Float    @default(0)
-  balance_before           Float    @default(0)
-  balance_after            Float    @default(0)
-  createdAt                DateTime @default(now())
-  updatedAt                DateTime @updatedAt
-
-  // Relations
-  user User @relation(fields: [userId], references: [id])
-
-  @@index([userId])
-}
-
-model ShippingAddress {
-  id           String   @id @default(cuid())
-  userId       String?
-  firstName    String
-  lastName     String
-  email        String
-  phone        String
-  state        String
-  city         String
-  houseAddress String
-  address      String
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  user   User?   @relation(fields: [userId], references: [id])
-  orders Order[]
-}
-
-model CommissionReferral {
-  id                   String   @id @default(cuid())
-  userId               String
-  orderId              String?
-  referrerId           String?
-  referredId           String?
-  productId            String?
-  type                 String?
-  code                 String?  @unique
-  status               CommissionReferralStatus?  @default(pending) // pending, completed, cancelled, paid, reversed
-  isUsed               Boolean? @default(false)
-  totalPurchaseAmount  Float?
-  commissionPercentage String?
-  amount               Float?
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
-
-  // Relations
-  user               User?               @relation(fields: [userId], references: [id])
-  order              Order?              @relation(fields: [orderId], references: [id])
-  referrer           User?               @relation("CommissionReferralReferrer", fields: [referrerId], references: [id])
-  referred           User?               @relation("CommissionReferralReferred", fields: [referredId], references: [id])
-  product            Product?            @relation(fields: [productId], references: [id])
-  withdrawalRequests WithdrawalRequest[]
-
-  @@index([userId])
-  @@index([orderId])
-  @@index([referrerId])
-  @@index([referredId])
-  @@index([productId])
 }
 
 enum CommissionReferralStatus {

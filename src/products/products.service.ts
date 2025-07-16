@@ -42,7 +42,7 @@ export class ProductsService {
   }
 
   async getAllPublicProductsSections() {
-    console.log(colors.cyan("fetching all products from db (sections)"));
+    console.log(colors.cyan("fetching all products from db for homepage (sections)"));
 
     // Featured
     const featured = await this.prisma.product.findMany({
@@ -62,20 +62,20 @@ export class ProductsService {
       });
     });
 
-    // New Arrivals (last 14 days)
-    const twoWeeksAgo = new Date();
-    twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
+    // New Arrivals: last 10 products added
     const newArrivals = await this.prisma.product.findMany({
-      where: { createdAt: { gte: twoWeeksAgo } },
-      include: { categories: { select: { id: true, name: true } } },
       orderBy: { createdAt: 'desc' },
       take: 10,
+      include: {
+        formats: { select: { name: true } },
+        categories: { select: { name: true } },
+      },
     });
 
     // Popular Categories (top 4 by product count)
     const popularCategories = await this.prisma.category.findMany({
       orderBy: { products: { _count: 'desc' } },
-      take: 4,
+      take: 10,
       include: {
         products: {
           take: 1,
@@ -139,20 +139,11 @@ export class ProductsService {
     console.log(colors.cyan(`fetching products from db, page: ${page}`))
 
     try {
-      const PAGE_SIZE = 20;
-      const skip = (page - 1) * PAGE_SIZE;
-      const products = await this.prisma.product.findMany({
-        skip,
-        take: PAGE_SIZE,
-        orderBy: { createdAt: 'desc' },
-        include: {
-          categories: { select: { id: true, name: true } },
-          formats: { select: { id: true, name: true } },
-        },
-      });
-      const total = await this.prisma.product.count();
-
-      // Fetch categories with product count (only those with at least one product)
+      const CATEGORIES_PER_PAGE = 20;
+      const PRODUCTS_PER_CATEGORY = 10;
+      const categoryOffset = (page - 1) * CATEGORIES_PER_PAGE;
+      
+      // Get categories with product count, ordered by product count descending
       const available_categories = await this.prisma.category.findMany({
         where: {
           products: {
@@ -165,10 +156,17 @@ export class ProductsService {
           _count: {
             select: { products: true }
           }
-        }
+        },
+        orderBy: {
+          products: {
+            _count: 'desc'
+          }
+        },
+        skip: categoryOffset,
+        take: CATEGORIES_PER_PAGE
       });
 
-      // For each category, fetch up to 10 products
+      // For each category in this page, fetch up to 10 products
       const categoriesWithProducts = await Promise.all(
         available_categories.map(async (cat) => {
           const products = await this.prisma.product.findMany({
@@ -178,11 +176,10 @@ export class ProductsService {
               }
             },
             orderBy: { createdAt: 'desc' },
-            take: 10,
-            select: {
-              id: true,
-              name: true,
-              // add other fields as needed
+            take: PRODUCTS_PER_CATEGORY,
+            include: {
+              categories: { select: { id: true, name: true } },
+              formats: { select: { id: true, name: true } },
             }
           });
           return {
@@ -193,6 +190,20 @@ export class ProductsService {
           };
         })
       );
+
+      // Flatten all products from all categories
+      const allProducts = categoriesWithProducts.flatMap(cat => cat.products);
+
+      // Get total categories count for pagination
+      const totalCategories = await this.prisma.category.count({
+        where: {
+          products: {
+            some: {}
+          }
+        }
+      });
+
+      const totalPages = Math.ceil(totalCategories / CATEGORIES_PER_PAGE);
 
       const available_formats = await this.prisma.format.findMany({
         select: {
@@ -208,14 +219,13 @@ export class ProductsService {
         {
           id: 'all',
           name: 'All Books',
-          total_books: total,
+          total_books: totalCategories,
           icon: 'BookOpen'
         },
         ...categoriesWithProducts.map(cat => ({
           id: cat.id,
           name: cat.name,
           total_books: cat.productCount,
-          // icon: getCategoryIcon(cat.name)
         }))
       ];
 
@@ -225,7 +235,7 @@ export class ProductsService {
         total_books: format._count.products
       }));
 
-      const formattedProducts = await Promise.all(products.map(async (product) => {
+      const formattedProducts = await Promise.all(allProducts.map(async (product) => {
         // Check if product was created within the last 48 hours
         const createdAt = new Date(product.createdAt);
         const now = new Date();
@@ -259,25 +269,63 @@ export class ProductsService {
           display_picture: display_picture,
           author: product.author || product.publisher || null,
           total_sold: totalSold,
-          selling_price: formatAmount(product.sellingPrice),
-          nomral_price: formatAmount(product.normalPrice),
+          selling_price: product.sellingPrice,
+          nomral_price: product.normalPrice,
           format: product.formats ? product.formats.map(f => f.name) : [],
 
         };
       }));
 
+      // Group products by category
+      const productsByCategory = categoriesWithProducts.map(category => ({
+        categoryName: category.name,
+        totalCount: category.products.length, // Show actual count of products returned
+        products: category.products.map(product => {
+          const createdAt = new Date(product.createdAt);
+          const now = new Date();
+          const diffInMs = now.getTime() - createdAt.getTime();
+          const isNew = diffInMs <= 48 * 60 * 60 * 1000;
+          let images = product.displayImages;
+          if (typeof images === 'string') {
+            try { images = JSON.parse(images); } catch { images = []; }
+          }
+          const display_picture = Array.isArray(images) && images[0] && typeof images[0] === 'object' && 'secure_url' in images[0]
+            ? images[0].secure_url
+            : null;
+          return {
+            id: product.id,
+            product_name: product.name,
+            is_new: isNew,
+            stock_count: product.stock,
+            categories: Array.isArray(product.categories)
+              ? product.categories.map((cat: any) => ({ id: cat.id, name: cat.name }))
+              : [],
+            formats: Array.isArray(product.formats)
+              ? product.formats.map((format: any) => ({ id: format.id, name: format.name }))
+              : [],
+            stock_status: product.stock < 1 ? "Out Of Stock" : product.stock <= 30 ? "Low Stock" : "In Stock",
+            display_picture: display_picture,
+            author: product.author || product.publisher || null,
+            selling_price: product.sellingPrice,
+            nomral_price: product.normalPrice,
+            format: product.formats ? product.formats.map(f => f.name) : [],
+          };
+        })
+      }));
+
       return new ApiResponse(true, 'Products fetched', {
         page,
-        pageSize: PAGE_SIZE,
-        total,
-        hasMore: skip + PAGE_SIZE < total,
+        pageSize: CATEGORIES_PER_PAGE * PRODUCTS_PER_CATEGORY,
+        total: allProducts.length,
+        hasMore: page < totalPages,
         categories: formatted_categories,
         formats: formatted_formats,
-        products: formattedProducts,
+        products: productsByCategory,
         pagination: {
-          totalPages: Math.ceil(total / PAGE_SIZE),
+          totalPages,
           currentPage: page,
-          totalProducts: total
+          totalProducts: allProducts.length,
+          totalCategories
         }
       });
     } catch (error) {

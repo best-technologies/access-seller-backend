@@ -640,71 +640,6 @@ export class ProductsService {
         }
     }
 
-    // async parseFormDataAndValidateBook(formData: any): Promise<CreateBookDto> {
-    //     console.log('Parsing form data for single book...');
-        
-    //     if (!formData || Object.keys(formData).length === 0) {
-    //         throw new BadRequestException('No form data received');
-    //     }
-
-    //     // Extract book data from form fields (without array indexing)
-    //     const name = formData.name;
-    //     const description = formData.description;
-    //     const qty = formData.qty;
-    //     const sellingPrice = formData.sellingPrice;
-    //     const normalPrice = formData.normalPrice;
-    //     const category = formData.category;
-    //     const language = formData.language;
-    //     const format = formData.format;
-    //     const genre = formData.genre;
-    //     const rated = formData.rated;
-    //     const isbn = formData.isbn;
-    //     const publisher = formData.publisher;
-    //     const commission = formData.commission;
-
-    //     if (!name) {
-    //         throw new BadRequestException('Book name is required');
-    //     }
-
-    //     console.log(`Processing book: ${name}`);
-        
-    //     // Normalize enum values
-    //     const normalizedCategory = category?.trim().toLowerCase();
-    //     const normalizedGenre = genre?.trim().toLowerCase();
-    //     const normalizedFormat = format?.trim().toLowerCase();
-    //     const normalizedLanguage = language?.trim().toLowerCase();
-        
-    //     // Handle special case for 'ebook' -> 'e_book'
-    //     const finalFormat = normalizedFormat === 'ebook' ? 'e_book' : normalizedFormat;
-        
-    //     // Validate enum values
-    //     this.validateEnumValues(category, genre, format, language, 0);
-        
-    //     // Validate individual book data
-    //     const bookData = {
-    //         name: name,
-    //         description: description || '',
-    //         qty: parseInt(qty),
-    //         sellingPrice: parseFloat(sellingPrice),
-    //         normalPrice: parseFloat(normalPrice),
-    //         categoryIds: category ? [category] : [],
-    //         language: normalizedLanguage as BookLanguage,
-    //         format: finalFormat as BookFormat,
-    //         genre: normalizedGenre as BookGenre,
-    //         rated: rated || '',
-    //         isbn: isbn || '',
-    //         publisher: publisher || '',
-    //         commission: commission || '0',
-    //         coverImage: '' // will be set after upload
-    //     };
-        
-    //     // Validate book data
-    //     this.validateBookData(bookData, 0);
-        
-    //     console.log(`Book data:`, bookData);
-    //     return bookData;
-    // }
-
     public validateUploadedFiles(files: Record<string, Express.Multer.File[]>) {
         if (!files || Object.keys(files).length === 0) {
             return; // No files uploaded, which is fine
@@ -1021,6 +956,107 @@ export class ProductsService {
             console.log(colors.red('Error adding book:'), error);
             throw new BadRequestException('Failed to add book: ' + error.message);
         }
+    }
+
+    async addBooksFromFile(file: Express.Multer.File) {
+        if (!file) {
+            console.log('[BulkImport] No file uploaded');
+            throw new BadRequestException('No file uploaded');
+        }
+        let records;
+        try {
+            records = csv.parse(file.buffer.toString(), {
+                columns: true,
+                skip_empty_lines: true,
+                trim: true
+            });
+        } catch (err) {
+            console.log('[BulkImport] Invalid CSV file');
+            throw new BadRequestException('Invalid CSV file');
+        }
+        console.log(`[BulkImport] Starting bulk import: ${records.length} rows`);
+        if (records.length === 0) {
+            console.log('[BulkImport] CSV file is empty');
+            return new ApiResponse(false, 'CSV file is empty', { results: [], errors: [] });
+        }
+        // Log first 5 rows for debugging
+        records.slice(0, 5).forEach((row, idx) => {
+            console.log(`[BulkImport] Row ${idx + 1}:`, row);
+        });
+        const results: any[] = [];
+        const errors: any[] = [];
+        // Get a default storeId for new categories (first store in db)
+        const defaultStore = await this.prisma.store.findFirst();
+        const defaultStoreId = defaultStore ? defaultStore.id : undefined;
+        if (!defaultStoreId) {
+            throw new BadRequestException('No store found in the database to attach new categories.');
+        }
+        for (const [i, row] of records.entries()) {
+            try {
+                // Map CSV columns to Product fields
+                const productData: any = {
+                    bookId: row['bookId'] || undefined,
+                    sku: row['SKU'] || undefined,
+                    name: row['Name'],
+                    isFeatured: row['Is featured?'] === '1',
+                    status: row['Visibility in catalog'] === 'active' ? 'active' : 'inactive',
+                    description: row['Description'] || '',
+                    shortDescription: row['Short description'] || '',
+                    taxStatus: row['Tax status'] || undefined,
+                    stock: parseInt(row['Stock'] || row['total stock'] || '0', 10),
+                    backorders: row['Backorders allowed?'] === '1',
+                    soldIndividually: row['Sold individually?'] === '1',
+                    weight: row['Weight (kg)'] ? parseFloat(row['Weight (kg)']) : undefined,
+                    length: row['Length (cm)'] ? parseFloat(row['Length (cm)']) : undefined,
+                    width: row['Width (cm)'] ? parseFloat(row['Width (cm)']) : undefined,
+                    height: row['Height (cm)'] ? parseFloat(row['Height (cm)']) : undefined,
+                    allowCustomerReview: row['Allow customer reviews?'] !== '0',
+                    purchaseNote: row['Purchase note'] || undefined,
+                    sellingPrice: parseFloat(row['Sale price'] || row['selling price'] || '0'),
+                    normalPrice: parseFloat(row['Regular price'] || row['normal price'] || '0'),
+                    tags: row['Tags'] ? row['Tags'].split(',').map((t: string) => t.trim()) : [],
+                    // Handle multiple images
+                    displayImages: row['Images'] ? row['Images']
+                        .split(',')
+                        .map((url: string) => url.trim())
+                        .filter((url: string) => url.length > 0)
+                        .map(url => ({ secure_url: url, public_id: null })) : [],
+                };
+                // Categories: resolve by name (assume comma-separated), create if missing
+                if (row['Categories']) {
+                    const categoryNames = row['Categories'].split(',').map((c: string) => c.trim()).filter(Boolean);
+                    const categoryIds: string[] = [];
+                    for (const name of categoryNames) {
+                        let category = await this.prisma.category.findFirst({ where: { name } });
+                        if (!category) {
+                            category = await this.prisma.category.create({
+                                data: {
+                                    name,
+                                    storeId: defaultStoreId,
+                                    isActive: true,
+                                }
+                            });
+                            console.log(`[BulkImport] Created new category: ${name}`);
+                        }
+                        categoryIds.push(category.id);
+                    }
+                    if (categoryIds.length) {
+                        productData.categories = { connect: categoryIds.map(id => ({ id })) };
+                    }
+                }
+                // Save product
+                const created = await this.prisma.product.create({ data: productData });
+                results.push({ row: i + 1, id: created.id });
+                if ((i + 1) % 100 === 0) {
+                    console.log(`[BulkImport] Processed ${i + 1} rows`);
+                }
+            } catch (err) {
+                errors.push({ row: i + 1, error: err.message });
+                console.log(`[BulkImport] Error on row ${i + 1}: ${err.message}`);
+            }
+        }
+        console.log(`[BulkImport] Completed: ${results.length} succeeded, ${errors.length} failed.`);
+        return new ApiResponse(true, `Bulk import completed: ${results.length} succeeded, ${errors.length} failed.`, { results, errors });
     }
 
     async getProductsWithCommission(page: number = 1, limit: number = 10) {

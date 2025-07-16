@@ -105,11 +105,11 @@ export class ProductsController {
     return this.productsService.addBook(formData, coverImages);
     }
 
-    // @Post('books/upload')
-    // @UseInterceptors(FileInterceptor('file'))
-    // async addBooksFromFile(@UploadedFile() file: Express.Multer.File) {
-    //     return this.productsService.addBooksFromFile(file);
-    // }
+    @Post('books/upload')
+    @UseInterceptors(FileInterceptor('file'))
+    async addBooksFromFile(@UploadedFile() file: Express.Multer.File) {
+        return this.productsService.addBooksFromFile(file);
+    }
 
     @Get('with-commission')
     async getProductsWithCommission(

@@ -37,10 +37,26 @@ CREATE TYPE "BookFormat" AS ENUM ('audiobook', 'e_book', 'hardcover', 'paperback
 -- CreateEnum
 CREATE TYPE "AffiliateStatus" AS ENUM ('not_affiliate', 'awaiting_approval', 'pending', 'approved', 'rejected', 'active', 'inactive');
 
+-- CreateEnum
+CREATE TYPE "WithdrawalStatus" AS ENUM ('not_requested', 'pending', 'paid', 'cancelled');
+
+-- CreateEnum
+CREATE TYPE "OrderWithdrawalStatus" AS ENUM ('none', 'processing', 'completed', 'rejected', 'failed');
+
+-- CreateEnum
+CREATE TYPE "ShipmentStatus" AS ENUM ('awaiting_payment', 'processing', 'in_transit');
+
+-- CreateEnum
+CREATE TYPE "orderPaymentStatus" AS ENUM ('awaiting_payment', 'completed', 'partial', 'cancelled');
+
+-- CreateEnum
+CREATE TYPE "CommissionReferralStatus" AS ENUM ('awaiting_approval', 'pending', 'approved', 'rejected');
+
 -- CreateTable
 CREATE TABLE "Store" (
     "id" TEXT NOT NULL,
-    "name" TEXT NOT NULL,
+    "first_name" TEXT NOT NULL,
+    "last_name" TEXT NOT NULL,
     "description" TEXT,
     "email" TEXT NOT NULL,
     "phone" TEXT NOT NULL,
@@ -71,6 +87,7 @@ CREATE TABLE "User" (
     "store_id" TEXT,
     "email" TEXT NOT NULL,
     "password" TEXT NOT NULL,
+    "guest_password" TEXT,
     "first_name" TEXT NOT NULL,
     "last_name" TEXT NOT NULL,
     "phone_number" TEXT,
@@ -119,6 +136,19 @@ CREATE TABLE "Product" (
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "isFeatured" BOOLEAN NOT NULL DEFAULT false,
+    "bookId" TEXT,
+    "sku" TEXT,
+    "shortDescription" TEXT,
+    "taxStatus" TEXT,
+    "backorders" BOOLEAN,
+    "soldIndividually" BOOLEAN,
+    "weight" DOUBLE PRECISION,
+    "length" DOUBLE PRECISION,
+    "width" DOUBLE PRECISION,
+    "height" DOUBLE PRECISION,
+    "allowCustomerReview" BOOLEAN,
+    "purchaseNote" TEXT,
+    "tags" TEXT[],
 
     CONSTRAINT "Product_pkey" PRIMARY KEY ("id")
 );
@@ -163,15 +193,38 @@ CREATE TABLE "CartItem" (
 -- CreateTable
 CREATE TABLE "Order" (
     "id" TEXT NOT NULL,
+    "orderId" TEXT,
+    "productid" TEXT,
     "userId" TEXT NOT NULL,
-    "storeId" TEXT NOT NULL,
-    "status" "OrderStatus" NOT NULL DEFAULT 'pending',
+    "storeId" TEXT,
+    "status" "OrderStatus" DEFAULT 'pending',
     "total" DOUBLE PRECISION NOT NULL,
     "total_amount" DOUBLE PRECISION NOT NULL DEFAULT 0,
-    "shippingAddress" TEXT NOT NULL,
+    "shippingInfo" JSONB,
+    "shipmentStatus" "ShipmentStatus" DEFAULT 'awaiting_payment',
+    "shippingAddressId" TEXT,
+    "referralSlug" TEXT,
+    "orderPaymentStatus" "orderPaymentStatus" DEFAULT 'awaiting_payment',
     "trackingNumber" TEXT,
+    "withdrawalStatus" "OrderWithdrawalStatus" NOT NULL DEFAULT 'none',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
+    "referralCode" TEXT,
+    "shipping" DOUBLE PRECISION,
+    "shippingCost" DOUBLE PRECISION DEFAULT 0,
+    "promoCode" TEXT,
+    "promoDiscountPercent" DOUBLE PRECISION,
+    "promoDiscountAmount" DOUBLE PRECISION,
+    "isPartialPayment" BOOLEAN NOT NULL DEFAULT false,
+    "partialPayNow" DOUBLE PRECISION,
+    "partialPayLater" DOUBLE PRECISION,
+    "partialAllowedPercent" INTEGER,
+    "partialSelectedPercent" INTEGER,
+    "fullPayNow" DOUBLE PRECISION,
+    "fullPayLater" DOUBLE PRECISION,
+    "paystackReference" TEXT,
+    "paystackAuthorizationUrl" TEXT,
+    "paystackAccessCode" TEXT,
 
     CONSTRAINT "Order_pkey" PRIMARY KEY ("id")
 );
@@ -183,6 +236,7 @@ CREATE TABLE "OrderItem" (
     "productId" TEXT NOT NULL,
     "quantity" INTEGER NOT NULL,
     "price" DOUBLE PRECISION NOT NULL,
+    "totalPrice" DOUBLE PRECISION,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -209,6 +263,8 @@ CREATE TABLE "Commission" (
     "id" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
     "orderId" TEXT NOT NULL,
+    "totalPurchaseAmount" DOUBLE PRECISION NOT NULL,
+    "commissionPercentage" TEXT NOT NULL,
     "amount" DOUBLE PRECISION NOT NULL,
     "status" "CommissionStatus" NOT NULL DEFAULT 'pending',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -373,6 +429,104 @@ CREATE TABLE "CommissionPayout" (
 );
 
 -- CreateTable
+CREATE TABLE "WithdrawalRequest" (
+    "id" TEXT NOT NULL,
+    "payoutId" TEXT,
+    "userId" TEXT NOT NULL,
+    "orderId" TEXT,
+    "commissionId" TEXT,
+    "buyerName" TEXT,
+    "buyerEmail" TEXT,
+    "totalPurchaseAmount" DOUBLE PRECISION,
+    "commissionAmount" DOUBLE PRECISION,
+    "withdrawal_amount" DOUBLE PRECISION,
+    "commissionPercentage" TEXT,
+    "payoutMethod" TEXT NOT NULL,
+    "bankId" TEXT,
+    "payoutStatus" "WithdrawalStatus" NOT NULL DEFAULT 'pending',
+    "reference" TEXT NOT NULL,
+    "requestedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "processedAt" TIMESTAMP(3),
+    "processedBy" TEXT,
+    "notes" TEXT,
+    "rejectionReason" TEXT,
+    "createdAt" TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3),
+    "commissionReferralId" TEXT,
+
+    CONSTRAINT "WithdrawalRequest_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "Bank" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "bankName" TEXT NOT NULL,
+    "bankCode" TEXT NOT NULL,
+    "accountNumber" TEXT NOT NULL,
+    "accountName" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "Bank_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "Wallet" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "total_earned" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "awaiting_approval" DOUBLE PRECISION DEFAULT 0,
+    "available_for_withdrawal" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "total_withdrawn" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "balance_before" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "balance_after" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "Wallet_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "ShippingAddress" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT,
+    "firstName" TEXT NOT NULL,
+    "lastName" TEXT NOT NULL,
+    "email" TEXT NOT NULL,
+    "phone" TEXT NOT NULL,
+    "state" TEXT NOT NULL,
+    "city" TEXT NOT NULL,
+    "houseAddress" TEXT NOT NULL,
+    "address" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "ShippingAddress_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "CommissionReferral" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "orderId" TEXT,
+    "referrerId" TEXT,
+    "referredId" TEXT,
+    "productId" TEXT,
+    "type" TEXT,
+    "code" TEXT,
+    "status" "CommissionReferralStatus" DEFAULT 'pending',
+    "isUsed" BOOLEAN DEFAULT false,
+    "totalPurchaseAmount" DOUBLE PRECISION,
+    "commissionPercentage" TEXT,
+    "amount" DOUBLE PRECISION,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "CommissionReferral_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "_ProductCategories" (
     "A" TEXT NOT NULL,
     "B" TEXT NOT NULL,
@@ -432,6 +586,12 @@ CREATE UNIQUE INDEX "Cart_userId_key" ON "Cart"("userId");
 CREATE UNIQUE INDEX "CartItem_cartId_productId_key" ON "CartItem"("cartId", "productId");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "Order_orderId_key" ON "Order"("orderId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Order_paystackReference_key" ON "Order"("paystackReference");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "Referral_code_key" ON "Referral"("code");
 
 -- CreateIndex
@@ -469,6 +629,48 @@ CREATE UNIQUE INDEX "AffiliateLink_userId_productId_key" ON "AffiliateLink"("use
 
 -- CreateIndex
 CREATE UNIQUE INDEX "CommissionPayout_reference_key" ON "CommissionPayout"("reference");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "WithdrawalRequest_payoutId_key" ON "WithdrawalRequest"("payoutId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "WithdrawalRequest_reference_key" ON "WithdrawalRequest"("reference");
+
+-- CreateIndex
+CREATE INDEX "WithdrawalRequest_userId_idx" ON "WithdrawalRequest"("userId");
+
+-- CreateIndex
+CREATE INDEX "WithdrawalRequest_orderId_idx" ON "WithdrawalRequest"("orderId");
+
+-- CreateIndex
+CREATE INDEX "WithdrawalRequest_payoutStatus_idx" ON "WithdrawalRequest"("payoutStatus");
+
+-- CreateIndex
+CREATE INDEX "Bank_userId_idx" ON "Bank"("userId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Wallet_userId_key" ON "Wallet"("userId");
+
+-- CreateIndex
+CREATE INDEX "Wallet_userId_idx" ON "Wallet"("userId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "CommissionReferral_code_key" ON "CommissionReferral"("code");
+
+-- CreateIndex
+CREATE INDEX "CommissionReferral_userId_idx" ON "CommissionReferral"("userId");
+
+-- CreateIndex
+CREATE INDEX "CommissionReferral_orderId_idx" ON "CommissionReferral"("orderId");
+
+-- CreateIndex
+CREATE INDEX "CommissionReferral_referrerId_idx" ON "CommissionReferral"("referrerId");
+
+-- CreateIndex
+CREATE INDEX "CommissionReferral_referredId_idx" ON "CommissionReferral"("referredId");
+
+-- CreateIndex
+CREATE INDEX "CommissionReferral_productId_idx" ON "CommissionReferral"("productId");
 
 -- CreateIndex
 CREATE INDEX "_ProductCategories_B_index" ON "_ProductCategories"("B");
@@ -510,10 +712,13 @@ ALTER TABLE "CartItem" ADD CONSTRAINT "CartItem_cartId_fkey" FOREIGN KEY ("cartI
 ALTER TABLE "CartItem" ADD CONSTRAINT "CartItem_productId_fkey" FOREIGN KEY ("productId") REFERENCES "Product"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "Order" ADD CONSTRAINT "Order_shippingAddressId_fkey" FOREIGN KEY ("shippingAddressId") REFERENCES "ShippingAddress"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "Order" ADD CONSTRAINT "Order_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Order" ADD CONSTRAINT "Order_storeId_fkey" FOREIGN KEY ("storeId") REFERENCES "Store"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "Order" ADD CONSTRAINT "Order_storeId_fkey" FOREIGN KEY ("storeId") REFERENCES "Store"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "OrderItem" ADD CONSTRAINT "OrderItem_orderId_fkey" FOREIGN KEY ("orderId") REFERENCES "Order"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -556,6 +761,45 @@ ALTER TABLE "AffiliateLink" ADD CONSTRAINT "AffiliateLink_productId_fkey" FOREIG
 
 -- AddForeignKey
 ALTER TABLE "CommissionPayout" ADD CONSTRAINT "CommissionPayout_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "WithdrawalRequest" ADD CONSTRAINT "WithdrawalRequest_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "WithdrawalRequest" ADD CONSTRAINT "WithdrawalRequest_orderId_fkey" FOREIGN KEY ("orderId") REFERENCES "Order"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "WithdrawalRequest" ADD CONSTRAINT "WithdrawalRequest_bankId_fkey" FOREIGN KEY ("bankId") REFERENCES "Bank"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "WithdrawalRequest" ADD CONSTRAINT "WithdrawalRequest_commissionId_fkey" FOREIGN KEY ("commissionId") REFERENCES "Commission"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "WithdrawalRequest" ADD CONSTRAINT "WithdrawalRequest_commissionReferralId_fkey" FOREIGN KEY ("commissionReferralId") REFERENCES "CommissionReferral"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Bank" ADD CONSTRAINT "Bank_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Wallet" ADD CONSTRAINT "Wallet_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ShippingAddress" ADD CONSTRAINT "ShippingAddress_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "CommissionReferral" ADD CONSTRAINT "CommissionReferral_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "CommissionReferral" ADD CONSTRAINT "CommissionReferral_orderId_fkey" FOREIGN KEY ("orderId") REFERENCES "Order"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "CommissionReferral" ADD CONSTRAINT "CommissionReferral_referrerId_fkey" FOREIGN KEY ("referrerId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "CommissionReferral" ADD CONSTRAINT "CommissionReferral_referredId_fkey" FOREIGN KEY ("referredId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "CommissionReferral" ADD CONSTRAINT "CommissionReferral_productId_fkey" FOREIGN KEY ("productId") REFERENCES "Product"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "_ProductCategories" ADD CONSTRAINT "_ProductCategories_A_fkey" FOREIGN KEY ("A") REFERENCES "Category"("id") ON DELETE CASCADE ON UPDATE CASCADE;
