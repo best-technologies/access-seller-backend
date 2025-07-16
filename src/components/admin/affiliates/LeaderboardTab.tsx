@@ -104,6 +104,8 @@ export default function LeaderboardTab({
         </div>
       </div>
 
+      {/* Add counts to the existing tab/section names above the table if present */}
+
       {/* Leaderboard Table */}
       <div className="bg-white rounded-xl shadow-md border border-gray-200 p-4">
         <div className="px-6 py-4 border-b border-gray-200/50 bg-gradient-to-r from-gray-50 to-gray-100">
@@ -116,8 +118,8 @@ export default function LeaderboardTab({
                 <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Affiliate</th>
                 <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Email</th>
                 <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Revenue (₦)</th>
-                <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Clicks</th>
-                <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Conversions</th>
+                {/* <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Clicks</th> */}
+                {/* <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Conversions</th> */}
                 <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Status</th>
                 <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Joined</th>
               </tr>
@@ -139,9 +141,15 @@ export default function LeaderboardTab({
                     <span className="font-medium text-gray-900">{affiliate.name}</span>
                   </td>
                   <td className="px-6 py-3 text-gray-700">{affiliate.email}</td>
-                  <td className="px-6 py-3 text-gray-700">₦{affiliate.revenue.toLocaleString()}</td>
-                  <td className="px-6 py-3 text-gray-700">{affiliate.clicks}</td>
-                  <td className="px-6 py-3 text-gray-700">{affiliate.conversions}</td>
+                  <td className="px-6 py-3 text-gray-700">
+                    ₦{typeof affiliate.revenue === 'number'
+                        ? affiliate.revenue.toLocaleString()
+                        : typeof affiliate.totalEarned === 'number'
+                          ? affiliate.totalEarned.toLocaleString()
+                          : '0'}
+                  </td>
+                  {/* <td className="px-6 py-3 text-gray-700">{affiliate.clicks}</td> */}
+                  {/* <td className="px-6 py-3 text-gray-700">{affiliate.conversions}</td> */}
                   <td className="px-6 py-3">
                     <span
                       className={`inline-block px-2 py-1 rounded text-xs font-semibold ${

@@ -16,6 +16,7 @@ import CartShippingModal from '@/components/cart/CartShippingModal';
 import { useAuth } from '@/hooks/useAuth';
 import { Loader } from "@/components/ui/loader";
 import { useRouter } from 'next/navigation';
+import { useRef } from 'react';
 
 function PaymentStatusModal({ open, message }: { open: boolean; message: string }) {
   if (!open) return null;
@@ -76,9 +77,9 @@ export default function ProfessionalCartPage() {
           const value = res.data?.allowedPartialPayment ?? 0;
           setAllowedPartPayment(value);
           if (value > 0) {
-            toast.success(`🎉 You can pay as low as ${value}% of your order now!`);
+            // toast.success(`🎉 You can pay as low as ${value}% of your order now!`);
           } else {
-            toast.error("😞 You do not qualify for partial payment at this time.");
+            // toast.error("😞 You do not qualify for partial payment at this time.");
           }
         })
         .catch(() => setAllowedPartPayment(100));
@@ -104,7 +105,7 @@ export default function ProfessionalCartPage() {
     return total + (isNaN(price) || isNaN(qty) ? 0 : price * qty);
   }, 0);
   const savings = 0; // You can enhance this if you store originalPrice
-  const shipping = subtotal > 5000000 ? 0 : 7.99;
+  const shipping = subtotal > 5000000 ? 0 : 0;
   const promoDiscount = referralApplied ? subtotal * (referralDiscountPercent / 100) : 0;
   // const tax = (subtotal - promoDiscount) * 0.08;
   const total = Number(subtotal - promoDiscount + shipping /* + tax */);
@@ -181,15 +182,16 @@ export default function ProfessionalCartPage() {
     }
   };
 
-  // On redirect back from Paystack, verify payment
+  const hasVerified = useRef<string | null>(null);
   useEffect(() => {
-    const currentSelected = selected;
-    const currentRemoveFromCart = removeFromCart;
     if (typeof window !== 'undefined') {
       const urlParams = new URLSearchParams(window.location.search);
       const reference = urlParams.get('reference') || urlParams.get('trxref');
-      if (reference) {
+      if (reference && hasVerified.current !== reference) {
+        hasVerified.current = reference;
         setIsLoading(true);
+        const currentSelected = selected;
+        const currentRemoveFromCart = removeFromCart;
         api.paystack.verifyCheckoutPayment(reference)
           .then((res) => {
             const responseData = res as unknown as { success: boolean; message?: string };
@@ -213,7 +215,9 @@ export default function ProfessionalCartPage() {
           .finally(() => setIsLoading(false));
       }
     }
-  }, [removeFromCart, selected]);
+    // Only run on mount
+    // eslint-disable-next-line
+  }, []);
 
   // Debug: log when onCheckout is called
   const handleShowShippingModal = () => {
@@ -267,25 +271,45 @@ export default function ProfessionalCartPage() {
     return (
       <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-50 flex items-center justify-center">
         <div className="bg-white rounded-xl shadow-lg p-8 flex flex-col items-center gap-6 min-w-[320px] max-w-[90vw]">
+          {isAuthenticated ? (
+            <>
           <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-2">
             <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
           </div>
           <h2 className="text-2xl font-bold text-gray-900 mb-1">Order Completed!</h2>
-          <p className="text-gray-700 mb-4 text-center">Thank you for your purchase. Your order has been placed successfully.</p>
-          <div className="flex flex-col sm:flex-row gap-3 w-full">
-            <button
-              className="flex-1 py-2 rounded-lg bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition"
-              onClick={() => { onClose(); router.push('/orders'); }}
-            >
-              View My Orders
-            </button>
-            <button
-              className="flex-1 py-2 rounded-lg bg-gray-100 text-gray-700 font-semibold hover:bg-gray-200 transition"
-              onClick={() => { onClose(); router.push('/'); }}
-            >
-              Go to Home
-            </button>
-          </div>
+              <p className="text-gray-700 mb-4 text-center">Thank you for your purchase. Your order has been placed successfully.</p>
+              <div className="flex flex-col sm:flex-row gap-3 w-full">
+                <button
+                  className="flex-1 py-2 rounded-lg bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition"
+                  onClick={() => { onClose(); router.push('/orders'); }}
+                >
+                  View My Orders
+                </button>
+                <button
+                  className="flex-1 py-2 rounded-lg bg-gray-100 text-gray-700 font-semibold hover:bg-gray-200 transition"
+                  onClick={() => { onClose(); router.push('/'); }}
+                >
+                  Go to Home
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="flex flex-col items-center justify-center gap-4 w-full">
+                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-2">
+                  <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                </div>
+                <h2 className="text-2xl font-bold text-gray-900 mb-1">Payment Received!</h2>
+                <p className="text-gray-700 mb-2 text-center max-w-xs">Your payment has been received. Your order details and shipment updates will be sent to your email.</p>
+                <button
+                  className="w-full sm:w-auto px-6 py-3 rounded-lg bg-indigo-600 text-white font-semibold text-base shadow hover:bg-indigo-700 transition mt-2"
+                  onClick={() => { onClose(); router.push('/products'); }}
+                >
+                  Continue Shopping
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </div>
     );

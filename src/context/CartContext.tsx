@@ -81,7 +81,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
       );
       const updatedItem = updatedCart.find(ci => ci.productId === productId);
       if (updatedItem) {
-        showToast(`${updatedItem.product?.name || 'Item'} quantity updated to ${quantity}!`);
+        // showToast(`${updatedItem.product?.name || 'Item'} quantity updated to ${quantity}!`);
       }
       return updatedCart;
     });

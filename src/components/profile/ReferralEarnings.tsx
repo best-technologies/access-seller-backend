@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { DollarSign, Users, Copy, ChevronDown, ChevronUp, Trash2, RefreshCw } from "lucide-react";
+import { DollarSign, Copy, ChevronDown, ChevronUp, Trash2, RefreshCw } from "lucide-react";
 import { api } from "@/services/api";
 import { toast } from "react-hot-toast";
 import Image from "next/image";
@@ -153,7 +153,7 @@ export default function ReferralEarnings({ affiliateDashboard, refreshAffiliateD
   const totalEarned = typeof stats.totalEarned === 'number' ? stats.totalEarned : 0;
   const availableForWithdrawal = typeof stats.available_for_withdrawal === 'number' ? stats.available_for_withdrawal : totalEarned;
   const totalWithdrawn = typeof stats.totalWithdrawn === 'number' ? stats.totalWithdrawn : 0;
-  const totalPurchases = typeof stats.totalPurchases === 'number' ? stats.totalPurchases : 0;
+  // const totalPurchases = typeof stats.totalPurchases === 'number' ? stats.totalPurchases : 0;
   // Table analysis: now array of objects, orderAmount/commissionEarned as string (with commas)
   const tableAnalysis = Array.isArray(data.tableAnalysis) ? data.tableAnalysis : [];
   // Helper for 3-day check (use root-level createdAt)
@@ -1089,7 +1089,7 @@ export default function ReferralEarnings({ affiliateDashboard, refreshAffiliateD
                 Withdraw
               </button>
             </div>
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            {/* <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-500">Total Purchases</p>
@@ -1099,7 +1099,7 @@ export default function ReferralEarnings({ affiliateDashboard, refreshAffiliateD
                   <Users className="h-6 w-6 text-blue-600" />
                 </div>
               </div>
-            </div>
+            </div> */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
               <div className="flex items-center justify-between">
                 <div>
@@ -1163,8 +1163,8 @@ export default function ReferralEarnings({ affiliateDashboard, refreshAffiliateD
                             <th className="px-4 py-2 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Amount</th>
                             <th className="px-4 py-2 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Commission</th>
                             <th className="px-4 py-2 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Date</th>
-                            {/* <th className="px-4 py-2 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Status</th> */}
                             {/* <th className="px-4 py-2 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Approved</th> */}
+                            <th className="px-4 py-2 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Status</th>
                             <th className="px-4 py-2 text-left text-xs font-bold text-gray-700 uppercase tracking-wider rounded-tr-xl">Channel</th>
                           </tr>
                         </thead>
@@ -1186,9 +1186,9 @@ export default function ReferralEarnings({ affiliateDashboard, refreshAffiliateD
                               <td className="px-4 py-2">₦{order.orderAmount}</td>
                               <td className="px-4 py-2">₦{order.commissionEarned}</td>
                               <td className="px-4 py-2">{order.orderDate ? order.orderDate : ''}</td>
-                              {/* <td className="px-4 py-2">
+                              <td className="px-4 py-2">
                                 <span className={`inline-block px-2 py-1 rounded text-xs font-semibold ${order.status === 'pending' ? 'bg-yellow-100 text-yellow-700' : order.status === 'completed' ? 'bg-green-100 text-green-700' : order.status === 'inactive' ? 'bg-gray-200 text-gray-500' : 'bg-gray-100 text-gray-500'}`}>{order.status}</span>
-                              </td> */}
+                              </td>
                               {/* <td className="px-4 py-2">{order.approved ? <span className="text-green-600 font-bold">Yes</span> : <span className="text-red-500 font-bold">No</span>}</td> */}
                               <td className="px-4 py-2">
                                 {order.channel === 'affiliate_link' ? (

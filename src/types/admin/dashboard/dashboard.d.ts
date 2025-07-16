@@ -116,6 +116,7 @@ export interface AffiliateLeaderboardEntry {
   conversions: number;         // Number of conversions
   status: string;              // Affiliate status (active/pending/inactive)
   joinedAt: string;            // Date affiliate joined (ISO 8601)
+  totalEarned?: number;        // Total earned by affiliate (from backend, optional for compatibility)
 }
 
 export interface AffiliateOverview {
