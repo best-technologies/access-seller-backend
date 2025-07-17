@@ -384,6 +384,19 @@ export const api = {
       const response = await axiosInstance.get(`/products/by-category/${encodeURIComponent(categoryName)}?page=${page}&limit=${limit}`);
       return response as unknown as BrowseProductsResponse;
     },
+    getSearchSuggestions: async (q: string): Promise<Array<{ id: string; title: string; author: string; image: string; slug: string }>> => {
+      if (!q || q.length < 2) return [];
+      const response = await axiosInstance.get('/products/search-suggestions', { params: { q } });
+      console.log('search suggestions response', response);
+      const data = response.data;
+      if (Array.isArray(data)) {
+        return data;
+      }
+      if (data && data.success && Array.isArray(data.data)) {
+        return data.data;
+      }
+      return [];
+    },
   },
 
   admin: {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import MiniCartPreview from "@/components/home/MiniCartPreview";
 import { 
   Menu, 
@@ -27,6 +27,21 @@ import { useRouter } from "next/navigation";
 import { usePathname } from "next/navigation";
 import toast from "react-hot-toast";
 import Loader from "@/components/Loader";
+import { api } from "@/services/api";
+
+// Define a type for suggestions
+interface SearchSuggestion {
+  id: string;
+  title: string;
+  author: string;
+  image: string;
+  slug: string;
+}
+
+// Mocked async fetch for search suggestions
+async function fetchSearchSuggestions(query: string): Promise<SearchSuggestion[]> {
+  return api.public.getSearchSuggestions(query);
+}
 
 export default function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -37,6 +52,11 @@ export default function Navbar() {
   const router = useRouter();
   const pathname = usePathname();
   const [search, setSearch] = useState("");
+  const [suggestions, setSuggestions] = useState<SearchSuggestion[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
+  const [highlighted, setHighlighted] = useState(-1);
+  const debounceTimeout = useRef<NodeJS.Timeout | null>(null);
 
   const handleBackdropClick = (e: React.MouseEvent) => {
     if (e.target === e.currentTarget) {
@@ -67,10 +87,62 @@ export default function Navbar() {
     router.push("/printing-inventory");
   };
 
-  const handleSearchSubmit = (e: React.FormEvent) => {
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setSearch(value);
+    setShowSuggestions(!!value && value.length >= 2);
+    setHighlighted(-1);
+    if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
+    if (value.length < 2) {
+      setSuggestions([]);
+      setIsLoadingSuggestions(false);
+      return;
+    }
+    setIsLoadingSuggestions(true);
+    debounceTimeout.current = setTimeout(async () => {
+      const results = await fetchSearchSuggestions(value);
+      setSuggestions(results);
+      setIsLoadingSuggestions(false);
+    }, 300);
+  };
+
+  const handleSuggestionClick = (suggestion: SearchSuggestion) => {
+    setSearch("");
+    setShowSuggestions(false);
+    router.push(`/products/${suggestion.slug}`);
+  };
+
+  const handleInputBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    // Delay to allow click event to register
+    setTimeout(() => setShowSuggestions(false), 120);
+  };
+
+  const handleInputFocus = (_e?: React.FocusEvent<HTMLInputElement>) => {
+    if (search.length >= 2 && suggestions.length > 0) setShowSuggestions(true);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!showSuggestions || suggestions.length === 0) return;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setHighlighted(h => Math.min(h + 1, suggestions.length - 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setHighlighted(h => Math.max(h - 1, 0));
+    } else if (e.key === "Enter") {
+      if (highlighted >= 0 && highlighted < suggestions.length) {
+        handleSuggestionClick(suggestions[highlighted]);
+      }
+    } else if (e.key === "Escape") {
+      setShowSuggestions(false);
+    }
+  };
+
+  const handleSearchSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const query = search.trim();
     if (!query) return;
+    setShowSuggestions(false);
     router.push(`/search?q=${encodeURIComponent(query)}`);
     setSearch("");
   };
@@ -108,7 +180,10 @@ export default function Navbar() {
                   <input
                     type="text"
                     value={search}
-                    onChange={e => setSearch(e.target.value)}
+                    onChange={handleSearchChange}
+                    onBlur={handleInputBlur}
+                    onFocus={handleInputFocus}
+                    onKeyDown={handleKeyDown}
                     placeholder="Search for books, authors, or ISBN..."
                     className="w-full px-4 py-2 pr-12 rounded-lg border border-gray-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 bg-white text-gray-800 placeholder-gray-400 shadow-sm transition"
                     aria-label="Search for books, authors, or ISBN"
@@ -120,6 +195,17 @@ export default function Navbar() {
                   >
                     <Search className="w-5 h-5" />
                   </button>
+                  {showSuggestions && (
+                    <div className="absolute left-0 right-0 mt-2 z-50 bg-white rounded-xl shadow-xl border border-gray-100 max-h-80 overflow-y-auto animate-fade-in">
+                      {isLoadingSuggestions ? (
+                        <div className="p-4 text-center text-gray-400 text-sm">Searching...</div>
+                      ) : suggestions.length === 0 ? (
+                        <div className="p-4 text-center text-gray-400 text-sm">No results found</div>
+                      ) : suggestions.map((s, i) => (
+                        <div key={s.id} onMouseDown={() => handleSuggestionClick(s)} className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors ${highlighted === i ? 'bg-indigo-50' : 'hover:bg-gray-50'}`}> <img src={s.image} alt={s.title} className="w-10 h-14 object-cover rounded shadow" /> <div className="flex-1"> <div className="font-semibold text-gray-900 text-sm line-clamp-1">{s.title}</div> <div className="text-xs text-gray-500 line-clamp-1">{s.author}</div> </div> </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </form>
             )}
@@ -132,7 +218,10 @@ export default function Navbar() {
                     <input
                       type="text"
                       value={search}
-                      onChange={e => setSearch(e.target.value)}
+                      onChange={handleSearchChange}
+                      onBlur={handleInputBlur}
+                      onFocus={handleInputFocus}
+                      onKeyDown={handleKeyDown}
                       placeholder="Search..."
                       className="w-full px-3 py-2 pr-10 rounded-lg border border-gray-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 bg-white text-gray-800 placeholder-gray-400 shadow-sm transition text-sm"
                       aria-label="Search for books, authors, or ISBN"
@@ -144,6 +233,17 @@ export default function Navbar() {
                     >
                       <Search className="w-4 h-4" />
                     </button>
+                    {showSuggestions && (
+                      <div className="absolute left-0 right-0 mt-2 z-50 bg-white rounded-xl shadow-xl border border-gray-100 max-h-80 overflow-y-auto animate-fade-in">
+                        {isLoadingSuggestions ? (
+                          <div className="p-4 text-center text-gray-400 text-sm">Searching...</div>
+                        ) : suggestions.length === 0 ? (
+                          <div className="p-4 text-center text-gray-400 text-sm">No results found</div>
+                        ) : suggestions.map((s, i) => (
+                          <div key={s.id} onMouseDown={() => handleSuggestionClick(s)} className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors ${highlighted === i ? 'bg-indigo-50' : 'hover:bg-gray-50'}`}> <img src={s.image} alt={s.title} className="w-10 h-14 object-cover rounded shadow" /> <div className="flex-1"> <div className="font-semibold text-gray-900 text-sm line-clamp-1">{s.title}</div> <div className="text-xs text-gray-500 line-clamp-1">{s.author}</div> </div> </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </form>
               )}

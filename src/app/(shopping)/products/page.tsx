@@ -4,7 +4,6 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { 
   Filter, 
-  Search,
   Heart, 
   ShoppingCart,
   Book,
@@ -20,7 +19,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Star,
-  X,
   ArrowRight,
   Box
 } from "lucide-react";
@@ -32,6 +30,7 @@ import Loader from "@/components/Loader";
 import type { BrowseProduct, BrowseCategory } from '@/types/product';
 import { useRouter } from 'next/navigation';
 import Navbar from "@/components/home/Navbar";
+import ProductSearchBar from '@/components/common/ProductSearchBar';
 
 // Type for the new backend data structure
 interface CategoryGroup {
@@ -90,10 +89,10 @@ export default function ProfessionalProductsPage() {
   const [sortBy, setSortBy] = useState<string>("featured");
   const [viewMode, setViewMode] = useState<string>("grid");
   const [showFilters, setShowFilters] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
   const [categories, setCategories] = useState<BrowseCategory[]>([]);
   const { cart, addToCart, removeFromCart } = useCart();
   const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
+  const [hasFetchedOnce, setHasFetchedOnce] = useState(false);
 
   // (Removed all category infinite scroll logic)
 
@@ -130,6 +129,7 @@ export default function ProfessionalProductsPage() {
             setIsLoading(false);
             setIsLoadingMore(false);
             setPage(1);
+            setHasFetchedOnce(true);
             return;
           }
         }
@@ -154,11 +154,13 @@ export default function ProfessionalProductsPage() {
           setProducts(prev => [...prev, ...((response.data.products as unknown) as CategoryGroup[])]);
         }
         setPage(pageToFetch); // <-- update page only after successful fetch
+        setHasFetchedOnce(true);
       }
     } catch {
       // error intentionally ignored
       console.error('[Browse Products API Error]');
       toast.error('Failed to load products. Please try again.');
+      setHasFetchedOnce(true);
     } finally {
       setIsLoading(false);
       setIsLoadingMore(false);
@@ -235,9 +237,9 @@ export default function ProfessionalProductsPage() {
     BookOpen, Book, Zap, Heart, Eye, Users, Calendar, TrendingUp,
   };
 
-  if (isLoading) return <Loader />;
+  if (isLoading || !hasFetchedOnce) return <Loader />;
 
-  if (!isLoading && (products.length === 0 || categories.length === 0)) {
+  if (hasFetchedOnce && !isLoading && (products.length === 0 || categories.length === 0)) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] py-12">
         <div className="bg-indigo-50 rounded-full p-6 mb-6">
@@ -545,32 +547,12 @@ export default function ProfessionalProductsPage() {
               <div>
                 <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Discover Books</h1>
                 <p className="text-sm text-gray-600 mt-1">
-                  {products.length} {products.length === 1 ? 'book' : 'books'} available
+                  {/* {products.length} {products.length === 1 ? 'book' : 'books'} available */}
                 </p>
               </div>
             </div>
 
-            {/* Enhanced Search Bar */}
-            <div className="flex-1 max-w-xl mx-8">
-              <div className="relative">
-                <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Search books, authors, categories..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-12 pr-4 py-3 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-gray-50 hover:bg-white transition-colors"
-                />
-                {searchQuery && (
-                  <button
-                    onClick={() => setSearchQuery("")}
-                    className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                )}
-              </div>
-            </div>
+            <ProductSearchBar className="w-full max-w-2xl" />
 
             {/* Enhanced Controls */}
             <div className="flex items-center gap-4">
