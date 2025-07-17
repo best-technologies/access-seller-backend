@@ -1,6 +1,7 @@
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/services/api";
+import Image from "next/image";
 
 export interface SearchSuggestion {
   id: string;
@@ -65,11 +66,11 @@ export default function ProductSearchBar({
     }
   };
 
-  const handleInputBlur = (_e: React.FocusEvent<HTMLInputElement>) => {
+  const handleInputBlur = () => {
     setTimeout(() => setShowSuggestions(false), 120);
   };
 
-  const handleInputFocus = (_e?: React.FocusEvent<HTMLInputElement>) => {
+  const handleInputFocus = () => {
     if (search.length >= 2 && suggestions.length > 0) setShowSuggestions(true);
   };
 
@@ -142,7 +143,13 @@ export default function ProductSearchBar({
               onMouseDown={() => handleSuggestionClick(s)}
               className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors ${highlighted === i ? 'bg-indigo-50' : 'hover:bg-gray-50'}`}
             >
-              <img src={s.image} alt={s.title} className="w-10 h-14 object-cover rounded shadow" />
+              <Image
+                src={s.image}
+                alt={s.title}
+                width={40}
+                height={56}
+                className="w-10 h-14 object-cover rounded shadow"
+              />
               <div className="flex-1">
                 <div className="font-semibold text-gray-900 text-sm line-clamp-1">{s.title}</div>
                 <div className="text-xs text-gray-500 line-clamp-1">{s.author}</div>

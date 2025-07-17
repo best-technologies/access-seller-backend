@@ -28,6 +28,7 @@ import { usePathname } from "next/navigation";
 import toast from "react-hot-toast";
 import Loader from "@/components/Loader";
 import { api } from "@/services/api";
+import Image from "next/image";
 
 // Define a type for suggestions
 interface SearchSuggestion {
@@ -112,12 +113,12 @@ export default function Navbar() {
     router.push(`/products/${suggestion.slug}`);
   };
 
-  const handleInputBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+  const handleInputBlur = () => {
     // Delay to allow click event to register
     setTimeout(() => setShowSuggestions(false), 120);
   };
 
-  const handleInputFocus = (_e?: React.FocusEvent<HTMLInputElement>) => {
+  const handleInputFocus = () => {
     if (search.length >= 2 && suggestions.length > 0) setShowSuggestions(true);
   };
 
@@ -202,7 +203,7 @@ export default function Navbar() {
                       ) : suggestions.length === 0 ? (
                         <div className="p-4 text-center text-gray-400 text-sm">No results found</div>
                       ) : suggestions.map((s, i) => (
-                        <div key={s.id} onMouseDown={() => handleSuggestionClick(s)} className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors ${highlighted === i ? 'bg-indigo-50' : 'hover:bg-gray-50'}`}> <img src={s.image} alt={s.title} className="w-10 h-14 object-cover rounded shadow" /> <div className="flex-1"> <div className="font-semibold text-gray-900 text-sm line-clamp-1">{s.title}</div> <div className="text-xs text-gray-500 line-clamp-1">{s.author}</div> </div> </div>
+                        <div key={s.id} onMouseDown={() => handleSuggestionClick(s)} className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors ${highlighted === i ? 'bg-indigo-50' : 'hover:bg-gray-50'}`}> <Image src={s.image} alt={s.title} width={40} height={56} className="w-10 h-14 object-cover rounded shadow" /> <div className="flex-1"> <div className="font-semibold text-gray-900 text-sm line-clamp-1">{s.title}</div> <div className="text-xs text-gray-500 line-clamp-1">{s.author}</div> </div> </div>
                       ))}
                     </div>
                   )}
@@ -240,7 +241,7 @@ export default function Navbar() {
                         ) : suggestions.length === 0 ? (
                           <div className="p-4 text-center text-gray-400 text-sm">No results found</div>
                         ) : suggestions.map((s, i) => (
-                          <div key={s.id} onMouseDown={() => handleSuggestionClick(s)} className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors ${highlighted === i ? 'bg-indigo-50' : 'hover:bg-gray-50'}`}> <img src={s.image} alt={s.title} className="w-10 h-14 object-cover rounded shadow" /> <div className="flex-1"> <div className="font-semibold text-gray-900 text-sm line-clamp-1">{s.title}</div> <div className="text-xs text-gray-500 line-clamp-1">{s.author}</div> </div> </div>
+                          <div key={s.id} onMouseDown={() => handleSuggestionClick(s)} className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors ${highlighted === i ? 'bg-indigo-50' : 'hover:bg-gray-50'}`}> <Image src={s.image} alt={s.title} width={40} height={56} className="w-10 h-14 object-cover rounded shadow" /> <div className="flex-1"> <div className="font-semibold text-gray-900 text-sm line-clamp-1">{s.title}</div> <div className="text-xs text-gray-500 line-clamp-1">{s.author}</div> </div> </div>
                         ))}
                       </div>
                     )}

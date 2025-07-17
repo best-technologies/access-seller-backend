@@ -96,21 +96,6 @@ export default function ProfessionalProductsPage() {
 
   // (Removed all category infinite scroll logic)
 
-  // Infinite scroll handler
-  const handleScroll = useCallback(() => {
-    if (isLoadingMore || isLoading || !hasMore) return;
-    const scrollPosition = window.innerHeight + window.scrollY;
-    const threshold = document.body.offsetHeight - 300; // 300px from bottom
-    if (scrollPosition >= threshold) {
-      loadMoreProducts();
-    }
-  }, [isLoadingMore, isLoading, hasMore, loadMoreProducts]);
-
-  useEffect(() => {
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, [handleScroll]);
-
   // Enhanced fetch with error handling
   const fetchProducts = useCallback(async (pageToFetch = 1, useCache = true) => {
     if (pageToFetch === 1) setIsLoading(true);
@@ -167,17 +152,32 @@ export default function ProfessionalProductsPage() {
     }
   }, [CACHE_DURATION]);
 
-  useEffect(() => {
-    setPage(1);
-    fetchProducts(1, true);
-  }, [fetchProducts]);
-
-  function loadMoreProducts() {
+  const loadMoreProducts = useCallback(() => {
     if (!hasMore || isLoadingMore) return;
     const nextPage = page + 1;
     setPage(nextPage);
     fetchProducts(nextPage);
-  }
+  }, [hasMore, isLoadingMore, page, fetchProducts]);
+
+  // Infinite scroll handler
+  const handleScroll = useCallback(() => {
+    if (isLoadingMore || isLoading || !hasMore) return;
+    const scrollPosition = window.innerHeight + window.scrollY;
+    const threshold = document.body.offsetHeight - 300; // 300px from bottom
+    if (scrollPosition >= threshold) {
+      loadMoreProducts();
+    }
+  }, [isLoadingMore, isLoading, hasMore, loadMoreProducts]);
+
+  useEffect(() => {
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [handleScroll]);
+
+  useEffect(() => {
+    setPage(1);
+    fetchProducts(1, true);
+  }, [fetchProducts]);
 
   const handleForceRefresh = () => {
     setPage(1);

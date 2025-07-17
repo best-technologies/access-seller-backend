@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import Loader from "@/components/Loader";
 import { api } from "@/services/api";
-import { ArrowLeft, Box, RefreshCw, Heart, ShoppingCart } from "lucide-react";
+import { Box, Heart, ShoppingCart } from "lucide-react";
 import Link from "next/link";
 import toast from "react-hot-toast";
 import type { CategoryProduct } from "@/types/product";
@@ -27,7 +27,6 @@ function isCategoryProduct(obj: unknown): obj is CategoryProduct {
 
 export default function CategoryProductsPage() {
   const searchParams = useSearchParams();
-  const router = useRouter();
   const [products, setProducts] = useState<CategoryProduct[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

@@ -6,6 +6,7 @@ import { Toaster } from "react-hot-toast";
 import "./globals.css";
 import { CartProvider } from "@/context/CartContext";
 import { WishlistProvider } from "@/context/WishlistContext";
+import MobileNavTabs from "@/components/common/MobileNavTabs";
 
 export default function RootLayout({
   children,
@@ -24,6 +25,9 @@ export default function RootLayout({
               <main>
                 {children}
               </main>
+
+              {/* Mobile Bottom Nav Tabs */}
+              <MobileNavTabs />
 
               {/* Footer */}
               <Footer />
