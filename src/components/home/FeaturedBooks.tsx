@@ -33,7 +33,7 @@ interface FeaturedBooksProps {
   onRetry?: () => void;
 }
 
-export default function FeaturedBooks({ books = [], available_categories = [], loading = false, error = null, onRetry }: FeaturedBooksProps) {
+export default function FeaturedBooks({ books = [], loading = false, error = null, onRetry }: FeaturedBooksProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
   const [isVisible, setIsVisible] = useState(false);
