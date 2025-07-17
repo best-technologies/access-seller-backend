@@ -196,6 +196,15 @@ export default function ProductDetailPage() {
             "Updated At": d.updatedAt ? (d.updatedAt instanceof Date ? d.updatedAt.toISOString() : String(d.updatedAt)) : '',
           };
         }
+        // Use type-safe normalization for images
+        let images: string[] = [];
+        if (Array.isArray(d.images) && d.images.length > 0) {
+          images = d.images;
+        } else if (Array.isArray((d as unknown as { displayImages?: string[] }).displayImages) && (d as unknown as { displayImages?: string[] }).displayImages && (d as unknown as { displayImages?: string[] }).displayImages!.length > 0) {
+          images = (d as unknown as { displayImages: string[] }).displayImages;
+        } else if (typeof (d as unknown as { display_picture?: string }).display_picture === 'string' && (d as unknown as { display_picture?: string }).display_picture) {
+          images = [(d as unknown as { display_picture: string }).display_picture];
+        }
         const normalized: ProductUI = {
           id: d.id,
           title: String((d as { title?: string }).title || (d as { bookName?: string }).bookName || (d as { name?: string }).name || ''),
@@ -204,7 +213,7 @@ export default function ProductDetailPage() {
           originalPrice: (d as { normalPrice?: number }).normalPrice ?? undefined,
           amountSaved: (d as { amountSaved?: number }).amountSaved ?? undefined,
           stock: (d as { stock?: number }).stock ?? 0,
-          images: d.images || (d as { displayImages?: string[] }).displayImages || [],
+          images,
           category: typeof d.category === 'object' && d.category !== null && typeof (d.category as { name?: string }).name === 'string'
             ? String((d.category as { name: string }).name)
             : (typeof d.category === 'string' ? String(d.category) : ''),
