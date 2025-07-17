@@ -14,21 +14,23 @@ import CartConfirmationModal from "@/components/cart/CartConfirmationModal";
 import ManualPaymentModal from "@/components/cart/ManualPaymentModal";
 import CartShippingModal from '@/components/cart/CartShippingModal';
 import { useAuth } from '@/hooks/useAuth';
-import { Loader } from "@/components/ui/loader";
 import { useRouter } from 'next/navigation';
 import { useRef } from 'react';
+import Loader from '@/components/Loader';
+import InlineSpinner from '@/components/profile/InlineSpinner';
+import Confetti from 'react-confetti';
 
-function PaymentStatusModal({ open, message }: { open: boolean; message: string }) {
-  if (!open) return null;
-  return (
-    <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-50 flex items-center justify-center">
-      <div className="bg-white rounded-xl shadow-lg p-8 flex flex-col items-center gap-4 min-w-[260px]">
-        <Loader size="md" variant="primary" />
-        <p className="text-base font-medium text-gray-800 text-center">{message}</p>
-      </div>
-    </div>
-  );
-}
+// function PaymentStatusModal({ open, message }: { open: boolean; message: string }) {
+//   if (!open) return null;
+//   return (
+//     <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-50 flex items-center justify-center">
+//       <div className="bg-white rounded-xl shadow-lg p-8 flex flex-col items-center gap-4 min-w-[260px]">
+//         <Loader />
+//         <p className="text-base font-medium text-gray-800 text-center">{message}</p>
+//       </div>
+//     </div>
+//   );
+// }
 
 export default function ProfessionalCartPage() {
   const router = useRouter();
@@ -47,6 +49,9 @@ export default function ProfessionalCartPage() {
   const [paymentPercent, setPaymentPercent] = useState(100);
   const [showManualModal, setShowManualModal] = useState(false);
   const [showOrderCompleteModal, setShowOrderCompleteModal] = useState(false);
+  const [showLoading, setShowLoading] = useState(false);
+  const [showConfetti, setShowConfetti] = useState(false);
+  const [paystackLoadingPhase, setPaystackLoadingPhase] = useState<'none' | 'preparing' | 'verifying'>('none');
 
   // Add shipping modal state and form
   const [showShippingModal, setShowShippingModal] = useState(false);
@@ -120,6 +125,7 @@ export default function ProfessionalCartPage() {
   // Update handleCheckout to accept shipping info
   const handleCheckout = async () => {
     setIsLoading(true);
+    setPaystackLoadingPhase('preparing');
     try {
       // Prepare order data
       const orderData: CartOrderData = {
@@ -183,6 +189,7 @@ export default function ProfessionalCartPage() {
       toast.error(error instanceof Error ? error.message : "Checkout failed");
     } finally {
       setIsLoading(false);
+      setPaystackLoadingPhase('none');
     }
   };
 
@@ -194,6 +201,7 @@ export default function ProfessionalCartPage() {
       if (reference && hasVerified.current !== reference) {
         hasVerified.current = reference;
         setIsLoading(true);
+        setPaystackLoadingPhase('verifying');
         const currentSelected = selected;
         const currentRemoveFromCart = removeFromCart;
         api.paystack.verifyCheckoutPayment(reference)
@@ -204,6 +212,8 @@ export default function ProfessionalCartPage() {
               currentSelected.forEach(pid => currentRemoveFromCart(pid, true));
               toast.success('Payment verified! Order placed successfully. Cart cleared!');
               setShowOrderCompleteModal(true);
+              setShowConfetti(true);
+              setTimeout(() => setShowConfetti(false), 6000);
               // Remove query params from URL after verification
               const url = new URL(window.location.href);
               url.searchParams.delete('reference');
@@ -216,7 +226,10 @@ export default function ProfessionalCartPage() {
           .catch((err: { message?: string }) => {
             toast.error(err?.message || 'Payment verification failed');
           })
-          .finally(() => setIsLoading(false));
+          .finally(() => {
+            setIsLoading(false);
+            setPaystackLoadingPhase('none');
+          });
       }
     }
     // Only run on mount
@@ -268,7 +281,64 @@ export default function ProfessionalCartPage() {
     };
   }
 
-  if (isLoading) return <PaymentStatusModal open={true} message={typeof window !== 'undefined' && (window.location.search.includes('reference') || window.location.search.includes('trxref')) ? 'Payment being verified...' : 'Opening secure payment gateway...'} />;
+  // Helper to build the full order data object (for both Paystack and Bank Deposit)
+  function getOrderData() {
+    return {
+      items: selectedItems.map((item: typeof cart[0]) => ({
+        productId: item.productId,
+        quantity: item.quantity,
+        price: item.price,
+        subtotal: Number(item.price) * Number(item.quantity),
+        category: item.product?.category
+      })),
+      totalItems: selectedItems.length,
+      referralCode: referralCode.trim() !== "" ? referralCode : null,
+      referralDiscountPercent: referralApplied ? referralDiscountPercent : 0,
+      referralDiscountAmount: promoDiscount,
+      subtotal,
+      shipping,
+      total,
+      partialPayment: isAuthenticated && allowedPartPayment && allowedPartPayment > 0 ? {
+        allowedPercentage: allowedPartPayment,
+        selectedPercentage: paymentPercent,
+        payNow,
+        payLater,
+        toBalance: payLater
+      } : null,
+      fullPayment: {
+        total,
+        payNow: isAuthenticated && allowedPartPayment && allowedPartPayment > 0 ? payNow : total,
+        payLater: isAuthenticated && allowedPartPayment && allowedPartPayment > 0 ? payLater : 0
+      },
+      shippingInfo: getShippingInfo(),
+      callbackUrl: typeof window !== 'undefined' ? window.location.href : ''
+    };
+  }
+
+  // Show minimal spinner overlay for manual bank deposit
+  if (showLoading) return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center backdrop-blur-sm bg-black/20 pointer-events-auto">
+      <Loader />
+    </div>
+  );
+
+  // Show InlineSpinner for Paystack verification
+  if (isLoading && paystackLoadingPhase === 'verifying') return (
+    <div className="fixed inset-0 z-[200] flex flex-col items-center justify-center backdrop-blur-sm bg-black/20 pointer-events-auto">
+      <InlineSpinner size={40} />
+      <span className="mt-4 text-base text-gray-700 font-medium">Payment under verification...</span>
+    </div>
+  );
+
+  // Show InlineSpinner with message when preparing Paystack checkout
+  if (isLoading && paystackLoadingPhase === 'preparing') {
+    return (
+      <div className="fixed inset-0 z-[200] flex flex-col items-center justify-center backdrop-blur-sm bg-black/20 pointer-events-auto">
+        <InlineSpinner size={40} />
+        <span className="mt-4 text-base text-gray-700 font-medium">Preparing payment...</span>
+      </div>
+    );
+  }
 
   function OrderCompleteModal({ open, onClose }: { open: boolean; onClose: () => void }) {
     if (!open) return null;
@@ -319,8 +389,31 @@ export default function ProfessionalCartPage() {
     );
   }
 
+  // Handler for starting manual payment submission
+  function handleManualPaymentStart() {
+    setShowLoading(true);
+  }
+
+  // Handler for successful manual payment
+  function handleManualPaymentSuccess() {
+    setShowLoading(false);
+    setShowConfetti(true);
+    setShowOrderCompleteModal(true);
+    setTimeout(() => setShowConfetti(false), 6000); // Hide confetti after 6s
+  }
+
   return (
     <>
+      {showLoading && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 pointer-events-auto">
+          <Loader title="Processing Payment" message="Please wait while we process your bank deposit..." />
+        </div>
+      )}
+      {showConfetti && (
+        <div className="fixed inset-0 z-[101] pointer-events-none">
+          <Confetti width={typeof window !== 'undefined' ? window.innerWidth : 1920} height={typeof window !== 'undefined' ? window.innerHeight : 1080} numberOfPieces={400} recycle={false} />
+        </div>
+      )}
       <GeneralNavbar />
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-gray-100">
         <PageHeader title="Shopping Cart" />
@@ -368,6 +461,7 @@ export default function ProfessionalCartPage() {
                 total={total}
                 onCheckout={handleShowShippingModal}
                 manualBtn={() => setShowManualModal(true)}
+                manualBtnLabel="Bank Deposit"
               />
             </div>
           </div>
@@ -426,7 +520,15 @@ export default function ProfessionalCartPage() {
             setConfirmClear(false);
           }}
         />
-        <ManualPaymentModal isOpen={showManualModal} onClose={() => setShowManualModal(false)} payNow={payNow} />
+        <ManualPaymentModal
+          isOpen={showManualModal}
+          onClose={() => setShowManualModal(false)}
+          payNow={payNow}
+          getOrderData={getOrderData}
+          onSubmitStart={handleManualPaymentStart}
+          onSuccess={handleManualPaymentSuccess}
+          clearCart={clearCart}
+        />
         <OrderCompleteModal open={showOrderCompleteModal} onClose={() => setShowOrderCompleteModal(false)} />
       </div>
     </>

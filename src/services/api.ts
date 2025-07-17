@@ -556,5 +556,27 @@ export const api = {
       const response = await axiosInstance.post('/paystack/verify-account-number', { account_number, bank_code });
       return response as unknown;
     },
+    manualBankDeposit: async (orderData: Record<string, unknown>, files: File[]) => {
+      const formData = new FormData();
+      // Append each property of orderData at the root level
+      Object.entries(orderData).forEach(([key, value]) => {
+        if (typeof value === 'object' && value !== null) {
+          formData.append(key, JSON.stringify(value));
+        } else if (typeof value === 'string' || value instanceof Blob) {
+          formData.append(key, value);
+        } else {
+          formData.append(key, String(value));
+        }
+      });
+      files.forEach((file) => {
+        formData.append('files', file);
+      });
+      // Sends orderData and files to /paystack/manual-bank-deposit
+      return axiosInstance.post('/paystack/manual-bank-deposit', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+    },
   },
 }

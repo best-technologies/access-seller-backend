@@ -20,6 +20,7 @@ interface CartOrderSummaryProps {
   total: number;
   onCheckout: () => void;
   manualBtn: () => void;
+  manualBtnLabel?: string;
 }
 
 export default function CartOrderSummary({
@@ -42,6 +43,7 @@ export default function CartOrderSummary({
   total,
   onCheckout,
   manualBtn,
+  manualBtnLabel = 'Manual Payment',
 }: CartOrderSummaryProps) {
   return (
     <div className="sticky top-8">
@@ -175,7 +177,7 @@ export default function CartOrderSummary({
               className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-800 border border-gray-300 py-4 rounded-xl font-semibold text-lg transition-colors"
               onClick={manualBtn}
             >
-              Manual Payment
+              {manualBtnLabel}
             </button>
           </div>
         </div>
