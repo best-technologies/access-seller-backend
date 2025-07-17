@@ -22,7 +22,6 @@ import {
   Star,
   X,
   ArrowRight,
-  ThumbsUp,
   Box
 } from "lucide-react";
 import { useCart } from "@/hooks/useCart";
@@ -446,7 +445,7 @@ export default function ProfessionalProductsPage() {
                         </h3>
                         
                         <p className="text-sm text-gray-600 mb-4 font-medium">
-                          {product.author ? `by ${product.author}` : 'Author not specified'}
+                          {/* {product.author ? `by ${product.author}` : 'Author not specified'} */}
                         </p>
 
                         <div className="flex items-center justify-between mt-auto">
@@ -461,8 +460,8 @@ export default function ProfessionalProductsPage() {
                             )}
                           </div>
                           <div className="flex items-center gap-1 text-green-600 text-xs">
-                            <ThumbsUp className="w-3 h-3" />
-                            <span>{product.total_sold || 0} sold</span>
+                            {/* <ThumbsUp className="w-3 h-3" /> */}
+                            {/* <span>{product.total_sold || 0} sold</span> */}
                           </div>
                         </div>
                       </div>

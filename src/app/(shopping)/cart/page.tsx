@@ -66,6 +66,9 @@ export default function ProfessionalCartPage() {
     address: ''
   });
 
+  // Add a new state to track if the next modal after shipping should be manual payment
+  const [showManualAfterShipping, setShowManualAfterShipping] = useState(false);
+
   const { user: typedUser } = useAuth();
 
   // Update selected when cart changes
@@ -315,10 +318,11 @@ export default function ProfessionalCartPage() {
     };
   }
 
-  // Show minimal spinner overlay for manual bank deposit
+  // Show InlineSpinner with message for manual bank deposit submission
   if (showLoading) return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center backdrop-blur-sm bg-black/20 pointer-events-auto">
-      <Loader />
+    <div className="fixed inset-0 z-[200] flex flex-col items-center justify-center backdrop-blur-sm bg-black/20 pointer-events-auto">
+      <InlineSpinner size={40} />
+      <span className="mt-4 text-base text-gray-700 font-medium">Submitting your payment receipt...</span>
     </div>
   );
 
@@ -342,10 +346,26 @@ export default function ProfessionalCartPage() {
 
   function OrderCompleteModal({ open, onClose }: { open: boolean; onClose: () => void }) {
     if (!open) return null;
+    // Determine if this is a manual bank deposit completion
+    const isManualBankDeposit = showManualAfterShipping === false && !isLoading && !paystackLoadingPhase.includes('verifying') && showManualModal === false && showOrderCompleteModal;
     return (
       <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-50 flex items-center justify-center">
         <div className="bg-white rounded-xl shadow-lg p-8 flex flex-col items-center gap-6 min-w-[320px] max-w-[90vw]">
-          {isAuthenticated ? (
+          {isManualBankDeposit ? (
+            <>
+              <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mb-2">
+                <svg className="w-8 h-8 text-yellow-600" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3" /></svg>
+              </div>
+              <h2 className="text-2xl font-bold text-yellow-900 mb-1">Pending Approval</h2>
+              <p className="text-yellow-700 mb-4 text-center max-w-xs">Your payment has been submitted and is awaiting admin approval. Once your payment is confirmed, your order will be processed and you will receive shipment updates by email.</p>
+              <button
+                className="w-full sm:w-auto px-6 py-3 rounded-lg bg-indigo-600 text-white font-semibold text-base shadow hover:bg-indigo-700 transition mt-2"
+                onClick={() => { onClose(); router.push('/products'); }}
+              >
+                Continue Shopping
+              </button>
+            </>
+          ) : (
             <>
           <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-2">
             <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
@@ -364,22 +384,6 @@ export default function ProfessionalCartPage() {
                   onClick={() => { onClose(); router.push('/'); }}
                 >
                   Go to Home
-                </button>
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="flex flex-col items-center justify-center gap-4 w-full">
-                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-2">
-                  <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-                </div>
-                <h2 className="text-2xl font-bold text-gray-900 mb-1">Payment Received!</h2>
-                <p className="text-gray-700 mb-2 text-center max-w-xs">Your payment has been received. Your order details and shipment updates will be sent to your email.</p>
-                <button
-                  className="w-full sm:w-auto px-6 py-3 rounded-lg bg-indigo-600 text-white font-semibold text-base shadow hover:bg-indigo-700 transition mt-2"
-                  onClick={() => { onClose(); router.push('/products'); }}
-                >
-                  Continue Shopping
                 </button>
               </div>
             </>
@@ -460,7 +464,10 @@ export default function ProfessionalCartPage() {
                 payLater={payLater}
                 total={total}
                 onCheckout={handleShowShippingModal}
-                manualBtn={() => setShowManualModal(true)}
+                manualBtn={() => {
+                  setShowManualAfterShipping(true);
+                  setShowShippingModal(true);
+                }}
                 manualBtnLabel="Bank Deposit"
               />
             </div>
@@ -468,7 +475,10 @@ export default function ProfessionalCartPage() {
         </div>
         <CartShippingModal
           show={showShippingModal}
-          onClose={() => setShowShippingModal(false)}
+          onClose={() => {
+            setShowShippingModal(false);
+            setShowManualAfterShipping(false); // reset if closed without submitting
+          }}
           isProcessingPayment={isLoading}
           shippingForm={shippingForm}
           setShippingForm={setShippingForm}
@@ -489,7 +499,12 @@ export default function ProfessionalCartPage() {
           }))}
           onSubmit={() => {
             setShowShippingModal(false);
-            handleCheckout();
+            if (showManualAfterShipping) {
+              setShowManualModal(true);
+              setShowManualAfterShipping(false);
+            } else {
+              handleCheckout();
+            }
           }}
           onQuantityChange={updateQuantity}
           allowedPartPayment={allowedPartPayment}

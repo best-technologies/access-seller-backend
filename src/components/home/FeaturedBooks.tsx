@@ -17,7 +17,7 @@ interface Book {
   rating: number;
   reviews: number;
   image: string;
-  category: string;
+  category: string | string[];
   badge?: 'Bestseller' | 'Trending' | 'Hot' | "Editor's Choice";
   discount?: number;
   isNew?: boolean;
@@ -44,25 +44,44 @@ export default function FeaturedBooks({ books = [], available_categories = [], l
     setIsVisible(true);
   }, []);
 
-  // Get random categories based on screen size
-  const getRandomCategories = () => {
-    const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
-    const maxCategories = isMobile ? 4 : 8;
-    
-    if (available_categories.length <= maxCategories) {
-      return available_categories;
-    }
-    
-    // Shuffle and take random categories
-    const shuffled = [...available_categories].sort(() => 0.5 - Math.random());
-    return shuffled.slice(0, maxCategories);
-  };
+  // Count and sort categories by item count
+  const categoryCount: Record<string, number> = {};
+  books.forEach(book => {
+    const cats = Array.isArray(book.category)
+      ? book.category
+      : typeof book.category === 'string'
+        ? book.category.split(',').map(c => c.trim())
+        : [];
+    cats.forEach(cat => {
+      if (cat) categoryCount[cat] = (categoryCount[cat] || 0) + 1;
+    });
+  });
+  const sortedCategories = Object.entries(categoryCount)
+    .sort((a, b) => b[1] - a[1])
+    .map(([cat]) => cat);
 
-  const displayCategories = getRandomCategories();
+  // Responsive maxCategories
+  const [maxCategories, setMaxCategories] = useState(6);
+  useEffect(() => {
+    const update = () => setMaxCategories(window.innerWidth < 768 ? 3 : 6);
+    update();
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
+  }, []);
 
-  const filteredBooks = selectedCategory === "All" 
-    ? books 
-    : books.filter(book => book.category === selectedCategory);
+  // Only show top N categories
+  const displayCategories = sortedCategories.slice(0, maxCategories);
+
+  const filteredBooks = selectedCategory === "All"
+    ? books
+    : books.filter(book => {
+        const categories = Array.isArray(book.category)
+          ? book.category
+          : typeof book.category === 'string'
+            ? book.category.split(',').map(c => c.trim())
+            : [];
+        return categories.includes(selectedCategory);
+      });
 
   const isInCart = (bookId: string) => {
     return cart.some(item => item.productId === bookId);
@@ -95,7 +114,11 @@ export default function FeaturedBooks({ books = [], available_categories = [], l
         author: book.author,
         price: Number(book.price),
         image: book.image,
-        category: book.category,
+        category: Array.isArray(book.category)
+          ? book.category.join(', ')
+          : typeof book.category === 'string'
+            ? book.category
+            : '',
         rating: book.rating,
         reviews: book.reviews,
         originalPrice: book.originalPrice ? Number(book.originalPrice) : undefined,
@@ -160,15 +183,15 @@ export default function FeaturedBooks({ books = [], available_categories = [], l
               </button>
               {displayCategories.map((category) => (
                 <button
-                  key={category.id}
-                  onClick={() => setSelectedCategory(category.name)}
+                  key={category}
+                  onClick={() => setSelectedCategory(category)}
                   className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-full font-medium text-xs sm:text-sm transition-all duration-300 whitespace-nowrap ${
-                    selectedCategory === category.name
+                    selectedCategory === category
                       ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg scale-105'
                       : 'text-gray-600 hover:text-indigo-600 hover:bg-gray-50'
                   }`}
                 >
-                  {category.name.charAt(0).toUpperCase() + category.name.slice(1)}
+                  {category.charAt(0).toUpperCase() + category.slice(1)}
                 </button>
               ))}
             </div>
@@ -218,6 +241,11 @@ export default function FeaturedBooks({ books = [], available_categories = [], l
               filteredBooks.map((book, index) => {
                 const b = book;
                 const slug = `${b.id}-${b.title.toLowerCase().replace(/\s+/g, '-')}`;
+                const displayCategory = Array.isArray(b.category)
+                  ? b.category.join(', ')
+                  : typeof b.category === 'string'
+                    ? b.category
+                    : '';
                 return (
                   <Link key={b.id} href={`/products/${slug}`} className="group relative flex-none w-[140px] sm:w-[200px] transition-all duration-700" style={{ transitionDelay: `${index * 100}ms`, minHeight: 340, maxHeight: 340, display: 'flex', flexDirection: 'column' }}>
                     {/* Enhanced Card */}
@@ -237,9 +265,9 @@ export default function FeaturedBooks({ books = [], available_categories = [], l
                         {/* Badges */}
                         <div className="absolute top-1.5 sm:top-2 left-1.5 sm:left-2 flex flex-col gap-1">
                           {b.badge && (
-                            <div className={`flex items-center gap-0.5 sm:gap-1 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-medium shadow-lg ${getBadgeColor(b.badge)}`}>
-                              {getBadgeIcon(b.badge)}
-                              <span className="text-[8px] sm:text-[10px]">{b.badge}</span>
+                            <div className={`flex items-center gap-0.5 sm:gap-1 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-medium shadow-lg ${getBadgeColor((['Bestseller','Trending','Hot','Editor\'s Choice'].includes(b.badge as string) ? b.badge : undefined) as Book['badge'])}`}>
+                              {getBadgeIcon((['Bestseller','Trending','Hot','Editor\'s Choice'].includes(b.badge as string) ? b.badge : undefined) as Book['badge'])}
+                              <span className="text-[8px] sm:text-[10px]">{(['Bestseller','Trending','Hot','Editor\'s Choice'].includes(b.badge as string) ? b.badge : '')}</span>
                             </div>
                           )}
                           {b.discount && (
@@ -287,7 +315,11 @@ export default function FeaturedBooks({ books = [], available_categories = [], l
                                 product: {
                                   name: b.title,
                                   image: b.image,
-                                  category: b.category
+                                  category: Array.isArray(b.category)
+                                    ? b.category.join(', ')
+                                    : typeof b.category === 'string'
+                                      ? b.category
+                                      : ''
                                 }
                               });
                             }
@@ -314,7 +346,7 @@ export default function FeaturedBooks({ books = [], available_categories = [], l
                         {/* Category & Rating */}
                         <div className="flex items-center justify-between mb-1.5 sm:mb-2">
                           <span className="text-[10px] sm:text-xs font-medium px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full bg-gradient-to-r from-indigo-100 to-purple-100 text-indigo-700">
-                            {b.category}
+                            {displayCategory}
                           </span>
                           <div className="flex items-center gap-0.5 sm:gap-1 text-yellow-500">
                             <Star className="w-2.5 h-2.5 sm:w-3 sm:h-3 fill-current" />
