@@ -150,10 +150,10 @@ export class OrdersService {
             totalRevenue
         ] = await Promise.all([
             this.prisma.order.count(),
-            this.prisma.order.count({ where: { status: 'pending' } }),
-            this.prisma.order.count({ where: { status: { in: ['shipped', 'in_transit'] } } }),
-            this.prisma.order.count({ where: { status: 'delivered' } }),
-            this.prisma.order.count({ where: { status: 'cancelled' } }),
+            this.prisma.order.count({ where: { orderStatus: 'pending' } }),
+            this.prisma.order.count({ where: { orderStatus: { in: ['shipped', 'in_transit'] } } }),
+            this.prisma.order.count({ where: { orderStatus: 'delivered' } }),
+            this.prisma.order.count({ where: { orderStatus: 'cancelled' } }),
             this.prisma.order.aggregate({
                 _sum: { total: true }
             })

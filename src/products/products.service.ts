@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import * as colors from "colors";
 import { ApiResponse } from 'src/shared/helper-functions/response';
@@ -6,6 +6,7 @@ import { formatAmount, formatDateWithoutTime } from 'src/shared/helper-functions
 
 @Injectable()
 export class ProductsService {
+  private readonly logger = new Logger(ProductsService.name);
   constructor(private prisma: PrismaService) {}
 
   private formatProduct(product: any) {
@@ -42,14 +43,14 @@ export class ProductsService {
   }
 
   async getAllPublicProductsSections() {
-    console.log(colors.cyan("fetching all products from db for homepage (sections)"));
+    this.logger.log("fetching all products from db for homepage (sections)");
 
     // Featured
     const featured = await this.prisma.product.findMany({
       where: { isFeatured: true },
       include: { categories: { select: { id: true, name: true } } },
       orderBy: { createdAt: 'desc' },
-      take: 10,
+      take: 30,
     });
 
     // Extract unique categories from featured products
@@ -118,13 +119,13 @@ export class ProductsService {
       }),
     };
 
-    console.log(colors.magenta("All products fetched successfully"))
+    this.logger.log("All products fetched successfully")
     return new ApiResponse(true, "Homepage data fetched", formated_response);
   }
 
   // Keep the original endpoint for backwards compatibility
   async getAllPublicProducts() {
-    console.log(colors.cyan("fetching all products from db"));
+    this.logger.log("fetching all products from db");
     const products = await this.prisma.product.findMany({
       include: {
         categories: { select: { id: true, name: true } },
@@ -136,7 +137,7 @@ export class ProductsService {
   // Fetch products with pagination for browse products page (infinite scroll)
   async getPaginatedProducts(page: number = 1) {
 
-    console.log(colors.cyan(`fetching products from db, page: ${page}`))
+    this.logger.log(`fetching products from db, page: ${page}`)
 
     try {
       const CATEGORIES_PER_PAGE = 20;
@@ -329,13 +330,13 @@ export class ProductsService {
         }
       });
     } catch (error) {
-      console.log(colors.red("Error fetching products"))
+      this.logger.error("Error fetching products")
       return new ApiResponse(false, 'Failed to fetch products', { error: error.message || error.toString() });
     }
   }
 
   async getProductById(id: string) {
-    console.log(colors.cyan(`Fetching product with ID: ${id}`));
+    this.logger.log(`Fetching product with ID: ${id}`);
 
     try {
         const product = await this.prisma.product.findUnique({
@@ -389,11 +390,11 @@ export class ProductsService {
             } : undefined
         };
 
-        console.log(colors.magenta('Product retrieved successfully'));
+        this.logger.log('Product retrieved successfully');
         return new ApiResponse(true, 'Product retrieved successfully', response);
 
     } catch (error) {
-        console.log(colors.red('Error fetching product:'), error);
+        this.logger.error('Error fetching product:', error);
         throw error;
     }
 }

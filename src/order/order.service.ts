@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import * as colors from 'colors';
 import { ApiResponse } from 'src/shared/helper-functions/response';
@@ -7,10 +7,11 @@ import { UserOrdersResponseDto, UserOrderDto } from './dto/user-orders-response.
 
 @Injectable()
 export class OrderService {
+  private readonly logger = new Logger(OrderService.name);
   constructor(private readonly prisma: PrismaService) {}
 
   async getUserOrders(user: any, query: GetUserOrdersDto): Promise<ApiResponse<UserOrdersResponseDto>> {
-    console.log(colors.cyan('Fetching user orders...'), { userEmail: user.email });
+    this.logger.log(`Fetching user orders... userEmail: ${user.email}`);
 
     try {
       const {
@@ -33,7 +34,7 @@ export class OrderService {
       });
 
       if (!existingUser) {
-        console.log(colors.red('User not found.'));
+        this.logger.warn('User not found.');
         return new ApiResponse(false, 'User not found.');
       }
 
@@ -88,8 +89,8 @@ export class OrderService {
       const transformedOrders: UserOrderDto[] = orders.map(order => ({
         id: order.id,
         // orderId: order.orderId,
-        status: order.status ?? 'pending',
-        total: order.total,
+        status: order.orderStatus ?? 'pending',
+        total: order.total_amount,
         shippingAddress: (order.shippingInfo && typeof order.shippingInfo === 'object' && 'address' in order.shippingInfo) ? String(order.shippingInfo.address) : '',
         state: (order.shippingInfo && typeof order.shippingInfo === 'object' && 'state' in order.shippingInfo) ? String(order.shippingInfo.state) : '',
         city: (order.shippingInfo && typeof order.shippingInfo === 'object' && 'city' in order.shippingInfo) ? String(order.shippingInfo.city) : '',
@@ -114,7 +115,7 @@ export class OrderService {
 
       const totalPages = Math.ceil(total / limit);
 
-      console.log(colors.magenta(`User orders fetched successfully. Page ${page} of ${totalPages}`));
+      this.logger.log(`User orders fetched successfully. Page ${page} of ${totalPages}`);
 
       const formatted_response: UserOrdersResponseDto = {
         pagination: {
@@ -133,7 +134,7 @@ export class OrderService {
       );
 
     } catch (error) {
-      console.log(colors.red('Error fetching user orders:'), error);
+      this.logger.error('Error fetching user orders:', error);
       return new ApiResponse(
         false,
         'Failed to fetch user orders.'

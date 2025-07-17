@@ -1012,8 +1012,8 @@ export class ProductsService {
                     height: row['Height (cm)'] ? parseFloat(row['Height (cm)']) : undefined,
                     allowCustomerReview: row['Allow customer reviews?'] !== '0',
                     purchaseNote: row['Purchase note'] || undefined,
-                    sellingPrice: parseFloat(row['Sale price'] || row['selling price'] || '0'),
-                    normalPrice: parseFloat(row['Regular price'] || row['normal price'] || '0'),
+                    sellingPrice: parseFloat(row['Sale price'] || row['normal price'] || '0'),
+                    normalPrice: parseFloat(row['Regular price'] || row['selling price'] || '0'),
                     tags: row['Tags'] ? row['Tags'].split(',').map((t: string) => t.trim()) : [],
                     // Handle multiple images
                     displayImages: row['Images'] ? row['Images']

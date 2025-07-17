@@ -1,4 +1,4 @@
-import { BadRequestException, HttpException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, HttpException, Injectable, InternalServerErrorException, NotFoundException, Logger } from '@nestjs/common';
 import * as colors from 'colors';
 import { PrismaService } from 'src/prisma/prisma.service';
 import * as argon from 'argon2';
@@ -22,6 +22,7 @@ interface CloudinaryUploadResult {
 
 @Injectable()
 export class AuthService {
+    private readonly logger = new Logger(AuthService.name);
     constructor(
         private prisma: PrismaService,
         private jwt: JwtService,
@@ -31,7 +32,7 @@ export class AuthService {
 
     // Request login OTP
     async requestLoginOtp(dto: RequestLoginOtpDTO) {
-        console.log(colors.cyan("Requesting login otp..."))
+        this.logger.log("Requesting login otp...");
 
         try {
             // Check if user exists
@@ -40,7 +41,7 @@ export class AuthService {
             });
     
             if (!user) {
-                console.log(colors.red("❌ User not found"));
+                this.logger.warn("❌ User not found");
                 throw new NotFoundException("User not found");
             }
     
@@ -57,7 +58,7 @@ export class AuthService {
             });
 
             await sendLoginOtpByMail({ email: dto.email, otp })
-            console.log(colors.magenta(`Login otp: ${otp} successfully sent to: ${dto.email}`))
+            this.logger.log(`Login otp: ${otp} successfully sent to: ${dto.email}`)
 
             return new ApiResponse(
                 true,
@@ -65,7 +66,7 @@ export class AuthService {
             )
 
         } catch (error) {
-            console.log(colors.red("Error signing in"))
+            this.logger.error("Error signing in")
             throw new InternalServerErrorException(
                 `Failed to process OTP request: ${error instanceof Error ? error.message : String(error)}`
             ); 
@@ -74,7 +75,7 @@ export class AuthService {
 
     // Verify login OTP
     async verifyEmailOTPAndSignIn(dto: VerifyEmailOTPDto) {
-        console.log(colors.cyan(`Verifying email: ${dto.email} with OTP: ${dto.otp}`));
+        this.logger.log(`Verifying email: ${dto.email} with OTP: ${dto.otp}`);
     
         try {
             // Find user with matching email and OTP
@@ -84,7 +85,7 @@ export class AuthService {
     
             // Check if user exists and OTP is valid
             if (!user || !user.otp_expires_at || new Date() > new Date(user.otp_expires_at)) {
-                console.log(colors.red("Invalid or expired OTP provided"));
+                this.logger.warn("Invalid or expired OTP provided");
                 throw new BadRequestException("Invalid or expired OTP provided");
             }
 
@@ -112,7 +113,7 @@ export class AuthService {
                         }
                     });
                 } else {
-                    console.error(`Failed to generate unique referral code for user ${user.id}`);
+                    this.logger.error(`Failed to generate unique referral code for user ${user.id}`);
                 }
             }
 
@@ -126,7 +127,7 @@ export class AuthService {
                 },
             });
     
-            console.log(colors.magenta("Email address successfully verified"));
+            this.logger.log("Email address successfully verified");
 
             // Sign in the user and return token and role
             return ResponseHelper.success(
@@ -137,7 +138,7 @@ export class AuthService {
                 }
             );
         } catch (error) {
-            console.error("Error verifying email:", error);
+            this.logger.error("Error verifying email:", error);
     
             if (error instanceof HttpException) {
                 throw error;
@@ -171,13 +172,13 @@ export class AuthService {
                 access_token: token
             }
         } catch (error) {
-            console.log(colors.red('Error generating token:'), error);
+            this.logger.error('Error generating token:', error);
             throw error;
         }
     }
 
     async signIn(payload: SignInDto) {
-        console.log(colors.blue("Signing in..."));
+        this.logger.log("Signing in...");
 
         try {
             // find the user by email
@@ -189,7 +190,7 @@ export class AuthService {
 
             // if user does not exist, return error
             if (!existing_user) {
-                console.log(colors.red("User not found"));
+                this.logger.warn("User not found");
                 throw new NotFoundException({
                     success: false,
                     message: "User not found",
@@ -202,7 +203,7 @@ export class AuthService {
             const passwordMatches = await argon.verify(existing_user.password, payload.password);
 
             if(!passwordMatches) {
-                console.log(colors.red("Password does not match"));
+                this.logger.warn("Password does not match");
                 throw new BadRequestException({
                     success: false,
                     message: "Passwords do not match",
@@ -237,7 +238,7 @@ export class AuthService {
             }
 
             // If role is 'user', proceed as normal
-            console.log(colors.green("User signed in successfully!"));
+            this.logger.log("User signed in successfully!");
             return ResponseHelper.success(
                 "User signed in successfully",
                 {
@@ -247,7 +248,7 @@ export class AuthService {
             );
 
         } catch (error) {
-            console.log(colors.red("Error signing in: "), error);
+            this.logger.error("Error signing in: ", error);
 
             if (error instanceof HttpException) {
                 throw error;
@@ -262,7 +263,7 @@ export class AuthService {
     }
 
     async register(payload: RegisterDto) {
-        console.log(colors.cyan("Registering a new user"))
+        this.logger.log("Registering a new user")
 
         try {
             // Check if user already exists
@@ -271,7 +272,7 @@ export class AuthService {
             });
 
             if (existingUser) {
-                console.log(colors.red("User already exists"))
+                this.logger.warn("User already exists")
                 return new ApiResponse(
                     false,
                     "User already exist"
@@ -325,14 +326,14 @@ export class AuthService {
                 createdAt: newUser.createdAt,
             };
 
-            console.log(colors.magenta("New User Registerd"))
+            this.logger.log("New User Registered")
             return new ApiResponse(
                 true,
                 "User registered successfully",
                 userResponse
             );
         } catch (error) {
-            console.log(colors.red("Error registering user"), error);
+            this.logger.error("Error registering user", error);
             return new ApiResponse(
                 false,
                 "Error registering user"
@@ -341,7 +342,7 @@ export class AuthService {
     }
 
     async fetchLoggedInUserProfile(user) {
-        console.log(colors.cyan("Fetching logged in user details for user: "), user.suub)
+        this.logger.log(`Fetching logged in user details for user: ${user.suub}`)
 
         try {
             const existing_user = await this.prisma.user.findFirst({
@@ -351,7 +352,7 @@ export class AuthService {
             })
 
             if(!existing_user) {
-                console.log(colors.red("User does not exist"))
+                this.logger.warn("User does not exist")
                 return new ApiResponse(
                     false,
                     "User does not exist"
@@ -475,14 +476,14 @@ export class AuthService {
                 }))
             }
 
-            console.log(colors.magenta("User successfully retrieved"))
+            this.logger.log("User successfully retrieved")
             return new ApiResponse(
                 true,
                 "User details successfully retrieved",
                 formatted_user_response
             )
         } catch (error) {
-            console.log(colors.red(error))
+            this.logger.error(error)
             return new ApiResponse(
                 false,
                 "Error fetching user details",
@@ -491,7 +492,7 @@ export class AuthService {
     }
 
     async requestPasswordResetOTP(payload: RequestPasswordResetDTO) {
-        console.log(colors.blue("Requesting password reset otp..."))
+        this.logger.log("Requesting password reset otp...");
 
         try {
             const existing_user = await this.prisma.user.findFirst({
@@ -502,7 +503,7 @@ export class AuthService {
 
             // if user not found
             if(!existing_user) {
-                console.log(colors.red("User not found..."))
+                this.logger.warn("User not found...");
                 throw new NotFoundException("User not found");
             }
 
@@ -526,7 +527,7 @@ export class AuthService {
                 otp
             })
 
-            console.log(colors.magenta(`OTP ${otp} successfully sent to ${payload.email}`));
+            this.logger.log(`OTP ${otp} successfully sent to ${payload.email}`);
             
             return ResponseHelper.success(
                 "OTP sent successfully",
@@ -534,13 +535,13 @@ export class AuthService {
             );
             
         } catch (error) {
-            console.log(colors.red("Error requesting password reset: "), error);
+            this.logger.error("Error requesting password reset: ", error);
             throw error;
         }
     }
 
     async verifyResetPasswordOTP(dto: VerifyresetOtp) {
-        console.log(colors.cyan(`Verifying email: ${dto.email} with OTP: ${dto.otp}`));
+        this.logger.log(`Verifying email: ${dto.email} with OTP: ${dto.otp}`);
 
         try {
             // Find user with matching email and OTP
@@ -550,7 +551,7 @@ export class AuthService {
 
             // Check if user exists and OTP is valid
             if (!user || !user.otp_expires_at || new Date() > new Date(user.otp_expires_at)) {
-                console.log(colors.red("Invalid or expired OTP provided"));
+                this.logger.warn("Invalid or expired OTP provided");
                 
                 // Clear the OTP if user exists but OTP is invalid/expired
                 if (user) {
@@ -577,11 +578,11 @@ export class AuthService {
                 },
             });
 
-            console.log(colors.magenta("OTP successfully verified"));
+            this.logger.log("OTP successfully verified");
 
             return new ApiResponse(true, "OTP verified successfully, Proceed and change your password");
         } catch (error) {
-            console.error("Error verifying OTP:", error);
+            this.logger.error("Error verifying OTP:", error);
 
             if (error instanceof HttpException) {
                 throw error;
@@ -592,12 +593,12 @@ export class AuthService {
     }
 
     async resetPassword(dto: ResetPasswordDTO) {
-        console.log(colors.cyan("Resetting password..."))
+        this.logger.log("Resetting password...");
 
         try {
             // compare new_password and compare_password
             if(dto.new_password !== dto.confirm_password) {
-                console.log(colors.red("New password and confirm Password do not match"))
+                this.logger.warn("New password and confirm Password do not match")
                 throw new BadRequestException({
                     success: false,
                     message: "New password and confirm Password do not match",
@@ -631,7 +632,7 @@ export class AuthService {
 
             return new ApiResponse(true, "Password reset successfully");
         } catch (error) {
-            console.error("Error resetting password:", error);
+            this.logger.error("Error resetting password:", error);
             if (error instanceof HttpException) {
                 throw error;
             }
@@ -640,8 +641,8 @@ export class AuthService {
     }
 
     async onboardStore(dto: OnboardStoreDTO, files: Express.Multer.File[]) {
-        console.log(colors.blue('Onboarding a new store...'));
-        console.log("email: ", dto.email);
+        this.logger.log('Onboarding a new store...');
+        this.logger.log(`email: ${dto.email}`);
         
         const existingStore = await this.prisma.store.findFirst({
             where: {
@@ -650,7 +651,7 @@ export class AuthService {
         });
     
         if(existingStore) {
-            console.log("Store already exists... ");
+            this.logger.warn("Store already exists... ");
             throw ResponseHelper.error(
                 "Store already exists... "
             );
@@ -665,7 +666,7 @@ export class AuthService {
 
             // hash the password 
             const hashedPassword = await argon.hash(defaultPassword);
-            console.log(colors.green("Hashed password: "), hashedPassword);
+            this.logger.log(`Hashed password: ${hashedPassword}`);
 
             // create a new store in the database
             const store = await this.prisma.store.create({
@@ -742,7 +743,7 @@ export class AuthService {
                 });
             } catch (emailError) {
                 // Log the email error but don't fail the operation
-                console.log(colors.yellow("Warning: Failed to send emails: "), emailError);
+                this.logger.warn(`Warning: Failed to send emails: ${emailError}`);
                 // You might want to store this error in a log or database for later retry
             }
 
@@ -761,16 +762,16 @@ export class AuthService {
             };
 
             // return the newly created store
-            console.log(colors.magenta("New store created successfully!"));
+            this.logger.log("New store created successfully!");
             return ResponseHelper.created('Store onboarded successfully', formatted_response);
             
         } catch (error) {
-            console.log(colors.red("Error creating new store: "), error);
+            this.logger.error("Error creating new store: ", error);
             
             // Only clean up files if the error occurred during store/user creation
             // Not during email sending
             if (uploadedFiles.length > 0 && !error.message?.includes('No recipients defined')) {
-                console.log(colors.yellow("Cleaning up uploaded files due to error..."));
+                this.logger.warn("Cleaning up uploaded files due to error...");
                 await this.cloudinaryService.cleanupUploadedFiles(uploadedFiles);
             }
             
@@ -782,7 +783,7 @@ export class AuthService {
     }
 
     async resendLoginOtp(dto: RequestLoginOtpDTO) {
-        console.log(colors.cyan("Resending login OTP..."));
+        this.logger.log("Resending login OTP...");
 
         try {
             // Check if user exists
@@ -791,7 +792,7 @@ export class AuthService {
             });
 
             if (!user || user.role === "user") {
-                console.log(colors.red("Admin user not found for OTP resend"));
+                this.logger.warn("Admin user not found for OTP resend");
                 throw new NotFoundException("Admin user not found");
             }
 
@@ -810,14 +811,14 @@ export class AuthService {
 
             // Send OTP to email
             await sendLoginOtpByMail({ email: dto.email, otp });
-            console.log(colors.magenta(`Login OTP resent: ${otp} to: ${dto.email}`));
+            this.logger.log(`Login OTP resent: ${otp} to: ${dto.email}`);
 
             return ResponseHelper.success(
                 "A new OTP has been sent to your email. Please check your inbox and spam folder.",
                 { email: dto.email }
             );
         } catch (error) {
-            console.log(colors.red("Error resending login OTP: "), error);
+            this.logger.error("Error resending login OTP: ", error);
             throw new InternalServerErrorException(
                 `Failed to resend OTP: ${error instanceof Error ? error.message : String(error)}`
             );

@@ -1,4 +1,5 @@
 import * as colors from "colors"
+import { Logger } from '@nestjs/common';
 import * as nodemailer from "nodemailer";
 import { onboardingMailTemplate } from "../email-templates/onboard-mail";
 import { ResponseHelper } from "src/shared/helper-functions/response.helpers";
@@ -7,6 +8,8 @@ import { passwordResetTemplate } from "../email-templates/password-reset-templat
 import { loginOtpTemplate } from "../email-templates/login-otp-template";
 import { orderConfirmationBuyerTemplate } from "../email-templates/order-confirmation-buyer";
 import { orderConfirmationAdminTemplate } from "../email-templates/order-confirmation-admin";
+
+const logger = new Logger('SendMail');
 
 // add the interface for the mail to send 
 export interface OnboardingMailPayload {
@@ -80,7 +83,7 @@ interface OrderConfirmationMailData {
 export const sendOnboardingMailToSchoolOwner = async (
     payload: OnboardingMailPayload
 ): Promise<void> => {
-    console.log(colors.yellow("Sending mail to school owner..."))
+    logger.log("Sending mail to school owner...");
 
     try {
 
@@ -114,10 +117,10 @@ export const sendOnboardingMailToSchoolOwner = async (
 
         await transporter.sendMail(mailOptions);
 
-        console.log(colors.green(`Onboarding email sent to ${payload.school_email}`));
+        logger.log(`Onboarding email sent to ${payload.school_email}`);
         
     } catch (error) {
-        console.log(colors.red("Error sending onboarding email: "), error);
+        logger.error(`Error sending onboarding email: ${error}`);
         throw ResponseHelper.error(
             "Error sending onboarding email",
             error.message
@@ -129,10 +132,9 @@ export const sendOnboardingMailToSchoolOwner = async (
 export const sendOnboardingMailToBTechAdmin = async (
     payload: OnboardingAdminPayload
 ): Promise<void> => {
+    logger.log("Sending mail to Best Tech...");
 
     try {
-
-        console.log(colors.yellow("Sending mail to Best Tech..."))
 
         // Check if env vars exist (optional but recommended)
         if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD ||!process.env.otpExpiresAt) {
@@ -166,10 +168,10 @@ export const sendOnboardingMailToBTechAdmin = async (
 
         await transporter.sendMail(mailOptions);
 
-        console.log(colors.green(`New school Onboarding email sent to ${adminEmail}`));
+        logger.log(`New school Onboarding email sent to ${adminEmail}`);
         
     } catch (error) {
-        console.log(colors.red("Error sending onboarding email to admin: "), error);
+        logger.error(`Error sending onboarding email to admin: ${error}`);
         throw ResponseHelper.error(
             "Error sending onboarding email",
             error.message
@@ -206,7 +208,7 @@ export const sendOnboardingMailToBTechAdmin = async (
   };
 
 export const sendLoginOtpByMail = async ({ email, otp}: SendResetOtpProps): Promise<void> => {
-  console.log(colors.green(`Sending login otp ${otp} to admin email: ${email}`))
+  logger.log(`Sending login otp ${otp} to admin email: ${email}`);
 
   try {
     
@@ -242,7 +244,7 @@ export const sendLoginOtpByMail = async ({ email, otp}: SendResetOtpProps): Prom
   await transporter.sendMail(mailOptions);
 
   } catch (error) {
-    console.error('Error sending otp email:', error);
+    logger.error(`Error sending otp email: ${error}`);
     throw new Error('Failed to send OTP email');
   }
 }
@@ -297,9 +299,9 @@ export async function sendOnboardingMailToStoreOwner(data: StoreOnboardingMailDa
         };
 
         await transporter.sendMail(mailOptions);
-        console.log(colors.green(`Onboarding email sent to store owner: ${store_email}`));
+        logger.log(`Onboarding email sent to store owner: ${store_email}`);
     } catch (error) {
-        console.log(colors.red("Error sending onboarding email to store owner: "), error);
+        logger.error(`Error sending onboarding email to store owner: ${error}`);
         throw ResponseHelper.error(
             "Error sending onboarding email",
             error.message
@@ -359,9 +361,9 @@ export async function sendOnboardingMailToPlatformAdmin(data: StoreOnboardingMai
         };
 
         await transporter.sendMail(mailOptions);
-        console.log(colors.green(`Onboarding email sent to platform admin: ${adminEmail}`));
+        logger.log(`Onboarding email sent to platform admin: ${adminEmail}`);
     } catch (error) {
-        console.log(colors.red("Error sending onboarding email to platform admin: "), error);
+        logger.error(`Error sending onboarding email to platform admin: ${error}`);
         throw ResponseHelper.error(
             "Error sending onboarding email",
             error.message
@@ -374,7 +376,7 @@ export async function sendOrderConfirmationToBuyer(data: OrderConfirmationMailDa
     const { email, firstName, lastName, orderId, orderTotal, orderCreated, paymentStatus, trackingNumber, commissionAmount, affiliateUserId } = data;
 
     try {
-        console.log(colors.yellow(`Sending order confirmation email to buyer: ${email}`));
+        logger.log(`Sending order confirmation email to buyer: ${email}`);
 
         // Check if env vars exist
         if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
@@ -405,9 +407,9 @@ export async function sendOrderConfirmationToBuyer(data: OrderConfirmationMailDa
         };
 
         await transporter.sendMail(mailOptions);
-        console.log(colors.green(`Order confirmation email sent to buyer: ${email}`));
+        logger.log(`Order confirmation email sent to buyer: ${email}`);
     } catch (error) {
-        console.log(colors.red("Error sending order confirmation email to buyer: "), error);
+        logger.error(`Error sending order confirmation email to buyer: ${error}`);
         // throw ResponseHelper.error(
         //     "Error sending order confirmation email",
         //     error.message
@@ -420,7 +422,7 @@ export async function sendOrderNotificationToAdmin(data: OrderConfirmationMailDa
     const { orderId, orderTotal, firstName, lastName, email, trackingNumber, commissionAmount, affiliateUserId } = data;
 
     try {
-        console.log(colors.yellow("Sending order notification email to admin"));
+        logger.log("Sending order notification email to admin");
 
         // Check if env vars exist
         if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
@@ -452,9 +454,9 @@ export async function sendOrderNotificationToAdmin(data: OrderConfirmationMailDa
         };
 
         await transporter.sendMail(mailOptions);
-        console.log(colors.green(`Order notification email sent to admin: ${adminEmail}`));
+        logger.log(`Order notification email sent to admin: ${adminEmail}`);
     } catch (error) {
-        console.log(colors.red("Error sending order notification email to admin: "), error);
+        logger.error(`Error sending order notification email to admin: ${error}`);
         throw ResponseHelper.error(
             "Error sending order notification email",
             error.message

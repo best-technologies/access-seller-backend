@@ -1,14 +1,15 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import * as colors from 'colors';
 import { ApiResponse } from 'src/shared/helper-functions/response';
 
 @Injectable()
 export class DashboardService {
+    private readonly logger = new Logger(DashboardService.name);
     constructor(private prisma: PrismaService) {}
 
     async getDashboardStats() {
-        console.log(colors.cyan('Fetching comprehensive dashboard statistics...'));
+        this.logger.log('Fetching comprehensive dashboard statistics...');
 
         try {
             // Get current date and previous month for calculations
@@ -55,7 +56,7 @@ export class DashboardService {
                 }
             };
 
-            console.log(colors.magenta('Dashboard statistics retrieved successfully'));
+            this.logger.log('Dashboard statistics retrieved successfully');
             return new ApiResponse(
                 true,
                 "Dashboard statistics retrieved successfully",
@@ -63,7 +64,7 @@ export class DashboardService {
             );
 
         } catch (error) {
-            console.log(colors.red('Error fetching dashboard statistics:'), error);
+            this.logger.error('Error fetching dashboard statistics:', error);
             throw error;
         }
     }
@@ -73,7 +74,7 @@ export class DashboardService {
         const currentMonthRevenue = await this.prisma.order.aggregate({
             _sum: { total: true },
             where: {
-                status: 'delivered',
+                orderStatus: 'delivered',
                 createdAt: {
                     gte: new Date(currentDate.getFullYear(), currentDate.getMonth(), 1)
                 }
@@ -82,7 +83,7 @@ export class DashboardService {
 
         const currentMonthOrders = await this.prisma.order.count({
             where: {
-                status: 'delivered',
+                orderStatus: 'delivered',
                 createdAt: {
                     gte: new Date(currentDate.getFullYear(), currentDate.getMonth(), 1)
                 }
@@ -102,7 +103,7 @@ export class DashboardService {
         const previousMonthRevenue = await this.prisma.order.aggregate({
             _sum: { total: true },
             where: {
-                status: 'delivered',
+                orderStatus: 'delivered',
                 createdAt: {
                     gte: previousMonth,
                     lt: new Date(currentDate.getFullYear(), currentDate.getMonth(), 1)
@@ -112,7 +113,7 @@ export class DashboardService {
 
         const previousMonthOrders = await this.prisma.order.count({
             where: {
-                status: 'delivered',
+                orderStatus: 'delivered',
                 createdAt: {
                     gte: previousMonth,
                     lt: new Date(currentDate.getFullYear(), currentDate.getMonth(), 1)
@@ -168,7 +169,7 @@ export class DashboardService {
                 // }
             }
         });
-        console.log("Active users: ", activeCustomers)
+        this.logger.log(`Active users: ${activeCustomers}`);
 
         return [
             {
@@ -233,7 +234,7 @@ export class DashboardService {
                 });
 
                 const sales = monthOrders.length;
-                const revenue = monthOrders.reduce((sum, order) => sum + order.total, 0);
+                const revenue = monthOrders.reduce((sum, order) => sum + order.total_amount, 0);
                 const orders = monthOrders.length;
 
                 return { sales, revenue, orders };
@@ -265,7 +266,7 @@ export class DashboardService {
 
         const totalRevenue = await this.prisma.order.aggregate({
             _sum: { total: true },
-            where: { status: 'delivered' }
+            where: { orderStatus: 'delivered' }
         });
 
         const categoryColors = [
@@ -276,7 +277,7 @@ export class DashboardService {
         const breakdown = categories.map((category, index) => {
             const categoryRevenue = category.products.reduce((sum, product) => {
                 return sum + product.orderItems.reduce((itemSum, item) => {
-                    return itemSum + (item.order && item.order.status === 'delivered' ? item.price * item.quantity : 0);
+                    return itemSum + (item.order && item.order.orderStatus === 'delivered' ? item.price * item.quantity : 0);
                 }, 0);
             }, 0);
 
@@ -317,15 +318,15 @@ export class DashboardService {
             }
         });
 
-        console.log(colors.green("Orders: "), orders)
+        this.logger.log(`Orders: ${JSON.stringify(orders)}`);
 
         return orders.map((order, index) => ({
             id: order.id,
             customerName: `${order.user?.first_name} ${order.user?.last_name}`,
             customerEmail: order.user?.email,
             orderNumber: `#ORD-${order.id.slice(-8).toUpperCase()}`,
-            amount: Math.round(order.total),
-            status: order.status,
+            amount: Math.round(order.total_amount),
+            status: order.orderStatus,
             date: order.createdAt.toISOString().split('T')[0],
             items: order.items.reduce((sum, item) => sum + item.quantity, 0)
         }));
@@ -356,11 +357,11 @@ export class DashboardService {
 
         return products.map(product => {
             const sales = product.orderItems.reduce((sum, item) => {
-                return sum + (item.order && item.order.status === 'delivered' ? item.quantity : 0);
+                return sum + (item.order && item.order.orderStatus === 'delivered' ? item.quantity : 0);
             }, 0);
 
             const revenue = product.orderItems.reduce((sum, item) => {
-                return sum + (item.order && item.order.status === 'delivered' ? item.price * item.quantity : 0);
+                return sum + (item.order && item.order.orderStatus === 'delivered' ? item.price * item.quantity : 0);
             }, 0);
 
             // Mock rating
@@ -408,14 +409,14 @@ export class DashboardService {
             orderBy: { createdAt: 'desc' },
             include: {
                 orders: {
-                    where: { status: 'delivered' }
+                    where: { orderStatus: 'delivered' }
                 }
             }
         });
 
         return customers.map(customer => {
             const totalOrders = customer.orders.length;
-            const totalSpent = customer.orders.reduce((sum, order) => sum + order.total, 0);
+            const totalSpent = customer.orders.reduce((sum, order) => sum + order.total_amount, 0);
             
             // Determine status based on order count and recency
             let status = 'new';
@@ -455,7 +456,7 @@ export class DashboardService {
     }
 
     async getRevenueAnalytics(period: 'daily' | 'weekly' | 'monthly' = 'monthly') {
-        console.log(colors.cyan(`Fetching revenue analytics for period: ${period}`));
+        this.logger.log(`Fetching revenue analytics for period: ${period}`);
 
         try {
             const now = new Date();
@@ -481,7 +482,7 @@ export class DashboardService {
                     total: true
                 },
                 where: {
-                    status: 'delivered',
+                    orderStatus: 'delivered',
                     createdAt: {
                         gte: startDate
                     }
@@ -491,17 +492,17 @@ export class DashboardService {
                 }
             });
 
-            console.log(colors.magenta('Revenue analytics retrieved successfully'));
+            this.logger.log('Revenue analytics retrieved successfully');
             return revenueData;
 
         } catch (error) {
-            console.log(colors.red('Error fetching revenue analytics:'), error);
+            this.logger.error('Error fetching revenue analytics:', error);
             throw error;
         }
     }
 
     async getTopPerformingStores(limit: number = 10) {
-        console.log(colors.cyan(`Fetching top performing stores (limit: ${limit})`));
+        this.logger.log(`Fetching top performing stores (limit: ${limit})`);
 
         try {
             const topStores = await this.prisma.store.findMany({
@@ -515,10 +516,10 @@ export class DashboardService {
                     },
                     orders: {
                         where: {
-                            status: 'delivered'
+                            orderStatus: 'delivered'
                         },
                         select: {
-                            total: true
+                            total_amount: true
                         }
                     }
                 },
@@ -532,14 +533,14 @@ export class DashboardService {
             // Calculate total revenue for each store
             const storesWithRevenue = topStores.map(store => ({
                 ...store,
-                totalRevenue: store.orders.reduce((sum, order) => sum + order.total, 0)
+                totalRevenue: store.orders.reduce((sum, order) => sum + order.total_amount, 0)
             }));
 
-            console.log(colors.magenta('Top performing stores retrieved successfully'));
+            this.logger.log('Top performing stores retrieved successfully');
             return storesWithRevenue;
 
         } catch (error) {
-            console.log(colors.red('Error fetching top performing stores:'), error);
+            this.logger.error('Error fetching top performing stores:', error);
             throw error;
         }
     }

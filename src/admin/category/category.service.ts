@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, Logger } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { ApiResponse } from 'src/shared/helper-functions/response';
 import * as colors from "colors"
@@ -12,10 +12,11 @@ import { formatDate } from 'src/shared/helper-functions/formatter';
 
 @Injectable()
 export class CategoryService {
+    private readonly logger = new Logger(CategoryService.name);
     constructor(private prisma: PrismaService) {}
 
     async getAllCategories(req: any, page?: number, limit?: number, search?: string, storeId?: string) {
-        console.log(colors.cyan("Fetching all categories"));
+        this.logger.log("Fetching all categories");
 
         const whereClause: any = {};
         if (search) {
@@ -46,7 +47,7 @@ export class CategoryService {
             ]);
             const totalPages = Math.ceil(total / (limit || 10));
             
-            console.log(colors.magenta(`Total of ${categories.length} categories found`))
+            this.logger.log(`Total of ${categories.length} categories found`)
             return new ApiResponse(true, '', {
                 pagination: {
                     currentPage: page || 1,
@@ -59,7 +60,7 @@ export class CategoryService {
                 
         } catch (error) {
 
-            console.log(colors.red("Error fetching categories"), error)
+            this.logger.error("Error fetching categories", error)
             return new ApiResponse(
                 false,
                 "Error fetching categories"
@@ -68,7 +69,7 @@ export class CategoryService {
     }
 
     async addCategory(data: CreateCategoryDto, req?: any) {
-        console.log(colors.cyan('Attempting to add new category...'));
+        this.logger.log('Attempting to add new category...');
         // Get user info from req
         const userEmail = req?.user?.email;
         let adminName = '';
@@ -94,7 +95,7 @@ export class CategoryService {
                 where: { name_storeId: { name: data.name, storeId: storeId } }
             });
             if (exists) {
-                console.log(colors.red(`Duplicate category found: ${data.name} for store ${storeId}`));
+                this.logger.warn(`Duplicate category found: ${data.name} for store ${storeId}`);
                 throw new BadRequestException('Category with this name already exists for this store');
             }
             const category = await this.prisma.category.create({
@@ -106,21 +107,21 @@ export class CategoryService {
                     createdByEmail: adminEmail
                 }
             });
-            console.log(colors.green(`Category created successfully: ${category.name} (${category.id}) by ${adminEmail}`));
+            this.logger.log(`Category created successfully: ${category.name} (${category.id}) by ${adminEmail}`);
             return new ApiResponse(true, 'Category created successfully', category);
         } catch (error) {
-            console.log(colors.red('Error adding category:'), error);
+            this.logger.error('Error adding category:', error);
             throw error;
         }
     }
 
     async getAllGenres() {
-        console.log(colors.cyan('Fetching all genres...'));
+        this.logger.log('Fetching all genres...');
 
         try {
             const genres = await this.prisma.genre.findMany({ orderBy: { createdAt: 'desc' } });
 
-            console.log(colors.magenta(`Total of ${genres.length} genres found`));
+            this.logger.log(`Total of ${genres.length} genres found`);
             const formattedGenres = genres.map(g => ({
                 id: g.id,
                 name: g.name,
@@ -131,13 +132,13 @@ export class CategoryService {
 
             return new ApiResponse(true, `Total of ${genres.length} genres found`, { genres: formattedGenres });
         } catch (error) {
-            console.log(colors.red('Error fetching genres'), error);
+            this.logger.error('Error fetching genres', error);
             return new ApiResponse(false, 'Error fetching genres');
         }
     }
 
     async addGenre(data: CreateGenreDto, req?: any) {
-        console.log(colors.cyan('Attempting to add new genre...'));
+        this.logger.log('Attempting to add new genre...');
         // Get user info from req
         const userEmail = req?.user?.email;
         let adminName = '';
@@ -152,7 +153,7 @@ export class CategoryService {
         try {
             const exists = await this.prisma.genre.findUnique({ where: { name: data.name.toLowerCase() } });
             if (exists) {
-                console.log(colors.red(`Duplicate genre found: ${data.name}`));
+                this.logger.warn(`Duplicate genre found: ${data.name}`);
                 throw new BadRequestException('Genre with this name already exists');
             }
             const genre = await this.prisma.genre.create({
@@ -163,19 +164,19 @@ export class CategoryService {
                     createdByEmail: adminEmail
                 }
             });
-            console.log(colors.green(`Genre created successfully: ${genre.name} (${genre.id}) by ${adminEmail}`));
+            this.logger.log(`Genre created successfully: ${genre.name} (${genre.id}) by ${adminEmail}`);
             return new ApiResponse(true, 'Genre created successfully', genre);
         } catch (error) {
-            console.log(colors.red('Error adding genre:'), error);
+            this.logger.error('Error adding genre:', error);
             throw error;
         }
     }
 
     async getAllLanguages() {
-        console.log(colors.cyan('Fetching all languages...'));
+        this.logger.log('Fetching all languages...');
         try {
             const languages = await this.prisma.language.findMany({ orderBy: { createdAt: 'desc' } });
-            console.log(colors.magenta(`Total of ${languages.length} languages found`));
+            this.logger.log(`Total of ${languages.length} languages found`);
             const formattedLanguages = languages.map(l => ({
                 id: l.id,
                 name: l.name,
@@ -185,13 +186,13 @@ export class CategoryService {
             }));
             return new ApiResponse(true, `Total of ${languages.length} languages found`, { languages: formattedLanguages });
         } catch (error) {
-            console.log(colors.red('Error fetching languages'), error);
+            this.logger.error('Error fetching languages', error);
             return new ApiResponse(false, 'Error fetching languages');
         }
     }
 
     async addLanguage(data: CreateLanguageDto, req?: any) {
-        console.log(colors.cyan('Attempting to add new language...'));
+        this.logger.log('Attempting to add new language...');
         // Get user info from req
         const userEmail = req?.user?.email;
         let adminName = '';
@@ -206,7 +207,7 @@ export class CategoryService {
         try {
             const exists = await this.prisma.language.findUnique({ where: { name: data.name.toLowerCase() } });
             if (exists) {
-                console.log(colors.red(`Duplicate language found: ${data.name}`));
+                this.logger.warn(`Duplicate language found: ${data.name}`);
                 throw new BadRequestException('Language with this name already exists');
             }
             const language = await this.prisma.language.create({
@@ -217,19 +218,19 @@ export class CategoryService {
                     createdByEmail: adminEmail
                 }
             });
-            console.log(colors.green(`Language created successfully: ${language.name} (${language.id}) by ${adminEmail}`));
+            this.logger.log(`Language created successfully: ${language.name} (${language.id}) by ${adminEmail}`);
             return new ApiResponse(true, 'Language created successfully', language);
         } catch (error) {
-            console.log(colors.red('Error adding language:'), error);
+            this.logger.error('Error adding language:', error);
             throw error;
         }
     }
 
     async getAllFormats() {
-        console.log(colors.cyan('Fetching all formats...'));
+        this.logger.log('Fetching all formats...');
         try {
             const formats = await this.prisma.format.findMany({ orderBy: { createdAt: 'desc' } });
-            console.log(colors.magenta(`Total of ${formats.length} formats found`));
+            this.logger.log(`Total of ${formats.length} formats found`);
             const formattedFormats = formats.map(f => ({
                 id: f.id,
                 name: f.name,
@@ -239,13 +240,13 @@ export class CategoryService {
             }));
             return new ApiResponse(true, `Total of ${formats.length} formats found`, { formats: formattedFormats });
         } catch (error) {
-            console.log(colors.red('Error fetching formats'), error);
+            this.logger.error('Error fetching formats', error);
             return new ApiResponse(false, 'Error fetching formats');
         }
     }
 
     async addFormat(data: CreateFormatDto, req?: any) {
-        console.log(colors.cyan('Attempting to add new format...'));
+        this.logger.log('Attempting to add new format...');
         // Get user info from req
         const userEmail = req?.user?.email;
         let adminName = '';
@@ -260,7 +261,7 @@ export class CategoryService {
         try {
             const exists = await this.prisma.format.findUnique({ where: { name: data.name.toLowerCase() } });
             if (exists) {
-                console.log(colors.red(`Duplicate format found: ${data.name}`));
+                this.logger.warn(`Duplicate format found: ${data.name}`);
                 throw new BadRequestException('Format with this name already exists');
             }
             const format = await this.prisma.format.create({
@@ -271,19 +272,19 @@ export class CategoryService {
                     createdByEmail: adminEmail
                 }
             });
-            console.log(colors.green(`Format created successfully: ${format.name} (${format.id}) by ${adminEmail}`));
+            this.logger.log(`Format created successfully: ${format.name} (${format.id}) by ${adminEmail}`);
             return new ApiResponse(true, 'Format created successfully', format);
         } catch (error) {
-            console.log(colors.red('Error adding format:'), error);
+            this.logger.error('Error adding format:', error);
             throw error;
         }
     }
 
     async getAllAgeRatings() {
-        console.log(colors.cyan('Fetching all age ratings...'));
+        this.logger.log('Fetching all age ratings...');
         try {
             const ageRatings = await this.prisma.ageRating.findMany({ orderBy: { createdAt: 'desc' } });
-            console.log(colors.magenta(`Total of ${ageRatings.length} age ratings found`));
+            this.logger.log(`Total of ${ageRatings.length} age ratings found`);
             const formattedAgeRatings = ageRatings.map(a => ({
                 name: a.name,
                 description: a.description,
@@ -292,13 +293,13 @@ export class CategoryService {
             }));
             return new ApiResponse(true, `Total of ${ageRatings.length} age ratings found`, { ageRatings: formattedAgeRatings });
         } catch (error) {
-            console.log(colors.red('Error fetching age ratings'), error);
+            this.logger.error('Error fetching age ratings', error);
             return new ApiResponse(false, 'Error fetching age ratings');
         }
     }
 
     async addAgeRating(data: CreateAgeRatingDto, req?: any) {
-        console.log(colors.cyan('Attempting to add new age rating...'));
+        this.logger.log('Attempting to add new age rating...');
         // Get user info from req
         const userEmail = req?.user?.email;
         let adminName = '';
@@ -313,7 +314,7 @@ export class CategoryService {
         try {
             const exists = await this.prisma.ageRating.findUnique({ where: { name: data.name.toLowerCase() } });
             if (exists) {
-                console.log(colors.red(`Duplicate age rating found: ${data.name}`));
+                this.logger.warn(`Duplicate age rating found: ${data.name}`);
                 throw new BadRequestException('Age rating with this name already exists');
             }
             const ageRating = await this.prisma.ageRating.create({
@@ -324,17 +325,17 @@ export class CategoryService {
                     createdByEmail: adminEmail
                 }
             });
-            console.log(colors.green(`Age rating created successfully: ${ageRating.name} (${ageRating.id}) by ${adminEmail}`));
+            this.logger.log(`Age rating created successfully: ${ageRating.name} (${ageRating.id}) by ${adminEmail}`);
             return new ApiResponse(true, 'Age rating created successfully', ageRating);
         } catch (error) {
-            console.log(colors.red('Error adding age rating:'), error);
+            this.logger.error('Error adding age rating:', error);
             throw error;
         }
     }
 
     async getAllMetadata(req: any) {
         
-        console.log(colors.cyan("fetching metadata"))
+        this.logger.log("fetching metadata")
 
         try {
             // Fetch all in parallel
@@ -374,7 +375,7 @@ export class CategoryService {
 
             return new ApiResponse(true, 'Fetched all metadata', formattedResponse);
         } catch (error) {
-            console.log(colors.red('Error fetching all metadata'), error);
+            this.logger.error('Error fetching all metadata', error);
             return new ApiResponse(false, 'Error fetching all metadata');
         }
     }

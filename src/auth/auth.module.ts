@@ -11,7 +11,6 @@ import { SharedModule } from '../shared/shared.module';
 
 @Module({
   imports: [
-    PrismaModule,
     SharedModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],

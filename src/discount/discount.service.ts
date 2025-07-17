@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import * as colors from "colors"
 import { ApiResponse } from '../shared/helper-functions/response';
@@ -8,6 +8,7 @@ import { IssueCommisionDto } from './issue-commission.dto';
 
 @Injectable()
 export class DiscountService {
+  private readonly logger = new Logger(DiscountService.name);
   constructor(private readonly prisma: PrismaService) {}
 
   async addPromoCode({ code, description = '', discountPercent, createdBy, productId }: CreatePromoCodeDto & { createdBy: string }) {
@@ -47,7 +48,7 @@ export class DiscountService {
         formattedPromo
       );
     } catch (error) {
-      console.log(colors.red('Error creating promo code'), error);
+      this.logger.error('Error creating promo code', error);
       return new ApiResponse(
         false,
         'Error creating promo code',
@@ -57,7 +58,7 @@ export class DiscountService {
   }
 
   async getAllBenefitCodes() {
-    console.log(colors.cyan("Fetching all benefit codes"))
+    this.logger.log("Fetching all benefit codes")
     try {
         // Fetch all active promo codes
         const promoCodes = await this.prisma.promoCode.findMany({
@@ -95,7 +96,7 @@ export class DiscountService {
             formattedPromoCodes
         );
     } catch (error) {
-        console.log(colors.red("Error fetching benefit codes"), error)
+        this.logger.error("Error fetching benefit codes", error)
         return new ApiResponse(
             false,
             "Error fetching benefit codes",
@@ -120,7 +121,7 @@ export class DiscountService {
       });
 
       if (!promo) {
-        console.log(colors.red("promo code is invalid"))
+        this.logger.warn("promo code is invalid")
         return new ApiResponse(false, 'Invalid or inactive promo code', undefined);
       }
 
@@ -145,14 +146,14 @@ export class DiscountService {
 
       return new ApiResponse(true, 'Promo code is valid', formattedPromo);
     } catch (error) {
-      console.log(colors.red('Error verifying promo code'), error);
+      this.logger.error('Error verifying promo code', error);
       return new ApiResponse(false, 'Error verifying promo code', undefined);
     }
   }
 
   async issueCommissionToMarketers(dto: IssueCommisionDto, payload: any) {
 
-    console.log(colors.cyan("Issuing commission to marketers"))
+    this.logger.log("Issuing commission to marketers")
 
     try {
         

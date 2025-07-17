@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import * as colors from 'colors';
 import { ApiResponse } from 'src/shared/helper-functions/response';
@@ -9,12 +9,13 @@ import { UpdateWithdrawalStatusDto } from './dto/update-withdrawal-status.dto';
 
 @Injectable()
 export class ReferralsService {
+    private readonly logger = new Logger(ReferralsService.name);
     constructor(private prisma: PrismaService) {}
 
    
 
     async fetchAffiliateDashboard(page: number = 1, limit: number = 10, isUsed?: boolean) {
-        console.log(colors.cyan('[referral-service] Fetching affiliate dashboard...'));
+        this.logger.log('[referral-service] Fetching affiliate dashboard...');
         try {
             // 1. KPI Cards
             const [
@@ -256,14 +257,14 @@ export class ReferralsService {
                 // analytics
             };
 
-            console.log(colors.magenta("Affiliate dashboard successfully returned"))
+            this.logger.log("Affiliate dashboard successfully returned")
             return {
                 success: true,
                 message: 'Affiliate dashboard fetched successfully.',
                 data: formattedResponse
             };
         } catch (error) {
-            console.log(colors.red('Error fetching affiliate dashboard:'), error);
+            this.logger.error('Error fetching affiliate dashboard:', error);
             return {
                 success: false,
                 message: 'Failed to fetch affiliate dashboard.',
@@ -273,7 +274,7 @@ export class ReferralsService {
     }
 
     async fetchAllAffiliates(page: number = 1, limit: number = 20, status?: string) {
-        console.log(colors.cyan('Fetching all affiliates...'), status);
+        this.logger.log(`Fetching all affiliates... ${status}`);
         try {
             const skip = (page - 1) * limit;
             // Allowed statuses from AffiliateStatus enum
@@ -357,7 +358,7 @@ export class ReferralsService {
                 }
             };
         } catch (error) {
-            console.log(colors.red('Error fetching affiliates:'), error);
+            this.logger.error('Error fetching affiliates:', error);
             return {
                 success: false,
                 message: 'Failed to fetch affiliates.',
@@ -368,7 +369,7 @@ export class ReferralsService {
 
     async updateAffiliateStatus(affiliateId: string, newStatus: string) {
 
-        console.log(colors.cyan(`Updating affiliate status for ${affiliateId} to ${newStatus}`));
+        this.logger.log(`Updating affiliate status for ${affiliateId} to ${newStatus}`);
         // List of allowed statuses from schema.prisma AffiliateStatus enum
         const allowedStatuses = [
             'not_affiliate',
@@ -380,7 +381,7 @@ export class ReferralsService {
             'inactive'
         ];
         if (!allowedStatuses.includes(newStatus.toLowerCase())) {
-            console.log(colors.red(`Invalid status. Allowed statuses: ${allowedStatuses.join(', ')}`))
+            this.logger.warn(`Invalid status. Allowed statuses: ${allowedStatuses.join(', ')}`)
             return {
                 success: false,
                 message: `Invalid status. Allowed statuses: ${allowedStatuses.join(', ')}`,
@@ -391,7 +392,7 @@ export class ReferralsService {
             // Check if affiliate record exists
             const affiliateRecord = await this.prisma.affiliate.findFirst({ where: { id: affiliateId } });
             if (!affiliateRecord) {
-                console.log(colors.red('Affiliate record not found.'))
+                this.logger.warn('Affiliate record not found.')
                 return {
                     success: false,
                     message: 'Affiliate record not found.',
@@ -414,14 +415,14 @@ export class ReferralsService {
                 }
             });
 
-            console.log(colors.magenta(`Affiliate status updated to ${newStatus}`))
+            this.logger.log(`Affiliate status updated to ${newStatus}`)
             return {
                 success: true,
                 message: `Affiliate status updated to ${newStatus}`,
                 data: updated
             };
         } catch (error) {
-            console.log(colors.red('Error updating affiliate status:'), error);
+            this.logger.error('Error updating affiliate status:', error);
             return {
                 success: false,
                 message: 'Failed to update affiliate status.',
@@ -434,12 +435,12 @@ export class ReferralsService {
      * Generate a unique affiliate link for a user and product
      */
     async generateAffiliateLink(userId: string, productId: string) {
-        console.log(colors.cyan("generating affiliate link"));
+        this.logger.log("generating affiliate link");
         try {
             // Check if user is an approved/active affiliate
             const affiliate = await this.prisma.affiliate.findUnique({ where: { userId } });
             if (!affiliate || !(affiliate.status === AffiliateStatus.approved || affiliate.status === AffiliateStatus.active)) {
-                console.log(colors.red('User is not an approved or active affiliate.'));
+                this.logger.warn('User is not an approved or active affiliate.');
                 return {
                     success: false,
                     message: 'User is not an approved or active affiliate.',
@@ -449,7 +450,7 @@ export class ReferralsService {
             // Check if product exists
             const product = await this.prisma.product.findUnique({ where: { id: productId } });
             if (!product) {
-                console.log(colors.red('Product not found.'));
+                this.logger.warn('Product not found.');
                 return {
                     success: false,
                     message: 'Product not found.',
@@ -459,7 +460,7 @@ export class ReferralsService {
             // Check if link already exists for this user-product
             const existing = await this.prisma.affiliateLink.findUnique({ where: { userId_productId: { userId, productId } } });
             if (existing) {
-                console.log(colors.yellow('Affiliate link already exists.'));
+                this.logger.log('Affiliate link already exists.');
                 return {
                     success: true,
                     message: 'Affiliate link already exists.', 
@@ -490,7 +491,7 @@ export class ReferralsService {
             const baseUrl = process.env.BASE_URL?.replace(/\/$/, '') || 'http://localhost:3000';
             const productSlug = product.id;
             const shareableLink = `${baseUrl}/product/${productSlug}?ref=${link.slug}`;
-            console.log(colors.green('Affiliate link generated successfully.'));
+            this.logger.log('Affiliate link generated successfully.');
             return {
                 success: true,
                 message: 'Affiliate link generated successfully.',
@@ -500,7 +501,7 @@ export class ReferralsService {
                 }
             };
         } catch (error) {
-            console.log(colors.red('Error generating affiliate link:'), error);
+            this.logger.error('Error generating affiliate link:', error);
             return {
                 success: false, 
                 message: 'Failed to generate affiliate link.',
@@ -514,7 +515,7 @@ export class ReferralsService {
      * Get all affiliate links for a user
      */
     async getAffiliateLinksForUser(userId: string) {
-        console.log(colors.cyan('Fetching affiliate links for user...'));
+        this.logger.log('Fetching affiliate links for user...');
         try {
             const links = await this.prisma.affiliateLink.findMany({
                 where: { userId },
@@ -522,14 +523,14 @@ export class ReferralsService {
                     product: true
                 }
             });
-            console.log(colors.green('Affiliate links fetched successfully.'));
+            this.logger.log('Affiliate links fetched successfully.');
             return {
                 success: true,
                 message: 'Affiliate links fetched successfully.',
                 data: links
             };
         } catch (error) {
-            console.log(colors.red('Error fetching affiliate links:'), error);
+            this.logger.error('Error fetching affiliate links:', error);
             return {
                 success: false,
                 message: 'Failed to fetch affiliate links.',
@@ -543,11 +544,11 @@ export class ReferralsService {
      * Track a click on an affiliate link (by slug)
      */
     async trackAffiliateLinkClick(slug: string) {
-        console.log(colors.cyan('Tracking click for affiliate link...'));
+        this.logger.log('Tracking click for affiliate link...');
         try {
             const link = await this.prisma.affiliateLink.findUnique({ where: { slug } });
             if (!link) {
-                console.log(colors.red('Affiliate link not found.'));
+                this.logger.warn('Affiliate link not found.');
                 return {
                     success: false,
                     message: 'Affiliate link not found.',
@@ -558,14 +559,14 @@ export class ReferralsService {
                 where: { slug },
                 data: { clicks: { increment: 1 } }
             });
-            console.log(colors.green('Click tracked.'));
+            this.logger.log('Click tracked.');
             return {
                 success: true,
                 message: 'Click tracked.',
                 data: null
             };
         } catch (error) {
-            console.log(colors.red('Error tracking click:'), error);
+            this.logger.error('Error tracking click:', error);
             return {
                 success: false,
                 message: 'Failed to track click.',
@@ -580,11 +581,11 @@ export class ReferralsService {
      * Optionally increment commission
      */
     async trackAffiliateLinkConversion(slug: string, orderId: string, commissionAmount: number = 0) {
-        console.log(colors.cyan('Tracking conversion for affiliate link...'));
+        this.logger.log('Tracking conversion for affiliate link...');
         try {
             const link = await this.prisma.affiliateLink.findUnique({ where: { slug } });
             if (!link) {
-                console.log(colors.red('Affiliate link not found.'));
+                this.logger.warn('Affiliate link not found.');
                 return {
                     success: false,
                     message: 'Affiliate link not found.',
@@ -599,14 +600,14 @@ export class ReferralsService {
                 }
             });
             // Optionally, you can also create a record in a conversion table or log
-            console.log(colors.green('Conversion tracked.'));
+            this.logger.log('Conversion tracked.');
             return {
                 success: true,
                 message: 'Conversion tracked.',
                 data: null
             };
         } catch (error) {
-            console.log(colors.red('Error tracking conversion:'), error);
+            this.logger.error('Error tracking conversion:', error);
             return {
                 success: false,
                 message: 'Failed to track conversion.',
@@ -620,7 +621,7 @@ export class ReferralsService {
      * Get affiliate link for a user and product
      */
     async getAffiliateLinkForUserAndProduct(userId: string, productId: string) {
-        console.log(colors.cyan('Fetching affiliate link for user and product...'));
+        this.logger.log('Fetching affiliate link for user and product...');
         try {
             const link = await this.prisma.affiliateLink.findUnique({ where: { userId_productId: { userId, productId } } });
             if (!link) {
@@ -644,7 +645,7 @@ export class ReferralsService {
                 }
             };
         } catch (error) {
-            console.log(colors.red('Error fetching affiliate link for user and product:'), error);
+            this.logger.error('Error fetching affiliate link for user and product:', error);
             return {
                 success: false,
                 message: 'Failed to fetch affiliate link for user and product.',
@@ -659,7 +660,7 @@ export class ReferralsService {
      */
     async fetchAllCommissionPayouts() {
 
-        console.log(colors.cyan("fetching all commission oayouts for a user"))
+        this.logger.log("fetching all commission oayouts for a user")
 
         try {
             const payouts = await this.prisma.commissionPayout.findMany({
@@ -676,7 +677,7 @@ export class ReferralsService {
                 }
             });
 
-            console.log(colors.magenta("commission payouts fetched successfully"))
+            this.logger.log("commission payouts fetched successfully")
 
             return {
                 success: true,
@@ -685,7 +686,7 @@ export class ReferralsService {
             };
         } catch (error) {
 
-            console.log(colors.red("Failed to fetch commission payouts"), error)
+            this.logger.error("Failed to fetch commission payouts", error)
             return {
                 success: false,
                 message: 'Failed to fetch commission payouts.',
@@ -696,7 +697,7 @@ export class ReferralsService {
     }
 
     async updateWithdrawalStatus(dto: UpdateWithdrawalStatusDto, req: any) {
-        console.log(colors.cyan(`Updating payout status for ${dto.withdrawalId} to ${dto.status}`));
+        this.logger.log(`Updating payout status for ${dto.withdrawalId} to ${dto.status}`);
         
         // List of allowed payout statuses from WithdrawalStatus enum
         const allowedStatuses = [
@@ -707,7 +708,7 @@ export class ReferralsService {
         ];
         
         if (!allowedStatuses.includes(dto.status.toLowerCase())) {
-            console.log(colors.red(`Invalid payout status. Allowed statuses: ${allowedStatuses.join(', ')}`));
+            this.logger.warn(`Invalid payout status. Allowed statuses: ${allowedStatuses.join(', ')}`);
             return {
                 success: false,
                 message: `Invalid payout status. Allowed statuses: ${allowedStatuses.join(', ')}`,
@@ -734,7 +735,7 @@ export class ReferralsService {
             });
 
             if (!withdrawalRequest) {
-                console.log(colors.red('Withdrawal request not found.'));
+                this.logger.warn('Withdrawal request not found.');
                 return {
                     success: false,
                     message: 'Withdrawal request not found.',
@@ -795,7 +796,7 @@ export class ReferralsService {
             //     console.log(colors.yellow(`Commission status reverted to pending for commission ID: ${withdrawalRequest.commissionId}`));
             // }
 
-            console.log(colors.magenta(`Payout status updated to ${dto.status} successfully`));
+            this.logger.log(`Payout status updated to ${dto.status} successfully`);
             
             return {
                 success: true,
@@ -821,7 +822,7 @@ export class ReferralsService {
                 }
             };
         } catch (error) {
-            console.log(colors.red('Error updating payout status:'), error);
+            this.logger.error('Error updating payout status:', error);
             return {
                 success: false,
                 message: 'Failed to update payout status.',
@@ -835,7 +836,7 @@ export class ReferralsService {
      * Fetch all withdrawal requests with filtering and pagination
      */
     async fetchAllWithdrawalRequests(page: number = 1, limit: number = 20, status?: string) {
-        console.log(colors.cyan('Fetching all withdrawal requests...'), { page, limit, status });
+        this.logger.log(`Fetching all withdrawal requests... ${JSON.stringify({ page, limit, status })}`);
         
         try {
             const skip = (page - 1) * limit;
@@ -891,7 +892,7 @@ export class ReferralsService {
                                 id: true,
                                 // orderId: true,
                                 total: true,
-                                status: true
+                                orderStatus: true
                             }
                         }
                     }
@@ -926,7 +927,7 @@ export class ReferralsService {
                 rejectionReason: request.rejectionReason
             }));
 
-            console.log(colors.magenta(`Withdrawal requests fetched successfully. Total: ${total}`));
+            this.logger.log(`Withdrawal requests fetched successfully. Total: ${total}`);
 
             return {
                 success: true,
@@ -942,7 +943,7 @@ export class ReferralsService {
                 }
             };
         } catch (error) {
-            console.log(colors.red('Error fetching withdrawal requests:'), error);
+            this.logger.error('Error fetching withdrawal requests:', error);
             return {
                 success: false,
                 message: 'Failed to fetch withdrawal requests.',

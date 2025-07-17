@@ -179,8 +179,8 @@ model Order {
   productid                String?
   userId                   String
   storeId                  String?
-  status                   OrderStatus?          @default(pending)
-  total                    Float
+  orderStatus                   OrderStatus?          @default(pending)
+  total                    Float?
   total_amount             Float                 @default(0)
   shippingInfo             Json?
   shipmentStatus           ShipmentStatus?       @default(awaiting_payment)
@@ -189,6 +189,7 @@ model Order {
   orderPaymentStatus       orderPaymentStatus?   @default(awaiting_payment)
   trackingNumber           String?
   withdrawalStatus         OrderWithdrawalStatus @default(none)
+  paymentMethod            OrderPaymentmethod?   @default(paystack)
   createdAt                DateTime              @default(now())
   updatedAt                DateTime              @updatedAt
   referralCode             String?
@@ -214,6 +215,7 @@ model Order {
   user                     User                  @relation(fields: [userId], references: [id])
   items                    OrderItem[]
   withdrawalRequests       WithdrawalRequest[]
+  bankDepositSlips         Json?
 }
 
 model OrderItem {
@@ -675,6 +677,7 @@ enum ShipmentStatus {
   awaiting_payment
   processing
   in_transit
+  awaiting_verification
 }
 
 enum orderPaymentStatus {
@@ -682,6 +685,12 @@ enum orderPaymentStatus {
   completed
   partial
   cancelled
+  awaiting_verification
+}
+
+enum OrderPaymentmethod {
+  paystack
+  bank_deposit
 }
 
 enum CommissionReferralStatus {

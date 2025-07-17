@@ -1,10 +1,13 @@
-import { Controller, Post, Body, Get, Param, Req } from '@nestjs/common';
+import { Controller, Post, Body, Get, Param, Req, UploadedFiles, UseInterceptors } from '@nestjs/common';
+import { FilesInterceptor } from '@nestjs/platform-express';
 import { PaystackService } from './paystack.service';
 import { affiliateInitiatePaystackPayment, PaymentDataDto, verifyPaystackPaymentDto } from '../shared/dto/payment.dto';
 import { CheckoutFromCartDto } from './dto/paystack.dto';
 // import { JwtGuard } from 'src/auth/guard';
 import { Request } from 'express';
 import { VerifyAccountNumberDto } from './dto/paystack.dto';
+import { FileValidationInterceptor } from '../shared/interceptors/file-validation.interceptor';
+import { parseAndNormalizeCheckoutDto } from './utils';
 
 @Controller('paystack')
 export class PaystackController {
@@ -23,6 +26,16 @@ export class PaystackController {
   @Post('cart-checkout-initialise-paystack-payment')
   async checkoutFromCartWithPaystackInitialisation(@Body() paymentData: CheckoutFromCartDto) {
     return this.paystackService.checkoutFromCartWithPaystackInitialisation(paymentData);
+  }
+
+  @Post('manual-bank-deposit')
+  @UseInterceptors(FilesInterceptor('files', 3, { limits: { fileSize: 10 * 1024 * 1024 } }), FileValidationInterceptor)
+  async manualBankDeposit(
+    @Body() paymentData: any,
+    @UploadedFiles() files: Array<Express.Multer.File>
+  ) {
+    parseAndNormalizeCheckoutDto(paymentData);
+    return this.paystackService.manualBankDeposit(paymentData, files);
   }
 
   @Post('verify-paystack-funding')

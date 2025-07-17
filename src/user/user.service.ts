@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import * as colors from "colors";
 import { ApiResponse } from 'src/shared/helper-functions/response';
@@ -12,11 +13,12 @@ import { RequestWithdrawalNewDto } from './dto/withdrawal-request.dto';
 
 @Injectable()
 export class UserService {
+  private readonly logger = new Logger(UserService.name);
   constructor(private readonly prisma: PrismaService) {}
 
   async getUserAllowedPartialpayment(payload) {
 
-    console.log(colors.cyan("Fetching user details for payment"))
+    this.logger.log(colors.cyan("Fetching user details for payment"))
 
     try {
         
@@ -30,7 +32,7 @@ export class UserService {
             allowedPartialPayment: existingUser?.allowedPartialPayment
         }
 
-        console.log(colors.magenta("Users partial payment details retrieved"))
+        this.logger.log(colors.magenta("Users partial payment details retrieved"))
         return new ApiResponse(
             true,
             "User partial opayment details successfully fetched",
@@ -38,7 +40,7 @@ export class UserService {
         )
 
     } catch (error) {
-        console.log(colors.red("Error fetching details: "), error)
+        this.logger.error(colors.red("Error fetching details: "), error)
         return new ApiResponse(
             false,
             "Error fetching partial payment details "
@@ -48,7 +50,7 @@ export class UserService {
 
   async requestToBecomeAnAffiliate(dto: requestAffiliatePermissionDto, payload: any) {
 
-    console.log(colors.cyan("requesting to become an affiliate"), dto)
+    this.logger.log(colors.cyan("requesting to become an affiliate"), dto)
 
     try {
       // Fetch user
@@ -57,11 +59,11 @@ export class UserService {
         return new ApiResponse(false, 'User not found.');
       }
       if (user.isAffiliate) {
-        console.log(colors.red("User is already an affiliate"))
+        this.logger.log(colors.red("User is already an affiliate"))
         return new ApiResponse(false, 'You are already an affiliate.');
       }
       if (user.affiliateStatus === 'pending') {
-        console.log(colors.red("You already have a pending affiliate request."))
+        this.logger.log(colors.red("You already have a pending affiliate request."))
         return new ApiResponse(false, 'You already have a pending affiliate request.');
       }
       // Check if there is already a pending Affiliate
@@ -69,7 +71,7 @@ export class UserService {
         where: { userId: user.id, status: 'pending' }
       });
       if (existingRequest) {
-        console.log(colors.red("You already have a pending affiliate request."))
+        this.logger.log(colors.red("You already have a pending affiliate request."))
         return new ApiResponse(false, 'You already have a pending affiliate request.');
       }
       // Create Affiliate record (request)
@@ -108,14 +110,14 @@ export class UserService {
         reason: newAffiliate.reason || "",
       };
 
-      console.log(colors.magenta("Successfully requested for affiliate permission"))
+      this.logger.log(colors.magenta("Successfully requested for affiliate permission"))
       return new ApiResponse(
         true,
         'Affiliate request submitted and is awaiting approval.',
         formattedResponse
       );
     } catch (error) {
-      console.log(colors.red('Error requesting affiliate status'), error);
+      this.logger.error('Error requesting affiliate status', error);
       return new ApiResponse(
         false,
         'Failed to submit affiliate request.'
@@ -124,7 +126,7 @@ export class UserService {
   }
 
   async fetchAffiliateDashboard(payload: any) {
-    console.log(colors.cyan("[users service] Fetching affiliate dashboard"));
+    this.logger.log(colors.cyan("[users service] Fetching affiliate dashboard"));
     try {
       // 1. Fetch user
       const user = await this.prisma.user.findFirst({ where: { email: payload.email } });
@@ -192,7 +194,7 @@ export class UserService {
           orderId: order?.orderId,
           buyerName: order ? order.user?.first_name + ' ' + order.user?.last_name : '',
           buyerEmail: order ? order.user?.email : '',
-          orderAmount: order ? formatAmount(order.total) : '',
+          orderAmount: order ? formatAmount(order.total_amount) : '',
           // withdrawalStatus: order ? order.withdrawalStatus : '',
           displayImage: order?.items?.[0]?.product?.displayImages?.[0]?.secure_url,
           commissionEarned: formatAmount(record.amount || 0),
@@ -239,22 +241,22 @@ export class UserService {
         payouts
       };
 
-      console.log('[users service] Affiliate dashboard fetched successfully.')
+      this.logger.log('[users service] Affiliate dashboard fetched successfully.')
 
       return new ApiResponse(true, 'Affiliate dashboard fetched successfully.', dashboard);
     } catch (error) {
-      console.log(colors.red('Error fetching affiliate dashboard'), error);
+      this.logger.error('Error fetching affiliate dashboard', error);
       return new ApiResponse(false, 'Failed to fetch affiliate dashboard.');
     }
   }
 
   async generateAffiliateLink(userId: string, productId: string) {
-    console.log(colors.cyan("generating affiliate link"));
+    this.logger.log(colors.cyan("generating affiliate link"));
     try {
         // Check if user is an approved/active affiliate
         const affiliate = await this.prisma.affiliate.findUnique({ where: { userId } });
         if (!affiliate || !(affiliate.status === AffiliateStatus.approved || affiliate.status === AffiliateStatus.active)) {
-            console.log(colors.red('User is not an approved or active affiliate.'));
+            this.logger.log(colors.red('User is not an approved or active affiliate.'));
             return {
                 success: false,
                 message: 'User is not an approved or active affiliate.',
@@ -264,7 +266,7 @@ export class UserService {
         // Check if product exists
         const product = await this.prisma.product.findUnique({ where: { id: productId } });
         if (!product) {
-            console.log(colors.red('Product not found.'));
+            this.logger.log(colors.red('Product not found.'));
             return {
                 success: false,
                 message: 'Product not found.',
@@ -274,7 +276,7 @@ export class UserService {
         // Check if link already exists for this user-product
         const existing = await this.prisma.affiliateLink.findUnique({ where: { userId_productId: { userId, productId } } });
         if (existing) {
-            console.log(colors.yellow('Affiliate link already exists.'));
+            this.logger.log(colors.yellow('Affiliate link already exists.'));
             return {
                 success: true,
                 message: 'Affiliate link already exists.', 
@@ -313,7 +315,7 @@ export class UserService {
         const baseUrl = process.env.BASE_URL?.replace(/\/$/, '') || 'http://localhost:3000';
         const productSlug = product.id;
         const shareableLink = `${baseUrl}/products/${productSlug}?ref=${link.slug}`;
-        console.log(colors.green('Affiliate link generated successfully.'));
+        this.logger.log(colors.green('Affiliate link generated successfully.'));
         return {
             success: true,
             message: 'Affiliate link generated successfully.',
@@ -323,7 +325,7 @@ export class UserService {
             }
         };
     } catch (error) {
-        console.log(colors.red('Error generating affiliate link:'), error);
+        this.logger.error('Error generating affiliate link:', error);
         return {
             success: false, 
             message: 'Failed to generate affiliate link.',
@@ -334,7 +336,7 @@ export class UserService {
 }
 
   async getAffiliateLinksForUser(user: any) {
-    console.log(colors.cyan('[user-service] Fetching affiliate links for user...'));
+    this.logger.log(colors.cyan('[user-service] Fetching affiliate links for user...'));
     try {
         // Get user from email
         const existingUser = await this.prisma.user.findFirst({ 
@@ -365,14 +367,14 @@ export class UserService {
             }
         });
       
-        console.log(colors.green(`Total of ${links.length} Affiliate links fetched successfully.`));
+        this.logger.log(colors.green(`Total of ${links.length} Affiliate links fetched successfully.`));
         return {
             success: true,
             message: 'Affiliate links fetched successfully.',
             data: links
         };
     } catch (error) {
-        console.log(colors.red('Error fetching affiliate links:'), error);
+        this.logger.error('Error fetching affiliate links:', error);
         return {
             success: false,
             message: 'Failed to fetch affiliate links.',
@@ -432,10 +434,10 @@ export class UserService {
 
   async addBank(user: any, dto: AddBankDto) {
     try {
-      console.log(colors.cyan('[user-service] Adding new bank for user...'));
+      this.logger.log(colors.cyan('[user-service] Adding new bank for user...'));
       const existingUser = await this.prisma.user.findFirst({ where: { email: user.email } });
       if (!existingUser) {
-        console.log(colors.red('[user-service] User not found.'));
+        this.logger.log(colors.red('[user-service] User not found.'));
         return new ApiResponse(false, 'User not found.');
       }
       // Check for duplicate bank (by accountNumber and bankCode for this user)
@@ -447,7 +449,7 @@ export class UserService {
         },
       });
       if (existingBank) {
-        console.log(colors.red('[user-service] Bank with this account number and bank code already exists for user.'));
+        this.logger.log(colors.red('[user-service] Bank with this account number and bank code already exists for user.'));
         return new ApiResponse(false, 'Bank with this account number and bank code already exists.');
       }
       const bank = await this.prisma.bank.create({
@@ -459,60 +461,60 @@ export class UserService {
           accountName: dto.accountName,
         },
       });
-      console.log(colors.green('[user-service] Bank added successfully.'));
+      this.logger.log(colors.green('[user-service] Bank added successfully.'));
       return new ApiResponse(true, 'Bank added successfully.', bank);
     } catch (error) {
-      console.log(colors.red('[user-service] Error adding bank:'), error);
+      this.logger.error('[user-service] Error adding bank:', error);
       return new ApiResponse(false, 'Failed to add bank.');
     }
   }
 
   async deleteBank(user: any, dto: DeleteBankDto) {
     try {
-      console.log(colors.cyan('[user-service] Deleting bank for user...'), dto.bankId);
+      this.logger.log(colors.cyan('[user-service] Deleting bank for user...'), dto.bankId);
 
       const existingUser = await this.prisma.user.findFirst({ where: { email: user.email } });
       if (!existingUser) {
-        console.log(colors.red('[user-service] User not found.'));
+        this.logger.log(colors.red('[user-service] User not found.'));
         return new ApiResponse(false, 'User not found.');
       }
       // Ensure the bank belongs to the user
       const bank = await this.prisma.bank.findFirst({ where: { id: dto.bankId, userId: existingUser.id } });
       if (!bank) {
-        console.log(colors.red('[user-service] Bank not found or does not belong to user.'));
+        this.logger.log(colors.red('[user-service] Bank not found or does not belong to user.'));
         return new ApiResponse(false, 'Bank not found or does not belong to user.');
       }
 
       await this.prisma.bank.delete({ where: { id: dto.bankId } });
 
-      console.log(colors.green('[user-service] Bank deleted successfully.'));
+      this.logger.log(colors.green('[user-service] Bank deleted successfully.'));
       return new ApiResponse(true, 'Bank deleted successfully.');
 
     } catch (error) {
-      console.log(colors.red('[user-service] Error deleting bank:'), error);
+      this.logger.error('[user-service] Error deleting bank:', error);
       return new ApiResponse(false, 'Failed to delete bank.');
     }
   }
 
   async updateBankStatus(user: any, dto: UpdateBankStatusDto) {
     try {
-      console.log(colors.cyan('[user-service] Updating bank status for user...'));
+      this.logger.log(colors.cyan('[user-service] Updating bank status for user...'));
       const existingUser = await this.prisma.user.findFirst({ where: { email: user.email } });
       if (!existingUser) {
-        console.log(colors.red('[user-service] User not found.'));
+        this.logger.log(colors.red('[user-service] User not found.'));
         return new ApiResponse(false, 'User not found.');
       }
       // Ensure the bank belongs to the user
       const bank = await this.prisma.bank.findFirst({ where: { id: dto.bankId, userId: existingUser.id } });
       if (!bank) {
-        console.log(colors.red('[user-service] Bank not found or does not belong to user.'));
+        this.logger.log(colors.red('[user-service] Bank not found or does not belong to user.'));
         return new ApiResponse(false, 'Bank not found or does not belong to user.');
       }
       // The Bank model does not have an isActive field
-      console.log(colors.red('[user-service] Bank status cannot be updated because the Bank model does not have an isActive field.'));
+      this.logger.log(colors.red('[user-service] Bank status cannot be updated because the Bank model does not have an isActive field.'));
       return new ApiResponse(false, 'Bank status cannot be updated because the Bank model does not have an isActive field.');
     } catch (error) {
-      console.log(colors.red('[user-service] Error updating bank status:'), error);
+      this.logger.error('[user-service] Error updating bank status:', error);
       return new ApiResponse(false, 'Failed to update bank status.');
     }
   }
@@ -520,11 +522,11 @@ export class UserService {
   // //////////////////////////////////////////////////////////////////////// Request withdrawal
   async requestWithdrawal(user: any, dto: RequestWithdrawalNewDto) {
     try {
-      console.log(colors.cyan('[user-service] Creating new withdrawal request...'), dto);
+      this.logger.log(colors.cyan('[user-service] Creating new withdrawal request...'), dto);
       
       const existingUser = await this.prisma.user.findFirst({ where: { email: user.email } });
       if (!existingUser) {
-        console.log(colors.red('[user-service] User not found.'));
+        this.logger.log(colors.red('[user-service] User not found.'));
         return new ApiResponse(false, 'User not found.');
       }
 
@@ -533,7 +535,7 @@ export class UserService {
       });
 
       if (!bank) {
-        console.log(colors.red('[user-service] Bank not found or does not belong to user.'));
+        this.logger.log(colors.red('[user-service] Bank not found or does not belong to user.'));
         return new ApiResponse(false, 'Bank not found or does not belong to user.');
       }
 
@@ -559,11 +561,11 @@ export class UserService {
         }
       });
 
-      console.log(colors.green('[user-service] Withdrawal request created successfully.'));
+      this.logger.log(colors.green('[user-service] Withdrawal request created successfully.'));
       return new ApiResponse(true, 'Withdrawal request created successfully.', withdrawalRequest);
 
     } catch (error) {
-      console.log(colors.red('[user-service] Error creating withdrawal request:'), error);
+      this.logger.error('[user-service] Error creating withdrawal request:', error);
       return new ApiResponse(false, 'Failed to create withdrawal request.');
     }
   }

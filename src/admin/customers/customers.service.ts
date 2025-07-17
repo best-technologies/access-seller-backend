@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import * as colors from 'colors';
 import { Prisma } from '@prisma/client';
@@ -8,10 +8,11 @@ import { ApiResponse } from 'src/shared/helper-functions/response';
 
 @Injectable()
 export class CustomersService {
+    private readonly logger = new Logger(CustomersService.name);
     constructor(private prisma: PrismaService) {}
 
     async getCustomersDashboard(query: GetCustomersDto, userId: string): Promise<ApiResponse<CustomersDashboardResponseDto>> {
-        console.log(colors.cyan('Fetching customers dashboard data...'));
+        this.logger.log('Fetching customers dashboard data...');
 
         try {
             const {
@@ -72,7 +73,7 @@ export class CustomersService {
                             id: true,
                             total: true,
                             createdAt: true,
-                            status: true
+                            orderStatus: true
                         },
                         orderBy: { createdAt: 'desc' }
                     }
@@ -159,7 +160,7 @@ export class CustomersService {
                     _sum: { total: true }
                 }),
                 this.prisma.order.aggregate({
-                    where: { status: { in: ['pending', 'confirmed'] } },
+                    where: { orderStatus: { in: ['pending', 'confirmed'] } },
                     _sum: { total: true }
                 })
             ]);
@@ -180,7 +181,7 @@ export class CustomersService {
             });
             const allowedPercentage = user && user.level ? levelToPercentage[user.level] : null;
 
-            console.log(colors.green(`Customers dashboard data retrieved successfully. Found ${filteredCustomers.length} customers`));
+            this.logger.log(`Customers dashboard data retrieved successfully. Found ${filteredCustomers.length} customers`);
 
             const formatted_response = {
                 stats,
@@ -194,7 +195,7 @@ export class CustomersService {
             );
 
         } catch (error) {
-            console.log(colors.red('Error fetching customers dashboard:'), error);
+            this.logger.error('Error fetching customers dashboard:', error);
             throw error;
         }
     }
