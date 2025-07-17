@@ -24,6 +24,7 @@ import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
 import { useWishlist } from "@/hooks/useWishlist";
 import { useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import toast from "react-hot-toast";
 import Loader from "@/components/Loader";
 
@@ -34,6 +35,8 @@ export default function Navbar() {
   const { isAuthenticated, user, logout } = useAuth();
   const { wishlistCount } = useWishlist();
   const router = useRouter();
+  const pathname = usePathname();
+  const [search, setSearch] = useState("");
 
   const handleBackdropClick = (e: React.MouseEvent) => {
     if (e.target === e.currentTarget) {
@@ -64,6 +67,14 @@ export default function Navbar() {
     router.push("/printing-inventory");
   };
 
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const query = search.trim();
+    if (!query) return;
+    router.push(`/search?q=${encodeURIComponent(query)}`);
+    setSearch("");
+  };
+
   return (
     <>
       {/* Loader for Printing Press */}
@@ -85,11 +96,57 @@ export default function Navbar() {
               </Link>
             </div>
 
+            {/* Desktop Search Input (show only on homepage) */}
+            {pathname === '/' && (
+              <form
+                onSubmit={handleSearchSubmit}
+                className="hidden md:flex flex-1 justify-center px-8"
+                role="search"
+                aria-label="Site search"
+              >
+                <div className="relative w-full max-w-lg">
+                  <input
+                    type="text"
+                    value={search}
+                    onChange={e => setSearch(e.target.value)}
+                    placeholder="Search for books, authors, or ISBN..."
+                    className="w-full px-4 py-2 pr-12 rounded-lg border border-gray-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 bg-white text-gray-800 placeholder-gray-400 shadow-sm transition"
+                    aria-label="Search for books, authors, or ISBN"
+                  />
+                  <button
+                    type="submit"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white shadow transition"
+                    aria-label="Search"
+                  >
+                    <Search className="w-5 h-5" />
+                  </button>
+                </div>
+              </form>
+            )}
+
             {/* Mobile Search and Actions */}
             <div className="flex items-center space-x-3 md:hidden">
-              <button className="p-2 text-gray-600 hover:text-indigo-600 transition-colors">
-                <Search className="w-5 h-5" />
-              </button>
+              {pathname === '/' && (
+                <form onSubmit={handleSearchSubmit} className="flex-1" role="search" aria-label="Site search">
+                  <div className="relative w-36">
+                    <input
+                      type="text"
+                      value={search}
+                      onChange={e => setSearch(e.target.value)}
+                      placeholder="Search..."
+                      className="w-full px-3 py-2 pr-10 rounded-lg border border-gray-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 bg-white text-gray-800 placeholder-gray-400 shadow-sm transition text-sm"
+                      aria-label="Search for books, authors, or ISBN"
+                    />
+                    <button
+                      type="submit"
+                      className="absolute right-1 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white shadow transition"
+                      aria-label="Search"
+                    >
+                      <Search className="w-4 h-4" />
+                    </button>
+                  </div>
+                </form>
+              )}
               <button 
                 onClick={handleWishlistClick}
                 className="relative p-2 text-gray-600 hover:text-indigo-600 transition-colors"
@@ -124,16 +181,6 @@ export default function Navbar() {
 
             {/* Desktop Navigation */}
             <div className="hidden md:flex items-center space-x-8">
-              {/* Search Bar */}
-              <div className="relative w-64 lg:w-96">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <input 
-                  type="text"
-                  placeholder="Search books, authors..."
-                  className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                />
-              </div>
-
               {/* Navigation Links */}
               <div className="flex items-center space-x-6">
                 <Link href="/products" className="text-sm font-medium text-gray-700 hover:text-indigo-600 transition-colors">
@@ -224,7 +271,7 @@ export default function Navbar() {
                             <LogIn className="w-4 h-4" />
                             <span className="text-sm">Sign In</span>
                           </Link>
-                          <Link href="/auth/register" className="flex items-center space-x-3 px-4 py-2 text-gray-700 hover:bg-gray-50">
+                          <Link href="/auth/register" className="flex items-center space-x-3 px-4 py-2 text-gray-700 mt-4 hover:bg-gray-50">
                             <UserPlus className="w-4 h-4" />
                             <span className="text-sm">Register</span>
                           </Link>
@@ -259,18 +306,6 @@ export default function Navbar() {
                   >
                     <X className="w-5 h-5" />
                   </button>
-                </div>
-              </div>
-
-              {/* Search Bar Mobile */}
-              <div className="p-4 border-b border-gray-100">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <input 
-                    type="text"
-                    placeholder="Search books, authors..."
-                    className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  />
                 </div>
               </div>
 

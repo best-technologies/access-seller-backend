@@ -10,6 +10,7 @@ import toast from "react-hot-toast";
 import type { CategoryProduct } from "@/types/product";
 import { useCart } from "@/hooks/useCart";
 import { useWishlist } from "@/hooks/useWishlist";
+import Navbar from "@/components/home/Navbar";
 
 // Type guard for CategoryProduct
 function isCategoryProduct(obj: unknown): obj is CategoryProduct {
@@ -105,32 +106,8 @@ export default function CategoryProductsPage() {
   }, [handleScroll]);
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-40 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-20">
-            <div className="flex items-center gap-4">
-              <button
-                onClick={() => router.push("/products")}
-                className="p-2 rounded-lg hover:bg-gray-100 transition-colors flex items-center gap-2"
-              >
-                <ArrowLeft className="h-5 w-5 text-gray-500" />
-                <span className="text-gray-700 font-medium">Back to Browse</span>
-              </button>
-              <h1 className="text-2xl font-bold text-gray-900 tracking-tight ml-4">
-                {categoryName ? `Category: ${categoryName}` : "Category"}
-              </h1>
-            </div>
-            <button
-              onClick={handleRefresh}
-              className="p-3 rounded-xl hover:bg-gray-100 transition-colors group"
-              title="Refresh products"
-            >
-              <RefreshCw className="h-5 w-5 text-gray-500 group-hover:text-indigo-600 transition-colors" />
-            </button>
-          </div>
-        </div>
-      </div>
+    <div className="min-h-screen bg-gray-50 pt-16">
+      <Navbar />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {isLoading ? (
           <Loader />
