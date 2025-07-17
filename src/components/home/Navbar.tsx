@@ -163,7 +163,11 @@ export default function Navbar() {
             {/* Logo */}
             <div className="flex items-center">
               <Link href="/" className="flex items-center space-x-2">
-                <span className="text-xl font-bold bg-gradient-to-r from-indigo-600 to-blue-500 bg-clip-text text-transparent">
+                {/* Show initials on mobile, full name on desktop */}
+                <span className="text-xl font-bold bg-gradient-to-r from-indigo-600 to-blue-500 bg-clip-text text-transparent block md:hidden">
+                  A-S
+                </span>
+                <span className="text-xl font-bold bg-gradient-to-r from-indigo-600 to-blue-500 bg-clip-text text-transparent hidden md:block">
                   AccessSellr
                 </span>
               </Link>
@@ -259,14 +263,9 @@ export default function Navbar() {
                   </span>
                 )}
               </button>
-              <MiniCartPreview />
-              <button 
-                onClick={() => setIsMenuOpen(!isMenuOpen)}
-                className="p-2 text-gray-600 hover:text-indigo-600 transition-colors"
-                aria-label="Toggle menu"
-              >
-                {isMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-              </button>
+              {/* Remove MiniCartPreview and hamburger menu button on mobile */}
+              {/* <MiniCartPreview /> */}
+              {/* <button ...>{isMenuOpen ? <X ... /> : <Menu ... />}</button> */}
               {/* Printing Press Button (Mobile) */}
               {isAuthenticated && (user?.role === "admin" || user?.role === "inventory_manager") && (
                 <button
