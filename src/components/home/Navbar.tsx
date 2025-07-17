@@ -3,7 +3,6 @@
 import { useState, useRef } from "react";
 import MiniCartPreview from "@/components/home/MiniCartPreview";
 import { 
-  Menu, 
   X, 
   Home as HomeIcon, 
   BookOpen, 
