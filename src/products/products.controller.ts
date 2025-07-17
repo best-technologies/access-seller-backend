@@ -16,6 +16,19 @@ export class ProductsController {
     return this.productsService.getPaginatedProducts(pageNumber);
   }
 
+  @Get('by-category/:categoryName')
+  async getProductsByCategoryName(
+    @Param('categoryName') categoryName: string,
+    @Query('page') page: string = '1',
+    @Query('limit') limit: string = '20'
+  ) {
+    return this.productsService.getProductsByCategoryName(
+      categoryName,
+      parseInt(page, 10) || 1,
+      parseInt(limit, 10) || 20
+    );
+  }
+
   @Get(':id')
     async getProductById(@Param('id') id: string) {
         return this.productsService.getProductById(id);

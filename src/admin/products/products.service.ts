@@ -1120,4 +1120,92 @@ export class ProductsService {
             }
         });
     }
+
+    async getProductsByCategoryName(categoryName: string, page: number = 1, limit: number = 20) {
+        const Logger = (global as any).Logger || console;
+        Logger.log(`[getProductsByCategoryName] Fetching products for category: ${categoryName}, page: ${page}, limit: ${limit}`);
+        try {
+            const skip = (page - 1) * limit;
+            // Find the category by name (case-insensitive)
+            const category = await this.prisma.category.findFirst({
+                where: { name: { equals: categoryName, mode: 'insensitive' } },
+            });
+            if (!category) {
+                throw new NotFoundException(`Category '${categoryName}' not found`);
+            }
+            // Find products for this category
+            const [products, total] = await Promise.all([
+                this.prisma.product.findMany({
+                    skip,
+                    take: limit,
+                    where: {
+                        categories: { some: { id: category.id } },
+                        status: 'active',
+                        isActive: true,
+                    },
+                    include: {
+                        store: { select: { id: true, first_name: true, last_name: true, email: true } },
+                        categories: { select: { id: true, name: true } },
+                        languages: { select: { id: true, name: true } },
+                        genres: { select: { id: true, name: true } },
+                        formats: { select: { id: true, name: true } },
+                    },
+                    orderBy: { createdAt: 'desc' },
+                }),
+                this.prisma.product.count({
+                    where: {
+                        categories: { some: { id: category.id } },
+                        status: 'active',
+                        isActive: true,
+                    },
+                }),
+            ]);
+            const totalPages = Math.ceil(total / limit);
+            const formattedProducts: ProductResponseDto[] = products.map(product => ({
+                id: product.id,
+                name: product.name,
+                description: product.description ?? undefined,
+                sellingPrice: product.sellingPrice,
+                normalPrice: product.normalPrice,
+                stock: product.stock,
+                images: Array.isArray(product.displayImages) ? product.displayImages.map((img: any) => img.secure_url) : [],
+                categoryId: product.categories && product.categories[0] ? product.categories[0].id : '',
+                storeId: product.storeId ?? '',
+                commission: product.commission ? Number(product.commission) : 0,
+                isActive: product.isActive,
+                status: product.status,
+                isbn: product.isbn ?? undefined,
+                format: product.formats ? product.formats.map(f => f.name) : [],
+                publisher: product.publisher ?? undefined,
+                author: product.author ?? undefined,
+                pages: product.pages ?? undefined,
+                language: product.languages ? product.languages.map(l => l.name) : [],
+                genre: product.genres ? product.genres.map(g => g.name) : [],
+                publishedDate: product.publishedDate ?? undefined,
+                createdAt: product.createdAt,
+                updatedAt: product.updatedAt,
+                store: product.store ? {
+                    id: product.store.id,
+                    name: product.store.first_name + ' ' + product.store.last_name,
+                    email: product.store.email
+                } : undefined,
+                category: product.categories && product.categories[0] ? {
+                    id: product.categories[0].id,
+                    name: product.categories[0].name
+                } : undefined
+            }));
+            return new ApiResponse(true, '', {
+                products: formattedProducts,
+                pagination: {
+                    currentPage: page,
+                    totalPages,
+                    totalItems: total,
+                    itemsPerPage: limit,
+                },
+            });
+        } catch (error) {
+            Logger.error(`[getProductsByCategoryName] Error:`, error);
+            throw error;
+        }
+    }
 } 

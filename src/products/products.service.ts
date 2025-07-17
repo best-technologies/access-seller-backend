@@ -335,6 +335,51 @@ export class ProductsService {
     }
   }
 
+  async getProductsByCategoryName(categoryName: string, page: number = 1, limit: number = 20) {
+    this.logger.log(`[getProductsByCategoryName] Fetching products for category: ${categoryName}, page: ${page}, limit: ${limit}`);
+    try {
+      const skip = (page - 1) * limit;
+      // Find products where ANY category name matches (case-insensitive)
+      const [products, total] = await Promise.all([
+        this.prisma.product.findMany({
+          skip,
+          take: limit,
+          where: {
+            categories: { some: { name: { equals: categoryName, mode: 'insensitive' } } },
+            // status: 'active',
+            isActive: true,
+          },
+          include: {
+            categories: { select: { id: true, name: true } },
+            formats: { select: { id: true, name: true } },
+          },
+          orderBy: { createdAt: 'desc' },
+        }),
+        this.prisma.product.count({
+          where: {
+            categories: { some: { name: { equals: categoryName, mode: 'insensitive' } } },
+            status: 'active',
+            isActive: true,
+          },
+        }),
+      ]);
+      const totalPages = Math.ceil(total / limit);
+      const formattedProducts = products.map(this.formatProduct);
+      return new ApiResponse(true, '', {
+        pagination: {
+          currentPage: page,
+          totalPages,
+          totalItems: total,
+          itemsPerPage: limit,
+        },
+        products: formattedProducts,
+      });
+    } catch (error) {
+      this.logger.error(`[getProductsByCategoryName] Error:`, error);
+      throw error;
+    }
+  }
+
   async getProductById(id: string) {
     this.logger.log(`Fetching product with ID: ${id}`);
 

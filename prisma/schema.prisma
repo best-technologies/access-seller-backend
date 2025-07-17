@@ -179,7 +179,6 @@ model Order {
   productid                String?
   userId                   String
   storeId                  String?
-  orderStatus                   OrderStatus?          @default(pending)
   total                    Float?
   total_amount             Float                 @default(0)
   shippingInfo             Json?
@@ -189,7 +188,6 @@ model Order {
   orderPaymentStatus       orderPaymentStatus?   @default(awaiting_payment)
   trackingNumber           String?
   withdrawalStatus         OrderWithdrawalStatus @default(none)
-  paymentMethod            OrderPaymentmethod?   @default(paystack)
   createdAt                DateTime              @default(now())
   updatedAt                DateTime              @updatedAt
   referralCode             String?
@@ -208,6 +206,9 @@ model Order {
   paystackReference        String?               @unique
   paystackAuthorizationUrl String?
   paystackAccessCode       String?
+  bankDepositSlips         Json?
+  paymentMethod            OrderPaymentmethod?   @default(paystack)
+  orderStatus              OrderStatus?          @default(pending)
   commissions              Commission[]
   CommissionReferral       CommissionReferral[]
   shippingAddress          ShippingAddress?      @relation(fields: [shippingAddressId], references: [id])
@@ -215,7 +216,6 @@ model Order {
   user                     User                  @relation(fields: [userId], references: [id])
   items                    OrderItem[]
   withdrawalRequests       WithdrawalRequest[]
-  bankDepositSlips         Json?
 }
 
 model OrderItem {

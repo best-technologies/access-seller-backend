@@ -119,4 +119,13 @@ export class ProductsController {
         return this.productsService.getProductsWithCommission(Number(page), Number(limit));
     }
 
+    @Get('by-category/:categoryName')
+    async getProductsByCategoryName(
+        @Param('categoryName') categoryName: string,
+        @Query('page') page: number = 1,
+        @Query('limit') limit: number = 20
+    ) {
+        return this.productsService.getProductsByCategoryName(categoryName, Number(page), Number(limit));
+    }
+
 } 
