@@ -28,9 +28,9 @@ async function bootstrap() {
   // Get AppService instance from Nest application context
 
   // Cron job setup
-  if (process.env.NODE_ENV === 'production') {
+  if (process.env.CRON_ENV === 'production' || process.env.NODE_ENV === "production") {
     cron.schedule('*/10 * * * *', async () => {
-      logger.log('Running a task every 10 minutes');
+      logger.log('Running a task every 10 minutes'); 
       try {
         const url = 'https://access-seller-backend.onrender.com/api/v1/hello';
         const response = await axios.get(url);

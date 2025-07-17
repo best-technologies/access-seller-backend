@@ -346,7 +346,6 @@ export class ProductsService {
           take: limit,
           where: {
             categories: { some: { name: { equals: categoryName, mode: 'insensitive' } } },
-            // status: 'active',
             isActive: true,
           },
           include: {
@@ -358,21 +357,22 @@ export class ProductsService {
         this.prisma.product.count({
           where: {
             categories: { some: { name: { equals: categoryName, mode: 'insensitive' } } },
-            status: 'active',
             isActive: true,
           },
         }),
       ]);
       const totalPages = Math.ceil(total / limit);
+      const hasMore = page < totalPages;
       const formattedProducts = products.map(this.formatProduct);
       return new ApiResponse(true, '', {
+        products: formattedProducts,
         pagination: {
           currentPage: page,
           totalPages,
           totalItems: total,
           itemsPerPage: limit,
         },
-        products: formattedProducts,
+        hasMore,
       });
     } catch (error) {
       this.logger.error(`[getProductsByCategoryName] Error:`, error);
@@ -443,4 +443,59 @@ export class ProductsService {
         throw error;
     }
 }
+
+  async searchSuggestions(q: string) {
+    this.logger.log(`[searchSuggestions] Query: '${q}'`);
+    
+    if (!q || q.length < 2) {
+      this.logger.log('[searchSuggestions] Query too short, returning empty array.');
+      return { success: true, data: [] };
+    }
+    try {
+      // Search products by name, author, ISBN, or category name (case-insensitive, partial match)
+      const products = await this.prisma.product.findMany({
+        where: {
+          OR: [
+            { name: { contains: q, mode: 'insensitive' } },
+            { author: { contains: q, mode: 'insensitive' } },
+            { isbn: { contains: q, mode: 'insensitive' } },
+            { categories: { some: { name: { contains: q, mode: 'insensitive' } } } },
+          ],
+          isActive: true,
+        },
+        include: {
+          categories: { select: { id: true, name: true } },
+        },
+        take: 10,
+        orderBy: { createdAt: 'desc' },
+      });
+      this.logger.log(`[searchSuggestions] Found ${products.length} results for query '${q}'.`);
+      const data = products.map(product => {
+        let image: string | null = null;
+        let images = product.displayImages;
+        if (typeof images === 'string') {
+          try {
+            images = JSON.parse(images);
+          } catch {
+            images = [];
+          }
+        }
+        if (Array.isArray(images) && images[0] && typeof images[0] === 'object' && 'secure_url' in images[0]) {
+          image = typeof images[0].secure_url === 'string' ? images[0].secure_url : null;
+        }
+        return {
+          id: product.id,
+          title: product.name,
+          author: product.author || '',
+          image,
+          slug: `${product.id}-${product.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
+          category: product.categories && product.categories.length > 0 ? product.categories[0].name : '',
+        };
+      });
+      return { success: true, data };
+    } catch (error) {
+      this.logger.error(`[searchSuggestions] Error: ${error.message || error}`);
+      return { success: false, data: [], error: error.message || error.toString() };
+    }
+  }
 }

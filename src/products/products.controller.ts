@@ -29,6 +29,11 @@ export class ProductsController {
     );
   }
 
+  @Get('search-suggestions')
+  async searchSuggestions(@Query('q') q: string) {
+    return this.productsService.searchSuggestions(q);
+  }
+
   @Get(':id')
     async getProductById(@Param('id') id: string) {
         return this.productsService.getProductById(id);
