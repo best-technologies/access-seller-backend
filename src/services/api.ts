@@ -379,6 +379,11 @@ export const api = {
       const response = await axiosInstance.get(`/products/${id}`);
       return response.data as Product;
     },
+    getProductsByCategory: async (categoryName: string, page = 1, limit = 20): Promise<BrowseProductsResponse> => {
+      // Fetch products by category from the backend
+      const response = await axiosInstance.get(`/products/by-category/${encodeURIComponent(categoryName)}?page=${page}&limit=${limit}`);
+      return response as unknown as BrowseProductsResponse;
+    },
   },
 
   admin: {

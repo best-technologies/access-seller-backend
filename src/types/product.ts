@@ -60,6 +60,7 @@ export interface BrowseFormat {
   total_books: number;
 }
 
+// Restore original BrowseProduct type (copy from previous version or backup)
 export interface BrowseProduct {
   id: string;
   product_name: string;
@@ -74,6 +75,20 @@ export interface BrowseProduct {
   stock_count: number;
   categories: { id: string; name: string }[];
   formats: { id: string; name: string }[];
+  category?: { id: string; name: string }[];
+}
+
+// Add a new type for category filter response
+export interface CategoryProduct {
+  id: string;
+  book_name: string;
+  author: string;
+  description: string;
+  selling_price: number;
+  normal_price: number;
+  total_purchase: number;
+  category: { id: string; name: string }[];
+  display_image: string;
 }
 
 export interface ProductUI {

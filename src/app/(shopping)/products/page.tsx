@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { 
   Filter, 
@@ -39,6 +39,51 @@ interface CategoryGroup {
   products: BrowseProduct[];
 }
 
+// Define a new type for category filter products
+interface CategoryFilterProduct {
+  id: string;
+  book_name: string;
+  author: string;
+  description: string;
+  selling_price: number;
+  normal_price: number;
+  total_purchase: number;
+  category: { id: string; name: string }[];
+  display_image: string;
+}
+
+// Define a new type for category filter group
+interface CategoryFilterGroup {
+  categoryName: string;
+  products: CategoryFilterProduct[];
+}
+
+// Type guard to check if a product is a CategoryFilterProduct
+function isCategoryFilterProduct(product: unknown): product is CategoryFilterProduct {
+  return (
+    typeof (product as CategoryFilterProduct).book_name === 'string' &&
+    typeof (product as CategoryFilterProduct).display_image === 'string'
+  );
+}
+
+// Type guard to check if a group is a CategoryFilterGroup
+function isCategoryFilterGroup(group: unknown): group is CategoryFilterGroup {
+  return (
+    Array.isArray((group as CategoryFilterGroup).products) &&
+    (group as CategoryFilterGroup).products.length > 0 &&
+    typeof (group as CategoryFilterGroup).products[0].book_name === 'string'
+  );
+}
+
+// Type guard to check if a group is a CategoryGroup
+function isCategoryGroup(group: unknown): group is CategoryGroup {
+  return (
+    Array.isArray((group as CategoryGroup).products) &&
+    (group as CategoryGroup).products.length > 0 &&
+    typeof (group as CategoryGroup).products[0].product_name === 'string'
+  );
+}
+
 // 1. Define a palette of gradients at the top of the file (after imports):
 const categoryColors = [
   'linear-gradient(90deg, #6366f1, #a21caf)', // Indigo to purple
@@ -55,7 +100,7 @@ export default function ProfessionalProductsPage() {
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [products, setProducts] = useState<CategoryGroup[]>([]);
+  const [products, setProducts] = useState<(CategoryGroup | CategoryFilterGroup)[]>([]);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [sortBy, setSortBy] = useState<string>("featured");
@@ -66,9 +111,89 @@ export default function ProfessionalProductsPage() {
   const { cart, addToCart, removeFromCart } = useCart();
   const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
 
+  // State for category pagination
+  const [categoryPage, setCategoryPage] = useState(1);
+  const [categoryHasMore, setCategoryHasMore] = useState(false);
+
+  // Add a new function to fetch products by category
+  const fetchProductsByCategory = async (categoryName: string, page = 1) => {
+    setIsLoading(true);
+    setSelectedCategory(categoryName);
+    if (page === 1) setCategoryPage(1);
+    try {
+      if (categoryName === 'all') {
+        // Only set CategoryGroup[] for 'all'
+        await fetchProducts(1, false);
+        setCategoryPage(1);
+        setCategoryHasMore(false);
+      } else {
+        const response = await api.public.getProductsByCategory(categoryName, page, 20);
+        if (response.success) {
+          if (page === 1) {
+            setProducts([{ categoryName, products: response.data.products as unknown as CategoryFilterProduct[] }]);
+          } else {
+            setProducts(prev => {
+              if (prev.length === 0 || !isCategoryFilterGroup(prev[0])) return prev;
+              const prevGroup = prev[0];
+              return [{
+                categoryName,
+                products: [
+                  ...prevGroup.products,
+                  ...(response.data.products as unknown as CategoryFilterProduct[])
+                ]
+              }];
+            });
+          }
+          setCategoryHasMore(response.data.hasMore);
+        } else {
+          if (page === 1) setProducts([]);
+          setCategoryHasMore(false);
+        }
+      }
+    } catch {
+      setProducts([]);
+      setCategoryHasMore(false);
+      toast.error('Failed to load products for this category.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const loadMoreCategoryProducts = useCallback(() => {
+    if (!categoryHasMore || isLoadingMore) return;
+    const nextPage = categoryPage + 1;
+    setCategoryPage(nextPage);
+    fetchProductsByCategory(selectedCategory, nextPage);
+  }, [categoryHasMore, isLoadingMore, categoryPage, selectedCategory, fetchProductsByCategory]);
+
+  // Infinite scroll for category products
+  const categoryListRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (selectedCategory === 'all') return;
+    const handleScroll = () => {
+      if (!categoryHasMore || isLoadingMore) return;
+      const el = categoryListRef.current;
+      if (!el) return;
+      const { scrollTop, scrollHeight, clientHeight } = el;
+      if (scrollHeight - scrollTop - clientHeight < 100) {
+        // Near bottom
+        loadMoreCategoryProducts();
+      }
+    };
+    const el = categoryListRef.current;
+    if (el) {
+      el.addEventListener('scroll', handleScroll);
+    }
+    return () => {
+      if (el) {
+        el.removeEventListener('scroll', handleScroll);
+      }
+    };
+  }, [selectedCategory, categoryHasMore, isLoadingMore, loadMoreCategoryProducts]);
 
   // Enhanced fetch with error handling
-  const fetchProducts = async (pageToFetch = 1, useCache = true) => {
+  const fetchProducts = useCallback(async (pageToFetch = 1, useCache = true) => {
     if (pageToFetch === 1) setIsLoading(true);
     else setIsLoadingMore(true);
 
@@ -81,7 +206,7 @@ export default function ProfessionalProductsPage() {
           if (parsed.timestamp && Date.now() - parsed.timestamp < CACHE_DURATION) {
             setCategories(parsed.categories || []);
             setHasMore(parsed.hasMore);
-            setProducts(parsed.products || []);
+            setProducts(parsed.products || []); // This is always CategoryGroup[]
             setIsLoading(false);
             setIsLoadingMore(false);
             return;
@@ -93,7 +218,7 @@ export default function ProfessionalProductsPage() {
         setCategories(response.data.categories || []);
         setHasMore(response.data.hasMore);
         if (pageToFetch === 1) {
-          // Use the backend data structure as-is
+          // Use the backend data structure as-is (CategoryGroup[])
           setProducts((response.data.products as unknown) as CategoryGroup[] || []);
           console.log("Browse products from db: ", response.data.products)
           // Cache only first page
@@ -108,19 +233,20 @@ export default function ProfessionalProductsPage() {
           setProducts(prev => [...prev, ...((response.data.products as unknown) as CategoryGroup[])]);
         }
       }
-    } catch (error) {
-      console.error('[Browse Products API Error]', error);
+    } catch {
+      // error intentionally ignored
+      console.error('[Browse Products API Error]');
       toast.error('Failed to load products. Please try again.');
     } finally {
       setIsLoading(false);
       setIsLoadingMore(false);
     }
-  };
+  }, [CACHE_DURATION]);
 
   useEffect(() => {
     setPage(1);
     fetchProducts(1, true);
-  }, []);
+  }, [fetchProducts]);
 
   function loadMoreProducts() {
     if (!hasMore || isLoadingMore) return;
@@ -280,7 +406,7 @@ export default function ProfessionalProductsPage() {
         <div className="relative flex items-center justify-between mb-8">
           {/* Colored Divider */}
           <div
-            className="absolute top-1/2 left-0 right-0 h-2 rounded-full -translate-y-1/2 z-0"
+            className="absolute top-1/2 left-0 right-0 h-6 min-h-[2.5rem] rounded-full -translate-y-1/2 z-0"
             style={{
               background: categoryColor,
               opacity: 0.18,
@@ -295,13 +421,13 @@ export default function ProfessionalProductsPage() {
               {categoryProducts.length} {categoryProducts.length === 1 ? 'book' : 'books'}
             </span> */}
           </div>
-          <Link 
-            href={`/categories/${categoryName.toLowerCase()}`}
+          <button
+            onClick={() => fetchProductsByCategory(categoryName)}
             className="flex items-center gap-2 text-indigo-600 hover:text-indigo-700 font-semibold text-base transition-colors group pr-6 z-10"
           >
             View all
             <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
-          </Link>
+          </button>
         </div>
   
         {/* Scrollable Container - Fixed positioning */}
@@ -476,6 +602,8 @@ export default function ProfessionalProductsPage() {
     );
   };
 
+  // (removed unused selectedCategoryDisplay)
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Navbar />
@@ -586,7 +714,7 @@ export default function ProfessionalProductsPage() {
                 </h2>
                 <div className={`space-y-1 ${categories.length > 10 ? 'max-h-96 overflow-y-auto' : ''}`}>
                   <button
-                    onClick={() => setSelectedCategory("all")}
+                    onClick={() => fetchProductsByCategory('all')}
                     className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all font-medium ${
                       selectedCategory === "all"
                         ? 'bg-indigo-50 text-indigo-600 border-2 border-indigo-200'
@@ -595,27 +723,27 @@ export default function ProfessionalProductsPage() {
                   >
                     <Book className="h-4 w-4" />
                     <span className="flex-1 text-left">All Categories</span>
-                    <span className="text-xs bg-gray-100 px-2 py-1 rounded-full">
+                    {/* <span className="text-xs bg-gray-100 px-2 py-1 rounded-full">
                       {products.length}
-                    </span>
+                    </span> */}
                   </button>
-                  {categories.map((category) => {
+                  {categories.filter(category => category.name !== 'All Books').map((category) => {
                     const IconComponent = category.icon ? iconMap[category.icon] : BookOpen;
                     return (
                       <button
                         key={category.id}
-                        onClick={() => setSelectedCategory(category.id)}
+                        onClick={() => fetchProductsByCategory(category.name)}
                         className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all font-medium ${
-                          selectedCategory === category.id
+                          selectedCategory === category.name
                             ? 'bg-indigo-50 text-indigo-600 border-2 border-indigo-200'
                             : 'text-gray-700 hover:bg-gray-50 border-2 border-transparent'
                         }`}
                       >
                         <IconComponent className="h-4 w-4" />
                         <span className="flex-1 text-left">{category.name}</span>
-                        <span className="text-xs bg-gray-100 px-2 py-1 rounded-full">
+                        {/* <span className="text-xs bg-gray-100 px-2 py-1 rounded-full">
                           {category.total_books}
-                        </span>
+                        </span> */}
                       </button>
                     );
                   })}
@@ -635,20 +763,99 @@ export default function ProfessionalProductsPage() {
 
           {/* Main Content */}
           <div className="flex-1 min-w-0">
-            {products.map((categoryGroup, idx) => {
-              const categoryName = categoryGroup.categoryName;
-              const categoryProducts = categoryGroup.products;
-              if (categoryProducts.length === 0) return null;
-              return (
-                <ScrollableProductRow
-                  key={categoryName}
-                  categoryName={categoryName}
-                  products={categoryProducts}
-                  colorIdx={idx}
-                />
-              );
-            })}
-
+            {selectedCategory === 'all' ? (
+              products.map((categoryGroup, idx) => {
+                if (!isCategoryGroup(categoryGroup)) return null;
+                const categoryName = categoryGroup.categoryName;
+                const categoryProducts = categoryGroup.products;
+                if (categoryProducts.length === 0) return null;
+                return (
+                  <ScrollableProductRow
+                    key={categoryName}
+                    categoryName={categoryName}
+                    products={categoryProducts}
+                    colorIdx={idx}
+                  />
+                );
+              })
+            ) : (
+              <div>
+                <div className="flex items-center gap-4 mb-8">
+                  <h2 className="text-2xl sm:text-3xl font-extrabold text-gray-900 tracking-tight capitalize drop-shadow-sm">
+                    {products[0]?.categoryName}
+                  </h2>
+                  <span className="ml-3 px-4 py-1.5 bg-indigo-100 text-indigo-700 rounded-full text-base font-semibold shadow-sm">
+                    {products[0]?.products.length} {products[0]?.products.length === 1 ? 'book' : 'books'}
+                  </span>
+                </div>
+                <div
+                  ref={categoryListRef}
+                  style={{ maxHeight: '70vh', overflowY: 'auto' }}
+                  className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8"
+                >
+                  {isCategoryFilterGroup(products[0]) && products[0].products.map((product) => {
+                    if (!isCategoryFilterProduct(product)) return null;
+                    const safeName = product.book_name ? product.book_name.toLowerCase().replace(/\s+/g, '-') : 'no-name';
+                    const slug = `${product.id}-${safeName}`;
+                    const sellingPrice = product.selling_price || 0;
+                    const normalPrice = product.normal_price || 0;
+                    const discount = (normalPrice > sellingPrice && sellingPrice !== 0) 
+                      ? Math.round(100 * (1 - (sellingPrice / normalPrice))) 
+                      : undefined;
+                    return (
+                      <div
+                        key={product.id}
+                        className="bg-white rounded-2xl overflow-hidden shadow-lg border border-gray-100 hover:border-indigo-200 flex flex-col transition-all duration-500"
+                        style={{ minHeight: 340, maxHeight: 400 }}
+                      >
+                        <Link 
+                          href={`/products/${slug}`} 
+                          className="group block transition-all duration-300 hover:scale-105"
+                        >
+                          <div className="w-full h-[170px] bg-gradient-to-br from-gray-100 to-gray-200 relative overflow-hidden">
+                            <div 
+                              className="w-full h-full bg-cover bg-center group-hover:scale-110 transition-transform duration-700"
+                              style={{ 
+                                backgroundImage: `url(${typeof product.display_image === 'string' ? product.display_image : '/placeholder.png'})`,
+                                backgroundSize: 'cover',
+                                backgroundPosition: 'center'
+                              }}
+                            />
+                          </div>
+                          <div className="p-4 flex-1 flex flex-col">
+                            <h3 className="font-bold text-lg text-gray-900 mb-1 truncate">{product.book_name}</h3>
+                            <p className="text-sm text-gray-600 mb-2 truncate">{product.author}</p>
+                            <div className="flex items-center gap-2 mb-2">
+                              <span className="text-xs bg-indigo-100 text-indigo-700 rounded-full px-2 py-0.5">
+                                {Array.isArray(product.category) && product.category.length > 0
+                                  ? product.category.map((c) => c.name).join(', ')
+                                  : ''}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2 mt-auto">
+                              <span className="text-lg font-bold text-indigo-700">₦{sellingPrice.toLocaleString()}</span>
+                              {discount && (
+                                <span className="text-xs text-red-500 font-semibold">-{discount}%</span>
+                              )}
+                              {normalPrice > sellingPrice && (
+                                <span className="text-xs text-gray-400 line-through ml-2">₦{normalPrice.toLocaleString()}</span>
+                              )}
+                            </div>
+                          </div>
+                        </Link>
+                        {/* Wishlist/Cart actions disabled for category filter results for now */}
+                      </div>
+                    );
+                  })}
+                </div>
+                {categoryHasMore && isLoadingMore && (
+                  <div className="flex justify-center mt-12">
+                    <PageLoader />
+                    Loading...
+                  </div>
+                )}
+              </div>
+            )}
             {/* Load More Button */}
             {hasMore && (
               <div className="flex justify-center mt-12">
