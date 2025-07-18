@@ -143,10 +143,9 @@ function VerifyOtpPageInner() {
                 </Button>
                 <div className="text-center mt-4">
                   <span className="text-sm text-gray-600">Didn&apos;t get the OTP?</span>
-                  <Button
+                  <button
                     type="button"
-                    // variant="link"
-                    className="ml-2 p-0 h-auto text-indigo-600 hover:text-indigo-700 font-medium text-sm disabled:opacity-50 disabled:pointer-events-none"
+                    className="ml-2 p-0 h-auto text-indigo-600 hover:text-indigo-700 font-medium text-sm disabled:opacity-50 disabled:pointer-events-none bg-transparent border-0 shadow-none outline-none"
                     onClick={handleResend}
                     disabled={resendTimer > 0 || resending}
                   >
@@ -155,7 +154,7 @@ function VerifyOtpPageInner() {
                       : resendTimer > 0
                         ? `Resend in ${resendTimer}s`
                         : "Resend OTP"}
-                  </Button>
+                  </button>
                 </div>
               </form>
             </CardContent>

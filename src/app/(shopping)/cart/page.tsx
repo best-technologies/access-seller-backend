@@ -433,7 +433,7 @@ export default function ProfessionalCartPage() {
             disableDelete={selected.length === 0}
             disableClear={cart.length === 0}
           />
-          <div className="grid lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
             <div className="lg:col-span-2">
               <CartList
                 items={filteredCart}
@@ -444,7 +444,7 @@ export default function ProfessionalCartPage() {
                 search={search}
               />
             </div>
-            <div className="lg:col-span-1">
+            <div className="lg:col-span-1 mt-6 lg:mt-0">
               <CartOrderSummary
                 promoCode={referralCode}
                 promoApplied={referralApplied}

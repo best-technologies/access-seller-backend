@@ -339,7 +339,10 @@ export default function ProfessionalProductsPage() {
           <div className="flex items-center gap-4 pl-6 z-10">
             <span className="inline-block w-2 h-8 rounded-full bg-gradient-to-b from-indigo-500 to-purple-500 mr-4" />
             <h2 className="text-2xl sm:text-3xl font-extrabold text-gray-900 tracking-tight capitalize drop-shadow-sm">
-              {categoryName}
+              <span className="block md:hidden">
+                {categoryName.length > 12 ? categoryName.slice(0, 10) + '…' : categoryName}
+              </span>
+              <span className="hidden md:inline">{categoryName}</span>
             </h2>
             {/* <span className="ml-3 px-4 py-1.5 bg-indigo-100 text-indigo-700 rounded-full text-base font-semibold shadow-sm">
               {categoryProducts.length} {categoryProducts.length === 1 ? 'book' : 'books'}
@@ -403,12 +406,12 @@ export default function ProfessionalProductsPage() {
               return (
                 <div
                   key={product.id}
-                  className="flex-shrink-0 w-[240px]"
-                  style={{ scrollSnapAlign: 'start', height: '340px' }}
+                  className="flex-shrink-0 w-[140px] sm:w-[200px] md:w-[240px]"
+                  style={{ scrollSnapAlign: 'start' }}
                 >
                   <Link 
                     href={`/products/${slug}`} 
-                    className="group relative block transition-all duration-300 hover:scale-105"
+                    className="group relative block transition-all duration-300 hover:scale-105 h-[260px] sm:h-[320px] md:h-[340px]"
                   >
                     <div className="bg-white rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-500 border border-gray-100 hover:border-indigo-200 h-full flex flex-col">
                       {/* Image Container */}
@@ -499,12 +502,12 @@ export default function ProfessionalProductsPage() {
                         </p>
 
                         <div className="flex items-center justify-between mt-auto">
-                          <div className="flex items-center gap-2">
-                            <span className="text-2xl font-bold text-indigo-600">
+                          <div className="flex items-center gap-1 sm:gap-2 max-w-full flex-wrap">
+                            <span className="text-sm sm:text-lg font-bold text-indigo-600 truncate">
                               ₦{(product.selling_price || product.nomral_price || 0).toLocaleString()}
                             </span>
                             {product.nomral_price > (product.selling_price || 0) && product.selling_price !== 0 && (
-                              <span className="text-sm text-gray-400 line-through">
+                              <span className="text-[10px] sm:text-xs text-gray-400 line-through truncate max-w-[60px]">
                                 ₦{(product.nomral_price).toLocaleString()}
                               </span>
                             )}
@@ -539,10 +542,23 @@ export default function ProfessionalProductsPage() {
   return (
     <div className="min-h-screen bg-gray-50 pt-16">
       <Navbar />
+      {/* Sticky back arrow and search bar for mobile */}
+      <div className="block md:hidden sticky top-16 z-50 bg-gray-50 flex items-center w-full px-4 py-2 gap-2" style={{ boxShadow: '0 2px 8px -4px rgba(0,0,0,0.04)' }}>
+        <button
+          onClick={() => router.back()}
+          className="p-2 rounded-full bg-white border border-gray-200 shadow hover:bg-gray-100 transition-colors flex items-center justify-center"
+          aria-label="Go back"
+        >
+          <ChevronLeft className="w-5 h-5 text-gray-600" />
+        </button>
+        <div className="flex-1">
+          <ProductSearchBar className="w-full" />
+        </div>
+      </div>
       {/* Enhanced Header */}
       <div className="bg-white border-b border-gray-200 sticky top-0 z-40 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-20">
+          <div className="hidden md:flex items-center justify-between h-20">
             <div className="flex items-center gap-6">
               <div>
                 <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Discover Books</h1>
@@ -552,70 +568,75 @@ export default function ProfessionalProductsPage() {
               </div>
             </div>
 
-            <ProductSearchBar className="w-full max-w-2xl" />
-
             {/* Enhanced Controls */}
-            <div className="flex items-center gap-4">
-              <button
-                onClick={handleForceRefresh}
-                className="p-3 rounded-xl hover:bg-gray-100 transition-colors group"
-                title="Refresh products"
-              >
-                <RefreshCw className="h-5 w-5 text-gray-500 group-hover:text-indigo-600 transition-colors" />
-              </button>
-
-              <div className="flex items-center border border-gray-300 rounded-xl p-1 bg-white">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 md:gap-4 w-full mt-2">
+              <div className="flex flex-wrap items-center gap-2 md:gap-4 w-full">
                 <button
-                  onClick={() => setViewMode("grid")}
-                  className={`p-2 rounded-lg transition-colors ${
-                    viewMode === "grid" 
-                      ? 'bg-indigo-100 text-indigo-600' 
-                      : 'text-gray-600 hover:bg-gray-100'
-                  }`}
+                  onClick={handleForceRefresh}
+                  className="p-3 rounded-xl hover:bg-gray-100 transition-colors group"
+                  title="Refresh products"
                 >
-                  <Grid3X3 className="h-4 w-4" />
+                  <RefreshCw className="h-5 w-5 text-gray-500 group-hover:text-indigo-600 transition-colors" />
                 </button>
+                <div className="flex items-center border border-gray-300 rounded-xl p-1 bg-white">
+                  <button
+                    onClick={() => setViewMode("grid")}
+                    className={`p-2 rounded-lg transition-colors ${
+                      viewMode === "grid" 
+                        ? 'bg-indigo-100 text-indigo-600' 
+                        : 'text-gray-600 hover:bg-gray-100'
+                    }`}
+                  >
+                    <Grid3X3 className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => setViewMode("list")}
+                    className={`p-2 rounded-lg transition-colors ${
+                      viewMode === "list" 
+                        ? 'bg-indigo-100 text-indigo-600' 
+                        : 'text-gray-600 hover:bg-gray-100'
+                    }`}
+                  >
+                    <List className="h-4 w-4" />
+                  </button>
+                </div>
                 <button
-                  onClick={() => setViewMode("list")}
-                  className={`p-2 rounded-lg transition-colors ${
-                    viewMode === "list" 
-                      ? 'bg-indigo-100 text-indigo-600' 
-                      : 'text-gray-600 hover:bg-gray-100'
-                  }`}
+                  onClick={() => setShowFilters(!showFilters)}
+                  className="flex items-center gap-2 px-4 py-3 text-sm border border-gray-300 rounded-xl bg-white hover:bg-gray-50 transition-colors font-medium"
                 >
-                  <List className="h-4 w-4" />
+                  <Filter className="h-4 w-4" />
+                  Filters
                 </button>
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value)}
+                  className="px-4 py-3 text-sm border border-gray-300 rounded-xl bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 font-medium"
+                >
+                  <option value="featured">Featured</option>
+                  <option value="price-low">Price: Low to High</option>
+                  <option value="price-high">Price: High to Low</option>
+                  <option value="rating">Top Rated</option>
+                  <option value="newest">Newest First</option>
+                  <option value="bestseller">Bestsellers</option>
+                </select>
               </div>
-
-              <button
-                onClick={() => setShowFilters(!showFilters)}
-                className="flex items-center gap-2 px-4 py-3 text-sm border border-gray-300 rounded-xl bg-white hover:bg-gray-50 transition-colors font-medium"
-              >
-                <Filter className="h-4 w-4" />
-                Filters
-              </button>
-
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
-                className="px-4 py-3 text-sm border border-gray-300 rounded-xl bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 font-medium"
-              >
-                <option value="featured">Featured</option>
-                <option value="price-low">Price: Low to High</option>
-                <option value="price-high">Price: High to Low</option>
-                <option value="rating">Top Rated</option>
-                <option value="newest">Newest First</option>
-                <option value="bestseller">Bestsellers</option>
-              </select>
+              <div className="w-full md:w-auto mt-2 md:mt-0">
+                <ProductSearchBar className="w-full max-w-2xl" />
+              </div>
             </div>
           </div>
         </div>
       </div>
 
+      {/* After the header (or at the top of the main content), add a mobile-only search bar */}
+      {/* <div className="block md:hidden w-full px-2 mt-4 mb-2">
+        <ProductSearchBar className="w-full" />
+      </div> */}
+
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex gap-8">
           {/* Enhanced Sidebar */}
-          <div className={`w-56 flex-shrink-0 ${showFilters ? 'block' : 'hidden lg:block'}`}>
+          <div className={`w-56 flex-shrink-0 hidden lg:block ${showFilters ? 'block' : ''}`}>
             <div className="sticky top-28 max-h-[calc(100vh-7rem)] overflow-y-auto space-y-4 pr-1">
               {/* Categories */}
               <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
@@ -659,6 +680,33 @@ export default function ProfessionalProductsPage() {
 
           {/* Main Content */}
           <div className="flex-1 min-w-0">
+            {/* 1. Add a mobile category bar (horizontal scroll) above the product list */}
+            {categories.length > 0 && (
+              <div className="block lg:hidden w-full overflow-x-auto py-2 mb-4">
+                <div className="flex gap-2 px-1">
+                  <button
+                    onClick={() => handleCategoryClick('all')}
+                    className={`flex items-center gap-1 px-4 py-2 rounded-full text-xs font-medium whitespace-nowrap border transition-all ${selectedCategory === 'all' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'}`}
+                  >
+                    <Book className="h-4 w-4" />
+                    All
+                  </button>
+                  {categories.filter(category => category.name !== 'All Books').map((category) => {
+                    const IconComponent = category.icon ? iconMap[category.icon] : BookOpen;
+                    return (
+                      <button
+                        key={category.id}
+                        onClick={() => handleCategoryClick(category.name)}
+                        className={`flex items-center gap-1 px-4 py-2 rounded-full text-xs font-medium whitespace-nowrap border transition-all ${selectedCategory === category.name ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'}`}
+                      >
+                        <IconComponent className="h-4 w-4" />
+                        {category.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
             {products.map((categoryGroup, idx) => {
               if (!isCategoryGroup(categoryGroup)) return null;
               const categoryName = categoryGroup.categoryName;

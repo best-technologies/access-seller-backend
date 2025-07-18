@@ -160,8 +160,8 @@ export default function Navbar() {
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex items-center justify-between h-16">
             {/* Logo */}
-            <div className="flex items-center">
-              <Link href="/" className="flex items-center space-x-2">
+            <div className="flex items-center w-full md:w-auto">
+              <Link href="/" className="flex items-center space-x-2 flex-shrink-0">
                 {/* Show initials on mobile, full name on desktop */}
                 <span className="text-xl font-bold bg-gradient-to-r from-indigo-600 to-blue-500 bg-clip-text text-transparent block md:hidden">
                   A-S
@@ -170,55 +170,10 @@ export default function Navbar() {
                   AccessSellr
                 </span>
               </Link>
-            </div>
-
-            {/* Desktop Search Input (show only on homepage) */}
-            {pathname === '/' && (
-              <form
-                onSubmit={handleSearchSubmit}
-                className="hidden md:flex flex-1 justify-center px-8"
-                role="search"
-                aria-label="Site search"
-              >
-                <div className="relative w-full max-w-lg">
-                  <input
-                    type="text"
-                    value={search}
-                    onChange={handleSearchChange}
-                    onBlur={handleInputBlur}
-                    onFocus={handleInputFocus}
-                    onKeyDown={handleKeyDown}
-                    placeholder="Search for books, authors, or ISBN..."
-                    className="w-full px-4 py-2 pr-12 rounded-lg border border-gray-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 bg-white text-gray-800 placeholder-gray-400 shadow-sm transition"
-                    aria-label="Search for books, authors, or ISBN"
-                  />
-                  <button
-                    type="submit"
-                    className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white shadow transition"
-                    aria-label="Search"
-                  >
-                    <Search className="w-5 h-5" />
-                  </button>
-                  {showSuggestions && (
-                    <div className="absolute left-0 right-0 mt-2 z-50 bg-white rounded-xl shadow-xl border border-gray-100 max-h-80 overflow-y-auto animate-fade-in">
-                      {isLoadingSuggestions ? (
-                        <div className="p-4 text-center text-gray-400 text-sm">Searching...</div>
-                      ) : suggestions.length === 0 ? (
-                        <div className="p-4 text-center text-gray-400 text-sm">No results found</div>
-                      ) : suggestions.map((s, i) => (
-                        <div key={s.id} onMouseDown={() => handleSuggestionClick(s)} className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors ${highlighted === i ? 'bg-indigo-50' : 'hover:bg-gray-50'}`}> <Image src={s.image} alt={s.title} width={40} height={56} className="w-10 h-14 object-cover rounded shadow" /> <div className="flex-1"> <div className="font-semibold text-gray-900 text-sm line-clamp-1">{s.title}</div> <div className="text-xs text-gray-500 line-clamp-1">{s.author}</div> </div> </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </form>
-            )}
-
-            {/* Mobile Search and Actions */}
-            <div className="flex items-center space-x-3 md:hidden">
+              {/* Mobile search input, fill remaining space */}
               {pathname === '/' && (
-                <form onSubmit={handleSearchSubmit} className="flex-1" role="search" aria-label="Site search">
-                  <div className="relative w-36">
+                <form onSubmit={handleSearchSubmit} className="flex-1 ml-2 md:hidden" role="search" aria-label="Site search">
+                  <div className="relative w-full">
                     <input
                       type="text"
                       value={search}
@@ -251,6 +206,10 @@ export default function Navbar() {
                   </div>
                 </form>
               )}
+            </div>
+
+            {/* Mobile Search and Actions */}
+            <div className="flex items-center space-x-3 md:hidden">
               <button 
                 onClick={handleWishlistClick}
                 className="relative p-2 text-gray-600 hover:text-indigo-600 transition-colors"
@@ -262,9 +221,6 @@ export default function Navbar() {
                   </span>
                 )}
               </button>
-              {/* Remove MiniCartPreview and hamburger menu button on mobile */}
-              {/* <MiniCartPreview /> */}
-              {/* <button ...>{isMenuOpen ? <X ... /> : <Menu ... />}</button> */}
               {/* Printing Press Button (Mobile) */}
               {isAuthenticated && (user?.role === "admin" || user?.role === "inventory_manager") && (
                 <button
