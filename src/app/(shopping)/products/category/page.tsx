@@ -45,7 +45,7 @@ export default function CategoryProductsPage() {
     Array.from(searchParams.keys())[0] || ""
   );
 
-  const fetchCategoryProducts = async (pageToFetch = 1) => {
+  const fetchCategoryProducts = useCallback(async (pageToFetch = 1) => {
     if (!categoryName) return;
     if (pageToFetch === 1) setIsLoading(true);
     else setIsLoadingMore(true);
@@ -73,7 +73,7 @@ export default function CategoryProductsPage() {
       setIsLoading(false);
       setIsLoadingMore(false);
     }
-  };
+  }, [categoryName]);
 
   useEffect(() => {
     setPage(1);

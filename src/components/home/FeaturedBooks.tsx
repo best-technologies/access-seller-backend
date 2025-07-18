@@ -1,11 +1,12 @@
 'use client';
 
 import { useState, useRef, useEffect } from "react";
-import { Star, ShoppingCart, Heart, ChevronLeft, ChevronRight, TrendingUp, Award, BookOpen, RotateCcw } from "lucide-react";
+import { ShoppingCart, Heart, ChevronLeft, ChevronRight, TrendingUp, Award, BookOpen, RotateCcw } from "lucide-react";
 import { useCart } from "@/hooks/useCart";
 import { useWishlist } from "@/hooks/useWishlist";
 import Link from "next/link";
 import { Loader } from "@/components/ui/loader";
+import { stripHtmlTags } from '@/lib/utils';
 
 interface Book {
   id: string;
@@ -349,9 +350,9 @@ export default function FeaturedBooks({ books = [], loading = false, error = nul
                             {displayCategory}
                           </span>
                           <div className="flex items-center gap-0.5 sm:gap-1 text-yellow-500">
-                            <Star className="w-2.5 h-2.5 sm:w-3 sm:h-3 fill-current" />
+                            {/* <Star className="w-2.5 h-2.5 sm:w-3 sm:h-3 fill-current" />
                             <span className="text-[10px] sm:text-xs font-medium">{b.rating}</span>
-                            <span className="text-[8px] sm:text-[10px] text-gray-400">({b.reviews})</span>
+                            <span className="text-[8px] sm:text-[10px] text-gray-400">({b.reviews})</span> */}
                           </div>
                         </div>
                         
@@ -359,8 +360,8 @@ export default function FeaturedBooks({ books = [], loading = false, error = nul
                         <h3 className="font-bold text-xs sm:text-sm mb-0.5 sm:mb-1 line-clamp-2 text-gray-800 group-hover:text-indigo-600 transition-colors">
                           {b.title}
                         </h3>
-                        <p className="text-[10px] sm:text-xs text-gray-500 mb-1 sm:mb-2">{b.author}</p>
-                        <p className="text-[10px] sm:text-xs text-gray-600 truncate mb-2 sm:mb-3 leading-relaxed">{b.desc}</p>
+                        {/* <p className="text-[10px] sm:text-xs text-gray-500 mb-1 sm:mb-2">{b.author}</p> */}
+                        <p className="text-[10px] sm:text-xs text-gray-600 truncate mb-2 mt-4 sm:mb-3 leading-relaxed">{stripHtmlTags(b.desc)}</p>
                         
                         {/* Enhanced Price & Action */}
                         <div className="flex items-center justify-between mt-auto">

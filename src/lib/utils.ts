@@ -14,3 +14,13 @@ export function formatAmount(amount: number) {
     maximumFractionDigits: 2,
   });
 }
+
+// Strips all HTML tags from a string and trims whitespace and newlines
+export function stripHtmlTags(input: string): string {
+  return input
+    .replace(/<[^>]*>/g, '') // Remove HTML tags
+    .replace(/\\n|\\r|\\t/g, ' ') // Remove escaped newlines, carriage returns, tabs
+    .replace(/[\n\r\t]/g, ' ') // Remove actual newlines, carriage returns, tabs
+    .replace(/\s+/g, ' ') // Collapse whitespace
+    .trim();
+}

@@ -272,12 +272,15 @@ export default function ProductDetailPage() {
     }
   }, [product, isAuthenticated, user]);
 
-  console.log("Product-price: ", product?.price)
+  // console.log("Product-price: ", product?.price)
 
   const { cart, addToCart, removeFromCart } = useCart();
   const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
   const cartItem = product ? cart.find(item => item.productId === String(product.id)) : null;
   const router = useRouter();
+
+  // Utility to parse price strings with commas to numbers
+  const parsePrice = (val: string | number | undefined) => Number(String(val).replace(/,/g, '') || 0);
 
   const handleWishlistToggle = () => {
     if (!product) return;
@@ -309,18 +312,25 @@ export default function ProductDetailPage() {
       setShowShippingModal(true);
     } else {
       // Regular flow - add to cart and go to checkout
-      addToCart({
+      const cartItem = {
         productId: String(product.id),
         quantity,
-        price: product.price,
-        sellingPrice: (product as ProductUI).price ?? product.price,
-        normalPrice: (product as ProductUI).originalPrice ?? product.originalPrice ?? product.price,
+        price: parsePrice(product.price),
+        sellingPrice: parsePrice(product.price),
+        normalPrice: parsePrice(product.originalPrice ?? product.price),
         product: {
           name: String(product?.title || ''),
           image: String((product as ProductUI)?.images[0] ?? ''),
           category: String(product?.category || '')
         }
-      });
+      };
+      console.log('Cart item to add:', JSON.stringify(cartItem, (key, value) => {
+        if (typeof value === 'number' || typeof value === 'string') {
+          return value + ' (' + typeof value + ')';
+        }
+        return value;
+      }, 2));
+      addToCart(cartItem);
       router.push('/checkout');
     }
   };
@@ -461,7 +471,7 @@ export default function ProductDetailPage() {
   };
 
   useEffect(() => {
-    if (showShippingModal && isAuthenticated && typedUser) {
+    if (showShippingModal && isAuthenticated && typedUser && product) {
       setShippingForm(prev => ({
         ...prev,
         firstName: typedUser.first_name || '',
@@ -470,7 +480,7 @@ export default function ProductDetailPage() {
         phone: typedUser.phone || '',
       }));
     }
-  }, [showShippingModal, isAuthenticated, typedUser]);
+  }, [showShippingModal, isAuthenticated, typedUser, product]);
 
   // Payment verification on redirect
   useEffect(() => {
@@ -514,7 +524,9 @@ export default function ProductDetailPage() {
     );
   }
 
-  console.log("originalPrice:", product.originalPrice, "price:", product.price);
+  // console.log("originalPrice:", product.originalPrice, "price:", product.price);
+  
+  console.log("Cart item: ", cartItem)
 
   if (verifyingPayment) {
     return <PaymentVerificationLoader message="We are verifying your payment with Paystack. Please wait..." />;
@@ -622,18 +634,22 @@ export default function ProductDetailPage() {
                             🚀 Buy Now - Secure Checkout
                           </Button>
                         ) : (
-                          <Button className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3" onClick={() => addToCart({
-                            productId: String(product.id),
-                            quantity,
-                            price: product.price,
-                            sellingPrice: (product as ProductUI).price ?? product.price,
-                            normalPrice: (product as ProductUI).originalPrice ?? product.originalPrice ?? product.price,
-                            product: {
-                              name: String(product?.title || ''),
-                              image: String((product as ProductUI)?.images[0] ?? ''),
-                              category: String(product?.category || '')
-                            }
-                          })}>
+                          <Button className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3" onClick={() => {
+                            const cartItem = {
+                              productId: String(product.id),
+                              quantity,
+                              price: parsePrice(product.price),
+                              sellingPrice: parsePrice(product.price),
+                              normalPrice: parsePrice(product.originalPrice ?? product.price),
+                              product: {
+                                name: String(product?.title || ''),
+                                image: String((product as ProductUI)?.images[0] ?? ''),
+                                category: String(product?.category || '')
+                              }
+                            };
+                            console.log('Cart item to add:', cartItem);
+                            addToCart(cartItem);
+                          }}>
                             <ShoppingCart className="h-5 w-5 mr-2" />
                             Add to Cart
                           </Button>

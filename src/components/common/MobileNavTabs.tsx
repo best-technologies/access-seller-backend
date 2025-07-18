@@ -2,9 +2,12 @@ import Link from "next/link";
 import { usePathname, useSearchParams, useRouter } from "next/navigation";
 import { Home, Search, ShoppingCart, User, DollarSign, BookOpen, Settings } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { useCart } from "@/hooks/useCart";
 
 export default function MobileNavTabs() {
   const { user, isAuthenticated, isLoading } = useAuth();
+  const { cart } = useCart();
+  const cartCount = cart.reduce((sum, item) => sum + (item.quantity || 1), 0);
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -57,8 +60,13 @@ export default function MobileNavTabs() {
         <Search className="w-6 h-6" />
         <span className="text-xs">Browse</span>
       </Link>
-      <Link href="/cart" className={`flex flex-col items-center justify-center ${isActive("/cart") ? "text-indigo-600" : "text-gray-600"}`}>
+      <Link href="/cart" className={`relative flex flex-col items-center justify-center ${isActive("/cart") ? "text-indigo-600" : "text-gray-600"}`}>
         <ShoppingCart className="w-6 h-6" />
+        {cartCount > 0 && (
+          <span className="absolute -top-1 -right-2 bg-indigo-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+            {cartCount}
+          </span>
+        )}
         <span className="text-xs">Cart</span>
       </Link>
       {isLoading ? null : isAuthenticated && user ? (

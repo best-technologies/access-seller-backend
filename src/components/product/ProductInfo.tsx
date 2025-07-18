@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import React, { useState, useRef } from "react";
 import type { ProductUI } from '@/types/product';
 import type { User as UserBase } from '@/services/api';
+import { stripHtmlTags } from '@/lib/utils';
 
 interface ProductInfoProps {
   product: ProductUI;
@@ -211,7 +212,7 @@ export default function ProductInfo({
         )}
       </div>
       {/* Description */}
-      <p className="text-sm sm:text-base text-gray-600 leading-relaxed">{product.description}</p>
+      <p className="text-sm sm:text-base text-gray-600 leading-relaxed">{stripHtmlTags(product.description)}</p>
       {/* Available Formats */}
       <div className="space-y-3">
         <h3 className="font-semibold text-gray-900 text-sm sm:text-base">Available Formats</h3>

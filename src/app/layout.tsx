@@ -15,7 +15,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className="min-h-screen bg-white">
+      <body className="min-h-screen bg-white" style={{ '--mobile-nav-height': '64px' } as React.CSSProperties}>
         <AuthProvider>
           <CartProvider>
             <WishlistProvider>
@@ -36,23 +36,29 @@ export default function RootLayout({
               <Toaster
                 position="bottom-right"
                 toastOptions={{
-                  duration: 4000,
+                  duration: 2000,
                   style: {
                     background: '#363636',
                     color: '#fff',
+                    marginBottom: 'var(--mobile-nav-height)',
+                    fontSize: '14px', // Smaller font for mobile
                   },
                   success: {
-                    duration: 4000,
+                    duration: 2000,
                     style: {
                       background: '#10b981',
                       color: '#fff',
+                      marginBottom: 'var(--mobile-nav-height)',
+                      fontSize: '14px', // Smaller font for mobile
                     },
                   },
                   error: {
-                    duration: 4000,
+                    duration: 2000,
                     style: {
                       background: '#ef4444',
                       color: '#fff',
+                      marginBottom: 'var(--mobile-nav-height)',
+                      fontSize: '14px', // Smaller font for mobile
                     },
                   },
                 }}

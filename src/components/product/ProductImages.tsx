@@ -8,13 +8,15 @@ interface ProductImagesProps {
 }
 
 export default function ProductImages({ images, selectedImage, setSelectedImage, productTitle }: ProductImagesProps) {
+  // Filter out duplicate image URLs
+  const uniqueImages = Array.from(new Set(images));
   return (
     <>
       {/* Main image */}
       <div className="mb-3">
         <div className="aspect-[3/4] rounded-lg overflow-hidden bg-gray-100 max-w-sm mx-auto lg:max-w-none lg:mx-0">
           <Image
-            src={images[selectedImage]}
+            src={uniqueImages[selectedImage]}
             alt={productTitle}
             width={400}
             height={533}
@@ -25,7 +27,7 @@ export default function ProductImages({ images, selectedImage, setSelectedImage,
       </div>
       {/* Thumbnails */}
       <div className="grid grid-cols-4 gap-2 max-w-sm mx-auto lg:max-w-none lg:mx-0">
-        {images.map((image, index) => (
+        {uniqueImages.map((image, index) => (
           <button
             key={index}
             onClick={() => setSelectedImage(index)}
