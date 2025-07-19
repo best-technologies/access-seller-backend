@@ -1167,19 +1167,19 @@ export class PaystackService {
         commissionAmount = (order.total_amount * commissionPercentage) / 100;
 
         try {
-          referralCodeOwner = await this.prisma.referralCode.findUnique({ where: { code: order.referralCode }, include: { user: true } });
+          referralCodeOwner = await tx.referralCode.findUnique({ where: { code: order.referralCode }, include: { user: true } });
           if (referralCodeOwner && referralCodeOwner.user) {
             commissionType = 'referral_code';
             
 
             // Create commission referral record
             
-            await this.prisma.commissionReferral.create({
+            await tx.commissionReferral.create({
               data: {
                 userId: referralCodeOwner.userId,
                 orderId: order.id,
                 type: commissionType,
-                totalPurchaseAmount: order.total,
+                totalPurchaseAmount: order.total_amount,
                 commissionPercentage: commissionPercentage.toString(),
                 amount: commissionAmount,
                 status: 'awaiting_approval',
@@ -1195,9 +1195,9 @@ export class PaystackService {
             
             
             // update users wallet (logic unchanged)
-            let wallet = await this.prisma.wallet.findUnique({ where: { userId: referralCodeOwner.userId } });
+            let wallet = await tx.wallet.findUnique({ where: { userId: referralCodeOwner.userId } });
             if (!wallet) {
-              wallet = await this.prisma.wallet.create({
+              wallet = await tx.wallet.create({
                 data: {
                   userId: referralCodeOwner.userId,
                   total_earned: 0,
@@ -1214,7 +1214,7 @@ export class PaystackService {
             const newTotalEarned = (wallet?.total_earned || 0) + amountEarned;
             const newAwaitingApproval = (wallet?.awaiting_approval || 0) + amountEarned
 
-            const updatedWallet = await this.prisma.wallet.update({
+            const updatedWallet = await tx.wallet.update({
               where: { userId: referralCodeOwner.userId },
               data: {
                 total_earned: newTotalEarned,
