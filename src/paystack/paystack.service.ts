@@ -1156,6 +1156,82 @@ export class PaystackService {
       }
       const order = await tx.order.create({ data: orderData });
 
+      let commissionAmount: number | undefined;
+      let referralCodeOwner: any = null;
+      let commissionType: string | undefined;
+
+      if (order.referralCode) {
+        this.logger.log(`Referral code exists: ${order.referralCode}`);
+        const commissionPercentage = parseFloat(process.env.AFFILIATE_COMMISSION_PERCENT || '20');
+        this.logger.log(`Set commission percentage: ${commissionPercentage}`);
+        commissionAmount = (order.total_amount * commissionPercentage) / 100;
+
+        try {
+          referralCodeOwner = await this.prisma.referralCode.findUnique({ where: { code: order.referralCode }, include: { user: true } });
+          if (referralCodeOwner && referralCodeOwner.user) {
+            commissionType = 'referral_code';
+            
+
+            // Create commission referral record
+            
+            await this.prisma.commissionReferral.create({
+              data: {
+                userId: referralCodeOwner.userId,
+                orderId: order.id,
+                type: commissionType,
+                totalPurchaseAmount: order.total,
+                commissionPercentage: commissionPercentage.toString(),
+                amount: commissionAmount,
+                status: 'awaiting_approval',
+                createdAt: new Date(),
+                updatedAt: new Date(),
+              }
+            });
+
+            // amount earned should be the commission amount (not commissionPercentage * total)
+            const amountEarned = commissionAmount;
+            this.logger.log(`Total purchase cost: ${order.total_amount}`);
+            this.logger.log(`Total referral earning: ${amountEarned}`);
+            
+            
+            // update users wallet (logic unchanged)
+            let wallet = await this.prisma.wallet.findUnique({ where: { userId: referralCodeOwner.userId } });
+            if (!wallet) {
+              wallet = await this.prisma.wallet.create({
+                data: {
+                  userId: referralCodeOwner.userId,
+                  total_earned: 0,
+                  available_for_withdrawal: 0,
+                  awaiting_approval: 0,
+                  total_withdrawn: 0,
+                  balance_before: 0,
+                  balance_after: 0,
+                }
+              });
+            }
+            this.logger.log(`Referree initial wallet balance: ${JSON.stringify(wallet)}`);
+
+            const newTotalEarned = (wallet?.total_earned || 0) + amountEarned;
+            const newAwaitingApproval = (wallet?.awaiting_approval || 0) + amountEarned
+
+            const updatedWallet = await this.prisma.wallet.update({
+              where: { userId: referralCodeOwner.userId },
+              data: {
+                total_earned: newTotalEarned,
+                awaiting_approval: newAwaitingApproval,
+                updatedAt: new Date()
+              }
+            });
+
+            this.logger.log(`Referree final wallet balance: ${JSON.stringify(updatedWallet)}`);
+
+            this.logger.log(`Commission awarded: ${commissionAmount} to referral code owner ${referralCodeOwner.userId}`);
+          }
+        } catch (error) {
+          this.logger.error(`Error awarding commission for referral code: ${error}`);
+        }
+      }
+
       // Create order items
       await Promise.all(dto.items.map(item =>
         tx.orderItem.create({

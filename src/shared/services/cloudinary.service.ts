@@ -109,7 +109,7 @@ export class CloudinaryService {
             this.logger.log("All files successfully uploaded to cloudinary");
             return successfulUploads;
         } catch (error) {
-            this.logger.error("Error in file upload process");
+            this.logger.error("Error in file upload process", error);
             throw ResponseHelper.error(
                 'Failed to upload files',
                 error.message,
