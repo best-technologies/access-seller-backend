@@ -42,6 +42,15 @@ export class ProductsService {
     };
   }
 
+  // Fisher-Yates shuffle
+  private shuffleArray<T>(array: T[]): T[] {
+    for (let i = array.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [array[i], array[j]] = [array[j], array[i]];
+    }
+    return array;
+  }
+
   async getAllPublicProductsSections() {
     this.logger.log("fetching all products from db for homepage (sections)");
 
@@ -52,10 +61,11 @@ export class ProductsService {
       orderBy: { createdAt: 'desc' },
       take: 30,
     });
+    const shuffledFeatured = this.shuffleArray([...featured]);
 
     // Extract unique categories from featured products
     const availableCategories = new Map();
-    featured.forEach(product => {
+    shuffledFeatured.forEach(product => {
       product.categories.forEach(category => {
         if (!availableCategories.has(category.id)) {
           availableCategories.set(category.id, category);
@@ -72,6 +82,7 @@ export class ProductsService {
         categories: { select: { name: true } },
       },
     });
+    const shuffledNewArrivals = this.shuffleArray([...newArrivals]);
 
     // Popular Categories (top 4 by product count)
     const popularCategories = await this.prisma.category.findMany({
@@ -88,9 +99,9 @@ export class ProductsService {
     });
 
     const formated_response = {
-      featured: featured.map(this.formatProduct),
+      featured: shuffledFeatured.map(this.formatProduct),
       available_categories: Array.from(availableCategories.values()),
-      newArrivals: newArrivals.map(this.formatProduct),
+      newArrivals: shuffledNewArrivals.map(this.formatProduct),
       popularCategories: popularCategories.map(cat => {
         let displayImageUrl: string | null = null;
         if (cat.products[0]?.displayImages) {

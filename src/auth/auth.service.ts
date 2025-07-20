@@ -58,7 +58,7 @@ export class AuthService {
             });
 
             await sendLoginOtpByMail({ email: dto.email, otp })
-            this.logger.log(`Login otp: ${otp} successfully sent to: ${dto.email}`)
+            this.logger.log(`Login otp successfully sent to: ${dto.email}`)
 
             return new ApiResponse(
                 true,
