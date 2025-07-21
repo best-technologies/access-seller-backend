@@ -39,6 +39,7 @@ export class ProductsService {
         ? [product.categories[0]]
         : [],
       display_image: displayImageUrl,
+      format: product.BookFormat,
     };
   }
 
@@ -148,7 +149,7 @@ export class ProductsService {
   // Fetch products with pagination for browse products page (infinite scroll)
   async getPaginatedProducts(page: number = 1) {
 
-    this.logger.log(`fetching products from db, page: ${page}`)
+    this.logger.log(`fetching products from db for browse all products page, page: ${page}`)
 
     try {
       const CATEGORIES_PER_PAGE = 20;
@@ -205,6 +206,8 @@ export class ProductsService {
 
       // Flatten all products from all categories
       const allProducts = categoriesWithProducts.flatMap(cat => cat.products);
+      // Shuffle all products for randomness
+      const shuffledAllProducts = this.shuffleArray([...allProducts]);
 
       // Get total categories count for pagination
       const totalCategories = await this.prisma.category.count({
@@ -247,7 +250,7 @@ export class ProductsService {
         total_books: format._count.products
       }));
 
-      const formattedProducts = await Promise.all(allProducts.map(async (product) => {
+      const formattedProducts = await Promise.all(shuffledAllProducts.map(async (product) => {
         // Check if product was created within the last 48 hours
         const createdAt = new Date(product.createdAt);
         const now = new Date();
@@ -274,16 +277,14 @@ export class ProductsService {
           categories: Array.isArray(product.categories)
             ? product.categories.map((cat: any) => ({ id: cat.id, name: cat.name }))
             : [],
-            formats: Array.isArray(product.formats)
-            ? product.formats.map((format: any) => ({ id: format.id, name: format.name }))
-            : [],
+          book_format: product.BookFormat,
           stock_status: product.stock < 1 ? "Out Of Stock" : product.stock <= 30 ? "Low Stock" : "In Stock",
           display_picture: display_picture,
           author: product.author || product.publisher || null,
           total_sold: totalSold,
           selling_price: product.sellingPrice,
           nomral_price: product.normalPrice,
-          format: product.formats ? product.formats.map(f => f.name) : [],
+          format: product.BookFormat,
 
         };
       }));
@@ -292,7 +293,7 @@ export class ProductsService {
       const productsByCategory = categoriesWithProducts.map(category => ({
         categoryName: category.name,
         totalCount: category.products.length, // Show actual count of products returned
-        products: category.products.map(product => {
+        products: this.shuffleArray([...category.products]).map(product => {
           const createdAt = new Date(product.createdAt);
           const now = new Date();
           const diffInMs = now.getTime() - createdAt.getTime();
@@ -312,15 +313,13 @@ export class ProductsService {
             categories: Array.isArray(product.categories)
               ? product.categories.map((cat: any) => ({ id: cat.id, name: cat.name }))
               : [],
-            formats: Array.isArray(product.formats)
-              ? product.formats.map((format: any) => ({ id: format.id, name: format.name }))
-              : [],
+            book_format: product.BookFormat,
             stock_status: product.stock < 1 ? "Out Of Stock" : product.stock <= 30 ? "Low Stock" : "In Stock",
             display_picture: display_picture,
             author: product.author || product.publisher || null,
             selling_price: product.sellingPrice,
             nomral_price: product.normalPrice,
-            format: product.formats ? product.formats.map(f => f.name) : [],
+            format: product.BookFormat,
           };
         })
       }));
@@ -426,7 +425,7 @@ export class ProductsService {
             isActive: product.isActive,
             status: product.status,
             isbn: product.isbn ?? undefined,
-            format: product.formats ? product.formats.map(f => f.name) : [],
+            format: product.BookFormat,
             publisher: product.publisher ?? undefined,
             author: product.author ?? undefined,
             pages: product.pages ?? undefined,

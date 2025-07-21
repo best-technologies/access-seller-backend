@@ -487,7 +487,7 @@ export class PaystackService {
         const shippingCity = (updatedOrder.shippingInfo && typeof updatedOrder.shippingInfo === 'object' && 'city' in updatedOrder.shippingInfo) ? String(updatedOrder.shippingInfo.city) : '';
         const shippingHouseAddress = (updatedOrder.shippingInfo && typeof updatedOrder.shippingInfo === 'object' && 'houseAddress' in updatedOrder.shippingInfo) ? String(updatedOrder.shippingInfo.houseAddress) : '';
         const emailData = {
-          orderId: updatedOrder.id,
+          orderId: updatedOrder.orderId || "",
           firstName: updatedOrder.user?.first_name || '',
           lastName: updatedOrder.user?.last_name || '',
           email: updatedOrder.user?.email || '',

@@ -88,7 +88,7 @@ export class OrderService {
       // Transform orders to match response format
       const transformedOrders: UserOrderDto[] = orders.map(order => ({
         id: order.id,
-        // orderId: order.orderId,
+        orderId: order.orderId,
         status: order.orderStatus ?? 'pending',
         total: order.total_amount,
         shippingAddress: (order.shippingInfo && typeof order.shippingInfo === 'object' && 'address' in order.shippingInfo) ? String(order.shippingInfo.address) : '',
