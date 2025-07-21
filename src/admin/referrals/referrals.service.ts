@@ -1,9 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import * as colors from 'colors';
-import { ApiResponse } from 'src/shared/helper-functions/response';
 import { AffiliateStatus } from '@prisma/client';
-import slugify from 'slugify';
 import { formatDate, formatDateWithoutTime } from 'src/shared/helper-functions/formatter';
 import { UpdateWithdrawalStatusDto } from './dto/update-withdrawal-status.dto';
 
@@ -61,6 +58,12 @@ export class ReferralsService {
                             email: true,
                             createdAt: true
                         }
+                    }
+                },
+                where: {
+                    user: {
+                        isAffiliate: true,
+                        affiliateStatus: 'approved',
                     }
                 }
             });

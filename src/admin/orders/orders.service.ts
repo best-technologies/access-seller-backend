@@ -5,13 +5,15 @@ import { OrderStatus } from '@prisma/client';
 import { GetOrdersDto } from './dto/get-orders.dto';
 import { OrdersDashboardResponseDto, OrderResponseDto, OrderStatsResponseDto, OrderPaginationResponseDto, OrderFiltersResponseDto } from './dto/order-response.dto';
 import { ApiResponse } from 'src/shared/helper-functions/response';
+import { Logger } from '@nestjs/common';
 
 @Injectable()
 export class OrdersService {
+    private readonly logger = new Logger(OrdersService.name);
     constructor(private prisma: PrismaService) {}
 
     async getOrdersDashboard(query: GetOrdersDto): Promise<ApiResponse<OrdersDashboardResponseDto>> {
-        console.log(colors.cyan('Fetching orders dashboard data...'));
+        this.logger.log('Fetching orders dashboard data...');
 
         try {
             const {
@@ -114,7 +116,7 @@ export class OrdersService {
 
             const totalPages = Math.ceil(total / limit);
 
-            console.log(colors.green(`Orders dashboard data retrieved successfully. Page ${page} of ${totalPages}`));
+            // this.logger.log(`Orders dashboard data retrieved successfully. Page ${page} of ${totalPages}`);
 
             const formatted_response = {
                 pagination: {
@@ -135,7 +137,7 @@ export class OrdersService {
             );
 
         } catch (error) {
-            console.log(colors.red('Error fetching orders dashboard:'), error);
+            this.logger.error(`Error fetching orders dashboard: ${error}`);
             throw error;
         }
     }

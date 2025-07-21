@@ -318,7 +318,7 @@ export class DashboardService {
             }
         });
 
-        this.logger.log(`Orders: ${JSON.stringify(orders)}`);
+        // this.logger.log(`Orders: ${JSON.stringify(orders)}`);
 
         return orders.map((order, index) => ({
             id: order.id,
