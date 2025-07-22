@@ -13,7 +13,6 @@ import { sendOrderConfirmationToBuyer, sendOrderNotificationToAdmin } from 'src/
 import { CheckoutFromCartDto, VerifyAccountNumberDto } from './dto/paystack.dto';
 import * as argon2 from 'argon2';
 import { generateOrderId, generateTrackingId } from '../shared/helper-functions/generator';
-import { OrderStatus, ShipmentStatus } from '@prisma/client';
 
 
 @Injectable()
@@ -539,6 +538,7 @@ export class PaystackService {
         return ResponseHelper.error(`Product with ID ${item.productId} not found`, null, 404);
       }
       if (item.quantity > product.stock) {
+        this.logger.log(colors.red(`The available quantity for '${product.name}' is ${product.stock}, which is less than the quantity you want to purchase: (${item.quantity}). Please try reloading, check back later, or try again.`))
         return ResponseHelper.error(
           `The available quantity for '${product.name}' is ${product.stock}, which is less than the quantity you want to purchase: (${item.quantity}). Please try reloading, check back later, or try again.`,
           null,
@@ -745,7 +745,7 @@ export class PaystackService {
 
     // 6. Return formatted response
     const formattedResponse = {
-      orderId: order.id,
+      orderId: order.orderId,
       userId: userForOrder?.id,
       paystackResponse: paystackResponse?.data.data
     };
@@ -958,7 +958,7 @@ export class PaystackService {
         const shippingCity = (updatedOrder.shippingInfo && typeof updatedOrder.shippingInfo === 'object' && 'city' in updatedOrder.shippingInfo) ? String(updatedOrder.shippingInfo.city) : '';
         const shippingHouseAddress = (updatedOrder.shippingInfo && typeof updatedOrder.shippingInfo === 'object' && 'houseAddress' in updatedOrder.shippingInfo) ? String(updatedOrder.shippingInfo.houseAddress) : '';
         const emailData = {
-          orderId: updatedOrder.id,
+          orderId: updatedOrder.orderId || "",
           firstName: updatedOrder.user?.first_name || '',
           lastName: updatedOrder.user?.last_name || '',
           email: updatedOrder.user?.email || '',

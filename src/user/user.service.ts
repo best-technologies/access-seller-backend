@@ -306,15 +306,14 @@ export class UserService {
 
         let base_url: string;
         if(process.env.NODE_ENV === "development") {
-          base_url = process.env.FRONTEND_BASE_URL_DEV || ""
+          base_url = process.env.FRONTEND_BASE_URL_STAGING || ""
         } else {
           base_url = process.env.FRONTEND_BASE_URL_PROD || ""
         }
 
         // Construct shareable link
-        const baseUrl = process.env.BASE_URL?.replace(/\/$/, '') || 'http://localhost:3000';
         const productSlug = product.id;
-        const shareableLink = `${baseUrl}/products/${productSlug}?ref=${link.slug}`;
+        const shareableLink = `${base_url.replace(/\/$/, '')}/products/${productSlug}?ref=${link.slug}`;
         this.logger.log(colors.green('Affiliate link generated successfully.'));
         return {
             success: true,
