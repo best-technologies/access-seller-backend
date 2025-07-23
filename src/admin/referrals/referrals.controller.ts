@@ -1,10 +1,11 @@
-import { Controller, Get, Param, Query, Put, UseGuards, Body, Post, Request } from '@nestjs/common';
+import { Controller, Get, Param, Query, Put, UseGuards, Body, Post, Request, Req } from '@nestjs/common';
 import { ReferralsService } from './referrals.service';
 import { JwtGuard } from '../../auth/guard';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { GenerateAffiliateLinkDto } from './dto/generate-affiliate-link.dto';
 import { TrackAffiliateLinkConversionDto } from './dto/track-affiliate-link-conversion.dto';
 import { UpdateWithdrawalStatusDto } from './dto/update-withdrawal-status.dto';
+import { ChangeCommissionReferralStatusDto } from './dto/change-commission-referral-status.dto';
 
 @Controller('admin/affiliates')
 @UseGuards(JwtGuard)
@@ -104,6 +105,22 @@ export class ReferralsController {
         );
     }
 
-    // i said add the controller too
+    // Fetch paginated summary for affiliates and commissions
+    @Get('summary')
+    async fetchAffiliatesAndCommissionsSummary(
+        @Query('page') page: number = 1,
+        @Query('limit') limit: number = 5
+    ) {
+        return this.referralsService.fetchAffiliatesAndCommissionsSummary(Number(page), Number(limit));
+    }
 
-} 
+    // Update commission referral status (approve/reject)
+    @Put('commission-referral-status')
+    async changeCommissionReferralStatus(
+      @Body() dto: ChangeCommissionReferralStatusDto,
+      @Req() req: any
+    ) {
+      
+      return this.referralsService.changeCommissionReferralStatus(dto, req.user || req.admin);
+    }
+}

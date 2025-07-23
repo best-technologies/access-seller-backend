@@ -1,8 +1,12 @@
 import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { AffiliateStatus } from '@prisma/client';
+import { AffiliateStatus, WithdrawalStatus, CommissionStatus, CommissionReferralStatus } from '@prisma/client';
 import { formatDate, formatDateWithoutTime } from 'src/shared/helper-functions/formatter';
 import { UpdateWithdrawalStatusDto } from './dto/update-withdrawal-status.dto';
+import { ChangeCommissionReferralStatusDto } from './dto/change-commission-referral-status.dto';
+import * as colors from 'colors';
+import { ApiResponse } from 'src/shared/helper-functions/response';
+import { sendCommissionApprovedMail } from 'src/common/mailer/send-mail';
 
 @Injectable()
 export class ReferralsService {
@@ -17,7 +21,7 @@ export class ReferralsService {
             // 1. KPI Cards
             const [
                 totalRevenueAgg,
-                totalAffiliates,
+                totalAffiliatesKPI,
                 totalClicks,
                 totalConversions,
                 pendingPayoutsAgg
@@ -31,17 +35,17 @@ export class ReferralsService {
 
             const kpiCards = {
                 totalRevenue: Number(totalRevenueAgg._sum.amount || 0),
-                totalAffiliates: totalAffiliates,
+                totalAffiliates: totalAffiliatesKPI,
                 totalClicks: totalClicks,
                 totalConversions: totalConversions,
                 pendingPayouts: Number(pendingPayoutsAgg._sum?.amount || 0)
             };
 
-            // 2. Affiliate Settings (mocked or configurable)
+            // 2. Affiliate Settings (mocked for now)
             const affiliateSettings = {
-                affiliatePercentage: 10, // %
+                affiliatePercentage: 10,
                 minimumAffiliates: 1,
-                rewardThreshold: 50, // ₦
+                rewardThreshold: 50,
                 expirationDays: 30
             };
 
@@ -82,46 +86,46 @@ export class ReferralsService {
             // 4. Overview (summary and trends)
             // Use 'This Year' as selected timeframe
             const now = new Date();
-            const startOfYear = new Date(now.getFullYear(), 0, 1);
-            const endOfYear = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
-            const [
-                yearRevenueAgg,
-                yearClicks,
-                yearConversions,
-                yearNewAffiliates
-            ] = await Promise.all([
-                this.prisma.commissionReferral.aggregate({ _sum: { amount: true }, where: { createdAt: { gte: startOfYear, lte: endOfYear } } }),
-                this.prisma.referral.count({ where: { createdAt: { gte: startOfYear, lte: endOfYear } } }),
-                this.prisma.referral.count({ where: { isUsed: true, createdAt: { gte: startOfYear, lte: endOfYear } } }),
-                this.prisma.affiliate.count({ where: { createdAt: { gte: startOfYear, lte: endOfYear } } })
-            ]);
+            // const startOfYear = new Date(now.getFullYear(), 0, 1);
+            // const endOfYear = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
+            // const [
+            //     yearRevenueAgg,
+            //     yearClicks,
+            //     yearConversions,
+            //     yearNewAffiliates
+            // ] = await Promise.all([
+            //     this.prisma.commissionReferral.aggregate({ _sum: { amount: true }, where: { createdAt: { gte: startOfYear, lte: endOfYear } } }),
+            //     this.prisma.referral.count({ where: { createdAt: { gte: startOfYear, lte: endOfYear } } }),
+            //     this.prisma.referral.count({ where: { isUsed: true, createdAt: { gte: startOfYear, lte: endOfYear } } }),
+            //     this.prisma.affiliate.count({ where: { createdAt: { gte: startOfYear, lte: endOfYear } } })
+            // ]);
             // Trend data: last 12 months
-            const trendData = await Promise.all(Array.from({ length: 12 }).map(async (_, i) => {
-                const month = i;
-                const year = now.getFullYear();
-                const start = new Date(year, month, 1);
-                const end = new Date(year, month + 1, 1);
-                const revenueAgg = await this.prisma.commissionReferral.aggregate({ _sum: { amount: true }, where: { createdAt: { gte: start, lt: end } } });
-                const clicks = await this.prisma.referral.count({ where: { createdAt: { gte: start, lt: end } } });
-                const conversions = await this.prisma.referral.count({ where: { isUsed: true, createdAt: { gte: start, lt: end } } });
-                return {
-                    date: start.toISOString().slice(0, 7), // YYYY-MM
-                    revenue: Number(revenueAgg._sum.amount || 0),
-                    clicks,
-                    conversions
-                };
-            }));
-            const overview = {
-                timeframes: ['Today', 'This Week', 'This Month', 'This Year'],
-                selectedTimeframe: 'This Year',
-                summary: {
-                    revenue: Number(yearRevenueAgg._sum.amount || 0),
-                    clicks: yearClicks,
-                    conversions: yearConversions,
-                    newAffiliates: yearNewAffiliates
-                },
-                trendData
-            };
+            // const trendData = await Promise.all(Array.from({ length: 12 }).map(async (_, i) => {
+            //     const month = i;
+            //     const year = now.getFullYear();
+            //     const start = new Date(year, month, 1);
+            //     const end = new Date(year, month + 1, 1);
+            //     const revenueAgg = await this.prisma.commissionReferral.aggregate({ _sum: { amount: true }, where: { createdAt: { gte: start, lt: end } } });
+            //     const clicks = await this.prisma.referral.count({ where: { createdAt: { gte: start, lt: end } } });
+            //     const conversions = await this.prisma.referral.count({ where: { isUsed: true, createdAt: { gte: start, lt: end } } });
+            //     return {
+            //         date: start.toISOString().slice(0, 7), // YYYY-MM
+            //         revenue: Number(revenueAgg._sum.amount || 0),
+            //         clicks,
+            //         conversions
+            //     };
+            // }));
+            // const overview = {
+            //     timeframes: ['Today', 'This Week', 'This Month', 'This Year'],
+            //     selectedTimeframe: 'This Year',
+            //     summary: {
+            //         revenue: Number(yearRevenueAgg._sum.amount || 0),
+            //         clicks: yearClicks,
+            //         conversions: yearConversions,
+            //         newAffiliates: yearNewAffiliates
+            //     },
+            //     trendData
+            // };
 
             // 5. Payouts (pending and completed commissions)
             const payoutsRaw = await this.prisma.withdrawalRequest.findMany({
@@ -212,51 +216,27 @@ export class ReferralsService {
                 orderBy: { createdAt: 'desc' },
                 take: 10
             });
-            const events = await Promise.all(eventsRaw.map(async (evt) => {
-                const affiliate = await this.prisma.affiliate.findUnique({ where: { userId: evt.referrerId } });
-                return {
-                    eventId: evt.id,
-                    type: evt.isUsed ? 'conversion' : 'click',
-                    affiliateId: evt.referrerId,
-                    affiliateName: affiliate?.userName || '',
-                    timestamp: evt.createdAt.toISOString(),
-                    details: evt.isUsed ? 'User signed up via referral link' : 'Referral link clicked'
-                };
-            }));
-
-            // // 7. Analytics (conversion rate, avg order value, top sources, geo)
-            // const [totalReferrals, usedReferrals, avgOrderAgg] = await Promise.all([
-            //     this.prisma.referral.count(),
-            //     this.prisma.referral.count({ where: { isUsed: true } }),
-            //     this.prisma.order.aggregate({ _avg: { total: true } })
-            // ]);
-            // const conversionRate = totalReferrals > 0 ? (usedReferrals / totalReferrals) * 100 : 0;
-            // // Top sources (mocked, as no source field in schema)
-            // const topSources = [
-            //     { source: 'Facebook', clicks: 5000, conversions: 120 },
-            //     { source: 'Twitter', clicks: 3000, conversions: 60 }
-            // ];
-            // // Geo distribution (mocked, as no geo field in schema)
-            // const geoDistribution = [
-            //     { country: 'Nigeria', clicks: 7000, conversions: 150 },
-            //     { country: 'Ghana', clicks: 3000, conversions: 60 }
-            // ];
-            // const analytics = {
-            //     conversionRate: Number(conversionRate.toFixed(2)),
-            //     averageOrderValue: Number(avgOrderAgg._avg.total || 0),
-            //     topSources,
-            //     geoDistribution
-            // };
+            // const events = await Promise.all(eventsRaw.map(async (evt) => {
+            //     const affiliate = await this.prisma.affiliate.findUnique({ where: { userId: evt.referrerId } });
+            //     return {
+            //         eventId: evt.id,
+            //         type: evt.isUsed ? 'conversion' : 'click',
+            //         affiliateId: evt.referrerId,
+            //         affiliateName: affiliate?.userName || '',
+            //         timestamp: evt.createdAt.toISOString(),
+            //         details: evt.isUsed ? 'User signed up via referral link' : 'Referral link clicked'
+            //     };
+            // }));
 
             // Final formatted response
             const formattedResponse = {
                 kpiCards,
                 affiliateSettings,
                 leaderboard,
-                overview,
+                // overview,
                 payouts,
                 formatted_withdrawal_request,
-                events,
+                // events,
                 // analytics
             };
 
@@ -275,6 +255,8 @@ export class ReferralsService {
             }; 
         }
     }
+
+    // 
 
     async fetchAllAffiliates(page: number = 1, limit: number = 20, status?: string) {
         this.logger.log(`Fetching all affiliates... ${status}`);
@@ -955,4 +937,580 @@ export class ReferralsService {
             };
         }
     }
-} 
+
+    /**
+     * Fetch paginated summary for affiliates and commissions
+     */
+    async fetchAffiliatesAndCommissionsSummary(page: number = 1, limit: number = 5) {
+        this.logger.log('Fetching affiliates and commissions summary...');
+        try {
+            // Affiliates
+            // Leaderboard (top by total_earned)
+            const leaderboardWallets = await this.prisma.wallet.findMany({
+                orderBy: { total_earned: 'desc' },
+                take: 5,
+                include: {
+                    user: {
+                        select: {
+                            id: true,
+                            first_name: true,
+                            last_name: true,
+                            email: true,
+                            createdAt: true
+                        }
+                    }
+                },
+                where: {
+                    user: {
+                        isAffiliate: true,
+                        affiliateStatus: 'approved',
+                    }
+                }
+            });
+            const leaderboard = leaderboardWallets.map(w => ({
+                id: w.userId,
+                name: w.user?.first_name + ' ' + w.user?.last_name,
+                email: w.user?.email,
+                totalEarned: w.total_earned,
+                joinedAt: w.user?.createdAt
+            }));
+
+            // All affiliates (paginated)
+            const skip = (page - 1) * limit;
+            const [affiliates, totalAffiliates] = await Promise.all([
+                this.prisma.affiliate.findMany({
+                    skip,
+                    take: limit,
+                    orderBy: { createdAt: 'desc' },
+                    include: {
+                        user: {
+                            select: {
+                                id: true,
+                                first_name: true,
+                                last_name: true,
+                                email: true,
+                                phone_number: true,
+                                isAffiliate: true,
+                                affiliateStatus: true,
+                                createdAt: true
+                            }
+                        }
+                    }
+                }),
+                this.prisma.affiliate.count({})
+            ]);
+            const formattedAffiliates = affiliates.map(aff => ({
+                id: aff.id,
+                userId: aff.userId,
+                name: aff.userName,
+                email: aff.userEmail,
+                status: aff.status,
+                requestedAt: aff.requestedAt,
+                user: aff.user
+            }));
+
+            // Pending approval affiliates (paginated)
+            const [pendingAffiliates, pendingTotal] = await Promise.all([
+                this.prisma.affiliate.findMany({
+                    where: { status: 'pending' },
+                    skip,
+                    take: limit,
+                    orderBy: { createdAt: 'desc' },
+                    include: {
+                        user: true
+                    }
+                }),
+                this.prisma.affiliate.count({ where: { status: 'pending' } })
+            ]);
+            const formattedPendingAffiliates = pendingAffiliates.map(aff => ({
+                id: aff.id,
+                displayImage: aff.user.display_picture,
+                userId: aff.userId,
+                name: aff.userName,
+                email: aff.userEmail,
+                status: aff.status,
+                category: aff.category,
+                requestedAt: formatDateWithoutTime(aff.requestedAt),
+                reason: aff.reason,
+                // user: aff.user
+            }));
+
+            // Commissions
+            // Withdrawal requests (paginated by status)
+            const withdrawalStatuses = [
+                WithdrawalStatus.pending,
+                WithdrawalStatus.paid,
+                WithdrawalStatus.cancelled,
+                WithdrawalStatus.not_requested
+            ];
+            const withdrawalRequestsAll = await this.prisma.withdrawalRequest.findMany({
+                skip,
+                take: limit,
+                orderBy: { createdAt: 'desc' },
+                include: { user: true, bank: true }
+            });
+            const withdrawalRequestsTotal = await this.prisma.withdrawalRequest.count();
+            const withdrawalRequestsByStatus = {};
+            for (const status of withdrawalStatuses) {
+                withdrawalRequestsByStatus[status] = await this.prisma.withdrawalRequest.findMany({
+                    where: { payoutStatus: status },
+                    skip,
+                    take: limit,
+                    orderBy: { createdAt: 'desc' },
+                    include: { user: true, bank: true }
+                });
+            }
+
+            // Helper to format withdrawal requests as per requirements
+            const formatWithdrawalRequest = async (request) => {
+                // Get user (affiliate)
+                const user = request.user;
+                // Get wallet for the user
+                const wallet = await this.prisma.wallet.findUnique({ where: { userId: user.id } });
+                // Get bank details
+                const bank = request.bank;
+                return {
+                    id: request.id,
+                    payoutId: request.payoutId,
+                    affiliateName: user.first_name + ' ' + user.last_name,
+                    email: user.email,
+                    wallet_summary: {
+                        allTimeEarning: wallet?.total_earned ?? 0,
+                        availableForWithdrawal: wallet?.available_for_withdrawal ?? 0,
+                        totalWithdrawn: wallet?.total_withdrawn ?? 0,
+                        pendingApproval: wallet?.awaiting_approval ?? 0
+                    },
+                    withdrawalAccountDetails: {
+                        bankName: bank?.bankName ?? '',
+                        accountName: bank?.accountName ?? '',
+                        accountNumber: bank?.accountNumber ?? ''
+                    },
+                    requestedAt: request.requestedAt ? formatDateWithoutTime(request.requestedAt) : ''
+                };
+            };
+
+            // Format all withdrawal request lists
+            const formatWithdrawalRequestsList = async (list) => {
+                return await Promise.all(list.map(formatWithdrawalRequest));
+            };
+
+            // Format all withdrawal request lists in parallel
+            const [
+                formattedWithdrawalRequestsAll,
+                formattedWithdrawalRequestsPending,
+                formattedWithdrawalRequestsCompleted,
+                formattedWithdrawalRequestsRejected,
+                formattedWithdrawalRequestsCancelled
+            ] = await Promise.all([
+                formatWithdrawalRequestsList(withdrawalRequestsAll),
+                formatWithdrawalRequestsList(withdrawalRequestsByStatus[WithdrawalStatus.pending] || []),
+                formatWithdrawalRequestsList(withdrawalRequestsByStatus[WithdrawalStatus.paid] || []),
+                formatWithdrawalRequestsList(withdrawalRequestsByStatus[WithdrawalStatus.cancelled] || []),
+                formatWithdrawalRequestsList(withdrawalRequestsByStatus[WithdrawalStatus.not_requested] || [])
+            ]);
+
+            // Mock fallback object for withdrawal requests
+            const mockWithdrawalRequest = {
+                id: "mock-id",
+                payoutId: "mock-payout-id",
+                affiliateName: "John Doe",
+                email: "john.doe@example.com",
+                wallet_summary: {
+                    allTimeEarning: 0,
+                    availableForWithdrawal: 0,
+                    totalWithdrawn: 0,
+                    pendingApproval: 0
+                },
+                withdrawalAccountDetails: {
+                    bankName: "Mock Bank",
+                    accountName: "John Doe",
+                    accountNumber: "0000000000"
+                },
+                requestedAt: "2025-01-01"
+            };
+
+            // Fallback to mock if empty
+            const fallbackIfEmpty = (arr) => (arr.length > 0 ? arr : [mockWithdrawalRequest]);
+
+            // Get total counts for each withdrawal status
+            const [
+                pendingTotalCount,
+                completedTotalCount,
+                cancelledTotalCount,
+                notRequestedTotalCount
+            ] = await Promise.all([
+                this.prisma.withdrawalRequest.count({ where: { payoutStatus: WithdrawalStatus.pending } }),
+                this.prisma.withdrawalRequest.count({ where: { payoutStatus: WithdrawalStatus.paid } }),
+                this.prisma.withdrawalRequest.count({ where: { payoutStatus: WithdrawalStatus.cancelled } }),
+                this.prisma.withdrawalRequest.count({ where: { payoutStatus: WithdrawalStatus.not_requested } })
+            ]);
+
+            // Format all commission lists in parallel (using CommissionReferral)
+            const commissionReferralStatuses = [
+                CommissionReferralStatus.approved,
+                CommissionReferralStatus.awaiting_approval,
+                CommissionReferralStatus.rejected,
+                CommissionReferralStatus.pending
+            ];
+            // Fetch all CommissionReferral lists and counts
+            const [
+                commissionReferralsAll,
+                commissionReferralsTotal,
+                commissionReferralsApproved,
+                commissionReferralsApprovedTotal,
+                commissionReferralsAwaitingApproval,
+                commissionReferralsAwaitingApprovalTotal,
+                commissionReferralsRejected,
+                commissionReferralsRejectedTotal,
+                commissionReferralsPending,
+                commissionReferralsPendingTotal
+            ] = await Promise.all([
+                this.prisma.commissionReferral.findMany({
+                    skip,
+                    take: limit,
+                    orderBy: { createdAt: 'desc' },
+                    include: { user: true, order: true }
+                }),
+                this.prisma.commissionReferral.count(),
+                this.prisma.commissionReferral.findMany({
+                    where: { status: CommissionReferralStatus.approved },
+                    skip,
+                    take: limit,
+                    orderBy: { createdAt: 'desc' },
+                    include: { user: true, order: true }
+                }),
+                this.prisma.commissionReferral.count({ where: { status: CommissionReferralStatus.approved } }),
+                this.prisma.commissionReferral.findMany({
+                    where: { status: CommissionReferralStatus.awaiting_approval },
+                    skip,
+                    take: limit,
+                    orderBy: { createdAt: 'desc' },
+                    include: { user: true, order: true }
+                }),
+                this.prisma.commissionReferral.count({ where: { status: CommissionReferralStatus.awaiting_approval } }),
+                this.prisma.commissionReferral.findMany({
+                    where: { status: CommissionReferralStatus.rejected },
+                    skip,
+                    take: limit,
+                    orderBy: { createdAt: 'desc' },
+                    include: { user: true, order: true }
+                }),
+                this.prisma.commissionReferral.count({ where: { status: CommissionReferralStatus.rejected } }),
+                this.prisma.commissionReferral.findMany({
+                    where: { status: CommissionReferralStatus.pending },
+                    skip,
+                    take: limit,
+                    orderBy: { createdAt: 'desc' },
+                    include: { user: true, order: true }
+                }),
+                this.prisma.commissionReferral.count({ where: { status: CommissionReferralStatus.pending } })
+            ]);
+
+            // Formatter for CommissionReferral
+            const formatCommissionReferral = async (cr) => {
+                const user = cr.user;
+                return {
+                    id: cr.id,
+                    orderId: cr.orderId || '',
+                    payoutId: cr.orderId || '',
+                    referralCode: cr.type || '',
+                    refereeName: user ? (user.first_name + ' ' + user.last_name) : '',
+                    refereeEmail: user ? user.email : '',
+                    totalPurchase: cr.totalPurchaseAmount || 1,
+                    earnedCommission: cr.amount || 1,
+                    initiatedAt: cr.createdAt ? formatDateWithoutTime(cr.createdAt) : '',
+                    status: cr.status || 'pending'
+                };
+            };
+            const formatCommissionReferralsList = async (list) => {
+                return await Promise.all(list.map(formatCommissionReferral));
+            };
+            const [
+                formattedCommissionReferralsAll,
+                formattedCommissionReferralsApproved,
+                formattedCommissionReferralsAwaitingApproval,
+                formattedCommissionReferralsRejected,
+                formattedCommissionReferralsPending
+            ] = await Promise.all([
+                formatCommissionReferralsList(commissionReferralsAll),
+                formatCommissionReferralsList(commissionReferralsApproved),
+                formatCommissionReferralsList(commissionReferralsAwaitingApproval),
+                formatCommissionReferralsList(commissionReferralsRejected),
+                formatCommissionReferralsList(commissionReferralsPending)
+            ]);
+            // Mock fallback object for commission referrals
+            const mockCommissionReferral = {
+                payoutId: "mock-payout-id",
+                referralCode: "mock-referral-code",
+                refereeName: "Jane Smith",
+                refereeEmail: "jane.smith@example.com",
+                totalPurchase: 0,
+                earnedCommission: 0,
+                initiatedAt: "2025-01-01",
+                status: "pending"
+            };
+            const fallbackCommissionReferralsIfEmpty = (arr) => (arr.length > 0 ? arr : [mockCommissionReferral]);
+
+            // Calculate KPI Cards (reuse logic from fetchAffiliateDashboard)
+            const [
+                totalRevenueAgg,
+                totalAffiliatesKPI,
+                totalClicks,
+                totalConversions,
+                pendingPayoutsAgg
+            ] = await Promise.all([
+                this.prisma.commissionReferral.aggregate({ _sum: { amount: true } }),
+                this.prisma.affiliate.count({}),
+                this.prisma.referral.count(),
+                this.prisma.referral.count({ where: { isUsed: true } }),
+                this.prisma.commissionReferral.aggregate({ _sum: { amount: true }, where: { status: 'awaiting_approval' } })
+            ]);
+            const kpiCards = {
+                totalRevenue: Number(totalRevenueAgg._sum.amount || 0),
+                totalAffiliates: totalAffiliatesKPI,
+                totalClicks: totalClicks,
+                totalConversions: totalConversions,
+                pendingPayouts: Number(pendingPayoutsAgg._sum?.amount || 0)
+            };
+
+            // Final formatted response
+            let formattedResponse = {
+                kpiCards,
+                affiliates: {
+                    leaderboard,
+                    all_affiliates: {
+                        page,
+                        limit,
+                        total: totalAffiliatesKPI,
+                        data: formattedAffiliates,
+                    },
+                    pending_approval_affiliates: {
+                        page,
+                        limit,
+                        total: pendingTotal,
+                        data: formattedPendingAffiliates,
+                    }
+                },
+                commissions: {
+                    withdrawal_requests: {
+                        all_withdrawal_requests: { page, limit, total: withdrawalRequestsTotal, data: fallbackIfEmpty(formattedWithdrawalRequestsAll) },
+                        pending_withdrawal_requests: { page, limit, total: pendingTotalCount, data: fallbackIfEmpty(formattedWithdrawalRequestsPending) },
+                        completed_withdrawal_requests: { page, limit, total: completedTotalCount, data: fallbackIfEmpty(formattedWithdrawalRequestsCompleted) },
+                        rejected_withdrawal_requests: { page, limit, total: notRequestedTotalCount, data: fallbackIfEmpty(formattedWithdrawalRequestsRejected) },
+                        cancelled_withdrawal_requests: { page, limit, total: cancelledTotalCount, data: fallbackIfEmpty(formattedWithdrawalRequestsCancelled) }
+                    },
+                    commissions: {
+                        all_commissions: { page, limit, total: commissionReferralsTotal, data: fallbackCommissionReferralsIfEmpty(formattedCommissionReferralsAll) },
+                        approved_commissions: { page, limit, total: commissionReferralsApprovedTotal, data: fallbackCommissionReferralsIfEmpty(formattedCommissionReferralsApproved) },
+                        awaiting_approval_commissions: { page, limit, total: commissionReferralsAwaitingApprovalTotal, data: fallbackCommissionReferralsIfEmpty(formattedCommissionReferralsAwaitingApproval) },
+                        rejected_commissions: { page, limit, total: commissionReferralsRejectedTotal, data: fallbackCommissionReferralsIfEmpty(formattedCommissionReferralsRejected) },
+                        pending_commissions: { page, limit, total: commissionReferralsPendingTotal, data: fallbackCommissionReferralsIfEmpty(formattedCommissionReferralsPending) }
+                    }
+                }
+            };
+            this.logger.log('Affiliates and commissions summary returned');
+            return {
+                success: true,
+                message: 'Affiliates and commissions summary fetched successfully.',
+                data: formattedResponse
+            };
+        } catch (error) {
+            this.logger.error('Error fetching affiliates and commissions summary:', error);
+            return {
+                success: false,
+                message: 'Failed to fetch affiliates and commissions summary.',
+                data: null
+            };
+        }
+    }
+
+    // Change commission referral status (approve/reject)
+    async changeCommissionReferralStatus(dto: ChangeCommissionReferralStatusDto, adminUser: any) {
+        const allowedStatuses = [CommissionReferralStatus.approved, CommissionReferralStatus.rejected];
+        // if (!allowedStatuses.includes(dto.status)) {
+        //     throw new BadRequestException(`Invalid status. Allowed: ${allowedStatuses.join(', ')}`);
+        // }
+
+        if (dto.status === CommissionReferralStatus.approved) {
+            // Fetch the commission referral and wallet
+            const commissionReferral = await this.prisma.commissionReferral.findUnique({
+                where: { id: dto.commissionReferralId },
+                include: { user: true }
+            });
+            if (!commissionReferral) throw new NotFoundException('CommissionReferral not found');
+
+            // Only allow status change if currently awaiting_approval
+            if (commissionReferral.status !== CommissionReferralStatus.awaiting_approval) {
+                throw new BadRequestException('Only referrals with status awaiting_approval can be changed');
+            }
+        } else if (dto.status === CommissionReferralStatus.rejected) {
+            // Fetch the commission referral and wallet
+            const commissionReferral = await this.prisma.commissionReferral.findUnique({
+                where: { id: dto.commissionReferralId },
+                include: { user: true }
+            });
+            if (!commissionReferral) throw new NotFoundException('CommissionReferral not found');
+
+            // Only allow status change if currently awaiting_approval
+            if (commissionReferral.status !== CommissionReferralStatus.awaiting_approval) {
+                throw new BadRequestException('Only referrals with status awaiting_approval can be changed');
+            }
+        }
+
+        // Fetch the commission referral and wallet
+        const commissionReferral = await this.prisma.commissionReferral.findUnique({
+            where: { id: dto.commissionReferralId },
+            include: { user: true }
+        });
+        if (!commissionReferral) throw new NotFoundException('CommissionReferral not found');
+
+        let wallet = await this.prisma.wallet.findUnique({ where: { userId: commissionReferral.userId } });
+        if (!wallet) {
+            this.logger.log(colors.green('Creating wallet for user: ' + commissionReferral.user.email));
+            wallet = await this.prisma.wallet.create({
+                data: {
+                    userId: commissionReferral.userId,
+                    total_earned: 0,
+                    awaiting_approval: 0,
+                    available_for_withdrawal: 0,
+                    total_withdrawn: 0,
+                    balance_before: 0,
+                    balance_after: 0,
+                }
+            });
+        }
+
+        // Only allow status change if currently awaiting_approval
+        if (commissionReferral.status !== 'awaiting_approval') {
+            throw new BadRequestException('Only referrals with status awaiting_approval can be changed');
+        }
+
+        // Fetch wallet before update for analysis
+        const walletBefore = { ...wallet };
+
+        // Transaction: update referral and wallet
+        let updatedCommissionReferral, updatedWallet;
+        await this.prisma.$transaction(async (tx) => {
+            // Update CommissionReferral status
+            updatedCommissionReferral = await tx.commissionReferral.update({
+                where: { id: dto.commissionReferralId },
+                data: {
+                    status: dto.status,
+                    updatedAt: new Date(),
+                    // processedBy: adminUser?.id
+                }
+            });
+
+            // Calculate new wallet balances
+            const amount = commissionReferral.amount || 0;
+            let walletUpdate: any = {};
+            if (dto.status === CommissionReferralStatus.approved) {
+                walletUpdate = {
+                    awaiting_approval: { decrement: amount },
+                    available_for_withdrawal: { increment: amount }
+                };
+            } else if (dto.status === CommissionReferralStatus.rejected) {
+                walletUpdate = {
+                    awaiting_approval: { decrement: amount }
+                };
+            }
+
+            updatedWallet = await tx.wallet.update({
+                where: { userId: commissionReferral.userId },
+                data: walletUpdate
+            });
+        });
+
+        // After transaction, if approved, send email to affiliate
+        if (dto.status === CommissionReferralStatus.approved) {
+            try {
+                // Fetch order and buyer details for the email
+                let order: any = null;
+                let buyerName = '';
+                let buyerEmail = '';
+                let productName = '';
+                let productImageUrl = '';
+                if (updatedCommissionReferral.orderId) {
+                    order = await this.prisma.order.findUnique({
+                        where: { id: updatedCommissionReferral.orderId },
+                        include: { user: true, items: { include: { product: true } } }
+                    });
+                    if (order) {
+                        buyerName = order.user ? `${order.user.first_name} ${order.user.last_name}` : '';
+                        buyerEmail = order.user ? order.user.email : '';
+                        productName = order.items && order.items.length > 0 && order.items[0].product ? order.items[0].product.name : '';
+                        // Try to get product image from first order item
+                        if (order.items && order.items.length > 0 && order.items[0].product && order.items[0].product.displayImages) {
+                            const images = Array.isArray(order.items[0].product.displayImages)
+                                ? order.items[0].product.displayImages
+                                : (typeof order.items[0].product.displayImages === 'string' ? JSON.parse(order.items[0].product.displayImages) : []);
+                            if (images && images.length > 0) {
+                                productImageUrl = typeof images[0] === 'string' ? images[0] : images[0].url || images[0].secureUrl || '';
+                            }
+                        }
+                    }
+                }
+                await sendCommissionApprovedMail({
+                    affiliateName: commissionReferral.user?.first_name + ' ' + commissionReferral.user?.last_name,
+                    affiliateEmail: commissionReferral.user?.email,
+                    orderId: order?.orderId || updatedCommissionReferral.orderId || '',
+                    buyerName,
+                    buyerEmail,
+                    productName,
+                    commissionAmount: updatedCommissionReferral.amount || 0,
+                    walletBefore: {
+                        available: walletBefore.available_for_withdrawal ?? 0,
+                        pending: walletBefore.awaiting_approval ?? 0,
+                        total: walletBefore.total_earned ?? 0
+                    },
+                    walletAfter: {
+                        available: updatedWallet.available_for_withdrawal ?? 0,
+                        pending: updatedWallet.awaiting_approval ?? 0,
+                        total: updatedWallet.total_earned ?? 0
+                    },
+                    approvedAt: new Date().toLocaleString('en-NG', { timeZone: 'Africa/Lagos' }),
+                    productImageUrl
+                }, commissionReferral.user?.email);
+            } catch (err) {
+                this.logger.error('Failed to send commission approval email:', err);
+            }
+        }
+
+        // Format commissionReferral for response
+        const formattedCommission = {
+            id: updatedCommissionReferral.id,
+            orderId: updatedCommissionReferral.orderId || '',
+            payoutId: updatedCommissionReferral.orderId || '',
+            channel: updatedCommissionReferral.type || '',
+            totalPurchase: updatedCommissionReferral.totalPurchaseAmount || 0,
+            earnedCommission: updatedCommissionReferral.amount || 0,
+            status: updatedCommissionReferral.status
+        };
+        // Format wallet analysis
+        const walletAnalysisBefore = {
+            total_earned: walletBefore.total_earned,
+            awaiting_approval: walletBefore.awaiting_approval,
+            available_for_withdrawal: walletBefore.available_for_withdrawal,
+            total_withdrawn: walletBefore.total_withdrawn,
+            balance_before: walletBefore.balance_before,
+            balance_after: walletBefore.balance_after
+        };
+        const walletAnalysisAfter = {
+            total_earned: updatedWallet.total_earned,
+            awaiting_approval: updatedWallet.awaiting_approval,
+            available_for_withdrawal: updatedWallet.available_for_withdrawal,
+            total_withdrawn: updatedWallet.total_withdrawn,
+            balance_before: updatedWallet.balance_before,
+            balance_after: updatedWallet.balance_after
+        };
+        const formattedResponse = {
+            commission: formattedCommission,
+            updatedWallet: {
+                wallet_analysis_before: walletAnalysisBefore,
+                wallet_analysis_after: walletAnalysisAfter
+            }
+        };
+        this.logger.log(colors.yellow('CommissionReferral status updated'));
+        return new ApiResponse(true, 'CommissionReferral status updated successfully', formattedResponse);
+    }
+}

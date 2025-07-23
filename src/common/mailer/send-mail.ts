@@ -8,6 +8,8 @@ import { passwordResetTemplate } from "../email-templates/password-reset-templat
 import { loginOtpTemplate } from "../email-templates/login-otp-template";
 import { orderConfirmationBuyerTemplate } from "../email-templates/order-confirmation-buyer";
 import { orderConfirmationAdminTemplate } from "../email-templates/order-confirmation-admin";
+import { commissionApprovedTemplate, CommissionApprovedTemplateProps } from '../email-templates/commission-approved-template';
+import { referralUsedTemplate, ReferralUsedTemplateProps } from '../email-templates/referral-used-template';
 
 const logger = new Logger('SendMail');
 
@@ -462,4 +464,52 @@ export async function sendOrderNotificationToAdmin(data: OrderConfirmationMailDa
             error.message
         );
     }
+}
+
+export async function sendCommissionApprovedMail(props: CommissionApprovedTemplateProps, to: string) {
+    const transporter = nodemailer.createTransport({
+        service: 'gmail',
+        host: process.env.GOOGLE_SMTP_HOST,
+        port: process.env.GOOGLE_SMTP_PORT ? parseInt(process.env.GOOGLE_SMTP_PORT) : 587,
+        secure: false,
+        auth: {
+            user: process.env.EMAIL_USER,
+            pass: process.env.EMAIL_PASSWORD,
+        },
+    });
+    const htmlContent = commissionApprovedTemplate(props);
+    const mailOptions = {
+        from: {
+            name: 'Acces-Sellr',
+            address: process.env.EMAIL_USER as string,
+        },
+        to,
+        subject: `🎉 Commission Approved`,
+        html: htmlContent,
+    };
+    await transporter.sendMail(mailOptions);
+}
+
+export async function sendReferralUsedMail(props: ReferralUsedTemplateProps, to: string) {
+    const transporter = nodemailer.createTransport({
+        service: 'gmail',
+        host: process.env.GOOGLE_SMTP_HOST,
+        port: process.env.GOOGLE_SMTP_PORT ? parseInt(process.env.GOOGLE_SMTP_PORT) : 587,
+        secure: false,
+        auth: {
+            user: process.env.EMAIL_USER,
+            pass: process.env.EMAIL_PASSWORD,
+        },
+    });
+    const htmlContent = referralUsedTemplate(props);
+    const mailOptions = {
+        from: {
+            name: 'Acces-Sellr',
+            address: process.env.EMAIL_USER as string,
+        },
+        to,
+        subject: `🎉 Your ${props.channel} was used for a purchase!`,
+        html: htmlContent,
+    };
+    await transporter.sendMail(mailOptions);
 }

@@ -9,7 +9,7 @@ import { CloudinaryService } from '../shared/services/cloudinary.service';
 import type { CloudinaryUploadResult } from '../shared/services/cloudinary.service';
 import { ApiResponse } from 'src/shared/helper-functions/response';
 import { formatAmount, formatDate } from 'src/shared/helper-functions/formatter';
-import { sendOrderConfirmationToBuyer, sendOrderNotificationToAdmin } from 'src/common/mailer/send-mail';
+import { sendOrderConfirmationToBuyer, sendOrderNotificationToAdmin, sendReferralUsedMail } from 'src/common/mailer/send-mail';
 import { CheckoutFromCartDto, VerifyAccountNumberDto } from './dto/paystack.dto';
 import * as argon2 from 'argon2';
 import { generateOrderId, generateTrackingId } from '../shared/helper-functions/generator';
@@ -459,6 +459,33 @@ export class PaystackService {
               });
 
               this.logger.log(`Commission awarded: ${commissionAmount} to affiliate ${affiliateLink.userId}`);
+
+              // Send referral used mail
+              try {
+                let productImageUrl = '';
+                if (affiliateLink.product && affiliateLink.product.displayImages) {
+                  const images = Array.isArray(affiliateLink.product.displayImages)
+                    ? affiliateLink.product.displayImages
+                    : (typeof affiliateLink.product.displayImages === 'string' ? JSON.parse(affiliateLink.product.displayImages) : []);
+                  if (images && images.length > 0) {
+                    productImageUrl = typeof images[0] === 'string' ? images[0] : images[0].url || images[0].secureUrl || '';
+                  }
+                }
+                await sendReferralUsedMail({
+                  affiliateName: affiliateLink.user?.first_name + ' ' + affiliateLink.user?.last_name,
+                  affiliateEmail: affiliateLink.user?.email,
+                  orderId: updatedOrder.orderId || '',
+                  productName: affiliateLink.product?.name || '',
+                  productImageUrl,
+                  buyerName: updatedOrder.user ? `${updatedOrder.user.first_name} ${updatedOrder.user.last_name}` : '',
+                  buyerEmail: updatedOrder.user?.email || '',
+                  purchaseAmount: updatedOrder.total_amount || 0,
+                  purchaseDate: new Date(updatedOrder.updatedAt).toLocaleString('en-NG', { timeZone: 'Africa/Lagos' }),
+                  channel: 'affiliate link'
+                }, affiliateLink.user?.email);
+              } catch (err) {
+                this.logger.error('Failed to send referral used email (affiliate link):', err);
+              }
             }
           } catch (error) {
             this.logger.error(`Error awarding commission: ${error}`);
@@ -931,6 +958,33 @@ export class PaystackService {
               this.logger.log(`Referree final wallet balance: ${JSON.stringify(updatedWallet)}`);
 
               this.logger.log(`Commission awarded: ${commissionAmount} to referral code owner ${referralCodeOwner.userId}`);
+
+              // Send referral used mail
+              try {
+                let productImageUrl = '';
+                if (updatedOrder.items && updatedOrder.items.length > 0 && updatedOrder.items[0].product && updatedOrder.items[0].product.displayImages) {
+                  const images = Array.isArray(updatedOrder.items[0].product.displayImages)
+                    ? updatedOrder.items[0].product.displayImages
+                    : (typeof updatedOrder.items[0].product.displayImages === 'string' ? JSON.parse(updatedOrder.items[0].product.displayImages) : []);
+                  if (images && images.length > 0) {
+                    productImageUrl = typeof images[0] === 'string' ? images[0] : images[0].url || images[0].secureUrl || '';
+                  }
+                }
+                await sendReferralUsedMail({
+                  affiliateName: referralCodeOwner.user?.first_name + ' ' + referralCodeOwner.user?.last_name,
+                  affiliateEmail: referralCodeOwner.user?.email,
+                  orderId: updatedOrder.orderId || '',
+                  productName: updatedOrder.items[0]?.product?.name || '',
+                  productImageUrl,
+                  buyerName: updatedOrder.user ? `${updatedOrder.user.first_name} ${updatedOrder.user.last_name}` : '',
+                  buyerEmail: updatedOrder.user?.email || '',
+                  purchaseAmount: updatedOrder.total_amount || 0,
+                  purchaseDate: new Date(updatedOrder.updatedAt).toLocaleString('en-NG', { timeZone: 'Africa/Lagos' }),
+                  channel: 'referral code'
+                }, referralCodeOwner.user?.email);
+              } catch (err) {
+                this.logger.error('Failed to send referral used email (referral code):', err);
+              }
             }
           } catch (error) {
             this.logger.error(`Error awarding commission for referral code: ${error}`);
@@ -1317,7 +1371,7 @@ export class PaystackService {
       return new ApiResponse(false, "Error fetching banks");
     }
 
-    this.logger.log(`Response: ${JSON.stringify(response.data)}`);
+    // this.logger.log(`Response: ${JSON.stringify(response.data)}`);
 
         const { status, data } = response.data;
         if(!status) {

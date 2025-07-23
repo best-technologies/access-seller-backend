@@ -126,7 +126,7 @@ export class UserService {
   }
 
   async fetchAffiliateDashboard(payload: any) {
-    this.logger.log(colors.cyan("[users service] Fetching affiliate dashboard"));
+    this.logger.log(colors.cyan("Fetching affiliate dashboard"));
     try {
       // 1. Fetch user
       const user = await this.prisma.user.findFirst({ where: { email: payload.email } });
@@ -470,15 +470,17 @@ export class UserService {
 
   async deleteBank(user: any, dto: DeleteBankDto) {
     try {
+      this.logger.log(colors.cyan('[user-service] Deleting bank for user...'), user.id);
+      this.logger.log(colors.cyan('[user-service] Bank id...'), dto.bankId);
       this.logger.log(colors.cyan('[user-service] Deleting bank for user...'), dto.bankId);
-
+      
       const existingUser = await this.prisma.user.findFirst({ where: { email: user.email } });
       if (!existingUser) {
         this.logger.log(colors.red('[user-service] User not found.'));
         return new ApiResponse(false, 'User not found.');
       }
       // Ensure the bank belongs to the user
-      const bank = await this.prisma.bank.findFirst({ where: { id: dto.bankId, userId: existingUser.id } });
+      const bank = await this.prisma.bank.findFirst({ where: { id: dto.bankId } });
       if (!bank) {
         this.logger.log(colors.red('[user-service] Bank not found or does not belong to user.'));
         return new ApiResponse(false, 'Bank not found or does not belong to user.');
