@@ -934,7 +934,7 @@ export class PaystackService {
                     userId: referralCodeOwner.userId,
                     total_earned: 0,
                     available_for_withdrawal: 0,
-                    awaiting_approval: 0,
+                    commission_awaiting_approval: 0,
                     total_withdrawn: 0,
                     balance_before: 0,
                     balance_after: 0,
@@ -944,13 +944,13 @@ export class PaystackService {
               this.logger.log(`Referree initial wallet balance: ${JSON.stringify(wallet)}`);
 
               const newTotalEarned = (wallet?.total_earned || 0) + amountEarned;
-              const newAwaitingApproval = (wallet?.awaiting_approval || 0) + amountEarned
+              const newAwaitingApproval = (wallet?.commission_awaiting_approval || 0) + amountEarned
 
               const updatedWallet = await this.prisma.wallet.update({
                 where: { userId: referralCodeOwner.userId },
                 data: {
                   total_earned: newTotalEarned,
-                  awaiting_approval: newAwaitingApproval,
+                  commission_awaiting_approval: newAwaitingApproval,
                   updatedAt: new Date()
                 }
               });
@@ -1256,7 +1256,7 @@ export class PaystackService {
                   userId: referralCodeOwner.userId,
                   total_earned: 0,
                   available_for_withdrawal: 0,
-                  awaiting_approval: 0,
+                  commission_awaiting_approval: 0,
                   total_withdrawn: 0,
                   balance_before: 0,
                   balance_after: 0,
@@ -1266,13 +1266,13 @@ export class PaystackService {
             this.logger.log(`Referree initial wallet balance: ${JSON.stringify(wallet)}`);
 
             const newTotalEarned = (wallet?.total_earned || 0) + amountEarned;
-            const newAwaitingApproval = (wallet?.awaiting_approval || 0) + amountEarned
+            const newAwaitingApproval = (wallet?.commission_awaiting_approval || 0) + amountEarned
 
             const updatedWallet = await tx.wallet.update({
               where: { userId: referralCodeOwner.userId },
               data: {
                 total_earned: newTotalEarned,
-                awaiting_approval: newAwaitingApproval,
+                commission_awaiting_approval: newAwaitingApproval,
                 updatedAt: new Date()
               }
             });

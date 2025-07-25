@@ -14,4 +14,8 @@ export class RequestWithdrawalNewDto {
   @IsOptional()
   @IsString()
   bankCode?: string; // Required if payoutMethod is 'bank'
+
+  @IsOptional()
+  @IsString()
+  orderId?: string;
 } 

@@ -8,7 +8,8 @@ import { RequestCommissionPayoutDto, } from './dto/commission-payout.dto';
 import { AffiliateStatus } from '@prisma/client';
 import { formatAmount, formatDate, formatDateWithoutTime } from 'src/shared/helper-functions/formatter';
 import { AddBankDto, DeleteBankDto, UpdateBankStatusDto } from './dto/bank.dto';
-import { RequestWithdrawalNewDto } from './dto/withdrawal-request.dto';
+import { PayoutMethod, RequestWithdrawalNewDto } from './dto/withdrawal-request.dto';
+import { generatePayoutId } from '../shared/helper-functions/generator';
 // import { PayoutMethod } from './dto/withdrawal-request.dto';
 
 @Injectable()
@@ -158,7 +159,7 @@ export class UserService {
         this.prisma.commissionReferral.count({
           where: {
             userId: user.id,
-            type: 'purchase',
+            // type: 'purchase',
           }
         }),
         this.prisma.commissionReferral.findMany({
@@ -208,20 +209,31 @@ export class UserService {
       // 5. Fetch payouts (withdrawal requests)
       const withdrawals = await this.prisma.withdrawalRequest.findMany({
         where: { userId: user.id },
-        orderBy: { requestedAt: 'desc' }
+        orderBy: { requestedAt: 'desc' },
+        include: { bank: true }
       });
       const payouts = withdrawals.map(w => ({
         id: w.id,
         payoutId: w.payoutId || '',
-        amount: w.commissionAmount,
-        date: w.requestedAt,
+        amount: w.withdrawal_amount,
+        date: formatDateWithoutTime(w.requestedAt),
         status: w.payoutStatus === 'pending' ? 'pending' :
                w.payoutStatus === 'paid' ? 'completed' :
                w.payoutStatus === 'cancelled' ? 'rejected' :
-               w.payoutStatus // fallback
+               w.payoutStatus, // fallback
+        payoutMethod: w.payoutMethod,
+        bankDetails: w.bank ? {
+          id: w.bank.id,
+          bankName: w.bank.bankName,
+          accountNumber: w.bank.accountNumber,
+          accountName: w.bank.accountName,
+          bankCode: w.bank.bankCode,
+        } : null
       }));
 
       // 6. Build response (stats from wallet)
+      const pendingApproval = Math.round((wallet?.commission_awaiting_approval || 0) * 100) / 100;
+      const availableForWithdrawal = Math.round((wallet?.available_for_withdrawal || 0) * 100) / 100;
       const dashboard = {
         referralCode: referralCodeRecord?.code || "",
         is_affiliate: user.isAffiliate,
@@ -230,8 +242,9 @@ export class UserService {
           totalPurchases,
           totalEarned: wallet?.total_earned || 0,
           totalWithdrawn: wallet?.total_withdrawn || 0,
-          pendingApproval: wallet?.awaiting_approval || 0,
-          available_for_withdrawal: wallet?.available_for_withdrawal || 0
+          CommissionPendingApproval: wallet?.commission_awaiting_approval || 0,
+          withdrawalPendingApproval: wallet?.withdrawal_awaiting_approval || 0,
+          availableForWithdrawal: wallet?.available_for_withdrawal || 0
         },
         joined: affiliate?.createdAt ? formatDate(affiliate.createdAt) : null,
         banks: bankDetails || [],
@@ -335,7 +348,7 @@ export class UserService {
 }
 
   async getAffiliateLinksForUser(user: any) {
-    this.logger.log(colors.cyan('[user-service] Fetching affiliate links for user...'));
+    this.logger.log(colors.cyan('Fetching affiliate links for user...'));
     try {
         // Get user from email
         const existingUser = await this.prisma.user.findFirst({ 
@@ -353,24 +366,79 @@ export class UserService {
         const links = await this.prisma.affiliateLink.findMany({
             where: { userId: existingUser.id },
             include: {
-                product: {
-                    select: {
-                        id: true,
-                        name: true,
-                        displayImages: true,
-                        commission: true,
-                        status: true,
-                        sellingPrice: true
-                    } 
-                }
+                product: true
             }
         });
-      
+
+        const base_url = process.env.NODE_ENV === "development"
+          ? process.env.FRONTEND_BASE_URL_STAGING ?? ''
+          : process.env.FRONTEND_BASE_URL_PROD ?? '';
+
+        // console.log('[AffiliateLinks] ENV:', {
+        //   NODE_ENV: process.env.NODE_ENV,
+        //   FRONTEND_BASE_URL_STAGING: process.env.FRONTEND_BASE_URL_STAGING,
+        //   FRONTEND_BASE_URL_PROD: process.env.FRONTEND_BASE_URL_PROD,
+        //   base_url
+        // });
+
+        // Fetch sales count for each link
+        const salesCounts = await Promise.all(
+          links.map(link =>
+            this.prisma.order.count({
+              where: {
+                productid: link.productId,
+                referralSlug: link.slug
+              }
+            })
+          )
+        );
+
+        const formattedLinks = links.map((link, idx) => {
+          // Parse image
+          let image = "";
+          if (link.product?.displayImages) {
+            const images = Array.isArray(link.product.displayImages)
+              ? link.product.displayImages
+              : (typeof link.product.displayImages === "string"
+                  ? JSON.parse(link.product.displayImages)
+                  : []);
+            if (images && images.length > 0) {
+              if (typeof images[0] === "string") {
+                image = images[0];
+              } else if (images[0].secure_url) {
+                image = images[0].secure_url;
+              } else if (images[0].secureUrl) {
+                image = images[0].secureUrl;
+              } else if (images[0].url) {
+                image = images[0].url;
+              }
+            }
+          }
+          // Commission percent
+          let commissionPercent = parseFloat(String(link.product?.commission ?? '')) || parseFloat(String(process.env.AFFILIATE_COMMISSION_PERCENT ?? '0'));
+          let productPrice = link.product?.sellingPrice || 0;
+          let earningPerSale = (commissionPercent / 100) * productPrice;
+          // Shareable link
+          const shareableLink = `${(base_url ?? '').replace(/\/$/, "")}/products/${link.product?.id}?ref=${link.slug}`;
+          return {
+            id: link.id,
+            name: link.product?.name || "",
+            image,
+            commission: `${commissionPercent}%`,
+            earningPerSale: formatAmount(earningPerSale),
+            price: formatAmount(productPrice),
+            earnings: link.commission || 0,
+            sales: salesCounts[idx],
+            status: link.status || "",
+            shareableLink
+          };
+        });
+
         this.logger.log(colors.green(`Total of ${links.length} Affiliate links fetched successfully.`));
         return {
             success: true,
             message: 'Affiliate links fetched successfully.',
-            data: links
+            data: formattedLinks
         };
     } catch (error) {
         this.logger.error('Error fetching affiliate links:', error);
@@ -433,10 +501,10 @@ export class UserService {
 
   async addBank(user: any, dto: AddBankDto) {
     try {
-      this.logger.log(colors.cyan('[user-service] Adding new bank for user...'));
+      this.logger.log(colors.cyan('Adding new bank for user...'));
       const existingUser = await this.prisma.user.findFirst({ where: { email: user.email } });
       if (!existingUser) {
-        this.logger.log(colors.red('[user-service] User not found.'));
+        this.logger.log(colors.red('User not found.'));
         return new ApiResponse(false, 'User not found.');
       }
       // Check for duplicate bank (by accountNumber and bankCode for this user)
@@ -448,7 +516,7 @@ export class UserService {
         },
       });
       if (existingBank) {
-        this.logger.log(colors.red('[user-service] Bank with this account number and bank code already exists for user.'));
+        this.logger.log(colors.red('Bank with this account number and bank code already exists for user.'));
         return new ApiResponse(false, 'Bank with this account number and bank code already exists.');
       }
       const bank = await this.prisma.bank.create({
@@ -460,62 +528,62 @@ export class UserService {
           accountName: dto.accountName,
         },
       });
-      this.logger.log(colors.green('[user-service] Bank added successfully.'));
+      this.logger.log(colors.green('Bank added successfully.'));
       return new ApiResponse(true, 'Bank added successfully.', bank);
     } catch (error) {
-      this.logger.error('[user-service] Error adding bank:', error);
+      this.logger.error('Error adding bank:', error);
       return new ApiResponse(false, 'Failed to add bank.');
     }
   }
 
   async deleteBank(user: any, dto: DeleteBankDto) {
     try {
-      this.logger.log(colors.cyan('[user-service] Deleting bank for user...'), user.id);
-      this.logger.log(colors.cyan('[user-service] Bank id...'), dto.bankId);
-      this.logger.log(colors.cyan('[user-service] Deleting bank for user...'), dto.bankId);
+      this.logger.log(colors.cyan('Deleting bank for user...'), user.id);
+      this.logger.log(colors.cyan('Bank id...'), dto.bankId);
+      this.logger.log(colors.cyan('Deleting bank for user...'), dto.bankId);
       
       const existingUser = await this.prisma.user.findFirst({ where: { email: user.email } });
       if (!existingUser) {
-        this.logger.log(colors.red('[user-service] User not found.'));
+        this.logger.log(colors.red('User not found.'));
         return new ApiResponse(false, 'User not found.');
       }
       // Ensure the bank belongs to the user
       const bank = await this.prisma.bank.findFirst({ where: { id: dto.bankId } });
       if (!bank) {
-        this.logger.log(colors.red('[user-service] Bank not found or does not belong to user.'));
+        this.logger.log(colors.red('Bank not found or does not belong to user.'));
         return new ApiResponse(false, 'Bank not found or does not belong to user.');
       }
 
       await this.prisma.bank.delete({ where: { id: dto.bankId } });
 
-      this.logger.log(colors.green('[user-service] Bank deleted successfully.'));
+      this.logger.log(colors.green('Bank deleted successfully.'));
       return new ApiResponse(true, 'Bank deleted successfully.');
 
     } catch (error) {
-      this.logger.error('[user-service] Error deleting bank:', error);
+      this.logger.error('Error deleting bank:', error);
       return new ApiResponse(false, 'Failed to delete bank.');
     }
   }
 
   async updateBankStatus(user: any, dto: UpdateBankStatusDto) {
     try {
-      this.logger.log(colors.cyan('[user-service] Updating bank status for user...'));
+      this.logger.log(colors.cyan('Updating bank status for user...'));
       const existingUser = await this.prisma.user.findFirst({ where: { email: user.email } });
       if (!existingUser) {
-        this.logger.log(colors.red('[user-service] User not found.'));
+        this.logger.log(colors.red('User not found.'));
         return new ApiResponse(false, 'User not found.');
       }
       // Ensure the bank belongs to the user
       const bank = await this.prisma.bank.findFirst({ where: { id: dto.bankId, userId: existingUser.id } });
       if (!bank) {
-        this.logger.log(colors.red('[user-service] Bank not found or does not belong to user.'));
+        this.logger.log(colors.red('Bank not found or does not belong to user.'));
         return new ApiResponse(false, 'Bank not found or does not belong to user.');
       }
       // The Bank model does not have an isActive field
-      this.logger.log(colors.red('[user-service] Bank status cannot be updated because the Bank model does not have an isActive field.'));
+      this.logger.log(colors.red('Bank status cannot be updated because the Bank model does not have an isActive field.'));
       return new ApiResponse(false, 'Bank status cannot be updated because the Bank model does not have an isActive field.');
     } catch (error) {
-      this.logger.error('[user-service] Error updating bank status:', error);
+      this.logger.error('Error updating bank status:', error);
       return new ApiResponse(false, 'Failed to update bank status.');
     }
   }
@@ -523,12 +591,19 @@ export class UserService {
   // //////////////////////////////////////////////////////////////////////// Request withdrawal
   async requestWithdrawal(user: any, dto: RequestWithdrawalNewDto) {
     try {
-      this.logger.log(colors.cyan('[user-service] Creating new withdrawal request...'), dto);
+      this.logger.log(colors.cyan('Creating new withdrawal request...'), dto);
       
       const existingUser = await this.prisma.user.findFirst({ where: { email: user.email } });
       if (!existingUser) {
-        this.logger.log(colors.red('[user-service] User not found.'));
+        this.logger.log(colors.red('User not found.'));
         return new ApiResponse(false, 'User not found.');
+      }
+
+      // confirm that the users affiliate status is active 
+      const affiliate = await this.prisma.affiliate.findUnique({ where: { userId: existingUser.id } });
+      if (!affiliate || affiliate.status !== 'approved') {
+        this.logger.log(colors.red('Your affiliate status has been suspended or terminated, contact support to reactivate your account.'));
+        return new ApiResponse(false, 'Your affiliate status has been suspended or terminated, contact support to reactivate your account.');
       }
 
       const bank = await this.prisma.bank.findFirst({
@@ -536,37 +611,116 @@ export class UserService {
       });
 
       if (!bank) {
-        this.logger.log(colors.red('[user-service] Bank not found or does not belong to user.'));
+        this.logger.log(colors.red('Bank not found or does not belong to user.'));
         return new ApiResponse(false, 'Bank not found or does not belong to user.');
       }
 
-      // Generate unique payoutId
-      function generatePayoutId() {
-        return `out/acc${Math.random().toString(36).substring(2, 8)}`;
+      if(Number(dto.amount) < 5000) {
+        this.logger.log(colors.red('Withdrawal amount must be greater than #10,000.'));
+        return new ApiResponse(false, 'Withdrawal amount must be greater than #10,000.');
       }
 
-      // Generate unique reference
-      const reference = `acc-withdraw-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
-      const payoutId = generatePayoutId();
+      // get the users wallet
+      const wallet = await this.prisma.wallet.findUnique({ where: { userId: existingUser.id } });
+      if (!wallet) {
+        this.logger.log(colors.red('You do not have an active wallet, kindly contact support.'));
+        return new ApiResponse(false, 'You do not have an active wallet, kindly contact support.');
+      }
 
-      // Create withdrawal request and update order status in a transaction
-      const withdrawalRequest = await this.prisma.withdrawalRequest.create({
-        data: {
-          userId: existingUser.id,
-          withdrawal_amount: Number(dto.amount),
-          commissionAmount: Number(dto.amount),
-          payoutMethod: "bank transfer",
-          bankId: bank.id,
-          reference,
-          // Add other fields as needed from dto
-        }
+      // confirm that the withdrawal amount is less than the available balance for withdrawal
+      if(Number(dto.amount) > Number(wallet.available_for_withdrawal)) {
+        this.logger.log(colors.red('Withdrawal amount must be less than the available balance for withdrawal.'));
+        return new ApiResponse(false, 'Withdrawal amount must be less than the available balance for withdrawal.');
+      }
+
+      // Generate unique payoutId
+      let payoutId: string;
+      while (true) {
+        payoutId = generatePayoutId();
+        const exists = await this.prisma.withdrawalRequest.findUnique({ where: { payoutId } });
+        if (!exists) break;
+      }
+
+      const reference = `acc-withdraw-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+      const availableBalanceBefore = wallet.available_for_withdrawal;
+      let availableBalanceAfter: number | null = null;
+      let withdrawalRequest: any;
+      await this.prisma.$transaction(async (tx) => {
+        // Create withdrawal request
+        withdrawalRequest = await tx.withdrawalRequest.create({
+          data: {
+            payoutId,
+            userId: existingUser.id,
+            withdrawal_amount: Number(dto.amount),
+            commissionAmount: Number(dto.amount),
+            payoutMethod: "bank transfer",
+            bankId: bank.id,
+            reference,
+            // orderId: dto.orderId || null,
+            requestedAt: new Date(),
+            processedAt: null,
+            processedBy: JSON.stringify({
+              name: `${existingUser.first_name} ${existingUser.last_name}`,
+              email: existingUser.email,
+              phone: existingUser.phone_number || ''
+            }),
+            availableBalanceBefore,
+          }
+        });
+
+        // Update wallet
+        await tx.wallet.update({
+          where: { userId: existingUser.id },
+          data: {
+            available_for_withdrawal: { decrement: Number(dto.amount) },
+            withdrawal_awaiting_approval: { increment: Number(dto.amount) },
+            total_withdrawn: { increment: Number(dto.amount) }
+          }
+        });
+
+        // Fetch wallet after update
+        const updatedWallet = await tx.wallet.findUnique({ where: { userId: existingUser.id } });
+        availableBalanceAfter = updatedWallet?.available_for_withdrawal ?? 0;
+
+        // Round wallet fields to 2 decimal places to avoid floating-point artifacts
+        const roundedWithdrawalAwaitingApproval = Math.round((updatedWallet?.withdrawal_awaiting_approval || 0) * 100) / 100;
+        const roundedAvailableForWithdrawal = Math.round((updatedWallet?.available_for_withdrawal || 0) * 100) / 100;
+        await tx.wallet.update({
+          where: { userId: existingUser.id },
+          data: {
+            withdrawal_awaiting_approval: roundedWithdrawalAwaitingApproval,
+            available_for_withdrawal: roundedAvailableForWithdrawal
+          }
+        });
+
+        // Update withdrawal request with availableBalanceAfter
+        await tx.withdrawalRequest.update({
+          where: { id: withdrawalRequest.id },
+          data: { availableBalanceAfter }
+        });
       });
 
-      this.logger.log(colors.green('[user-service] Withdrawal request created successfully.'));
-      return new ApiResponse(true, 'Withdrawal request created successfully.', withdrawalRequest);
+      const formattedWithdrawalRequest = {
+        id: withdrawalRequest.id,
+        payoutId: withdrawalRequest.payoutId,
+        amount: withdrawalRequest.withdrawal_amount,
+        date: withdrawalRequest.requestedAt,
+        status: withdrawalRequest.payoutStatus,
+        payoutMethod: withdrawalRequest.payoutMethod,
+        bankId: withdrawalRequest.bankId,
+        reference: withdrawalRequest.reference,
+        processedAt: withdrawalRequest.processedAt,
+        processedBy: withdrawalRequest.processedBy,
+        orderId: withdrawalRequest.orderId,
+        availableBalanceBefore: availableBalanceBefore || null,
+        availableBalanceAfter: availableBalanceAfter || null
+      }
+
+      this.logger.log(colors.green('Withdrawal request created successfully.'));
+      return new ApiResponse(true, 'Withdrawal request created successfully.', formattedWithdrawalRequest);
 
     } catch (error) {
-      this.logger.error('[user-service] Error creating withdrawal request:', error);
+      this.logger.error('Error creating withdrawal request:', error);
       return new ApiResponse(false, 'Failed to create withdrawal request.');
     }
   }
@@ -578,20 +732,30 @@ export class UserService {
     }
     const withdrawals = await this.prisma.withdrawalRequest.findMany({
       where: { userId: existingUser.id },
-      orderBy: { requestedAt: 'desc' }
+      orderBy: { requestedAt: 'desc' },
+      include: { bank: true }
     });
 
     // Format the response as requested
     const formatted = withdrawals.map(w => ({
       id: w.id,
       payoutId: w.payoutId || "",
-      amount: w.commissionAmount,
-      date: w.requestedAt,
+      amount: w.withdrawal_amount,
+      date: formatDateWithoutTime(w.requestedAt),
       status: w.payoutStatus === 'pending' ? 'pending' :
              w.payoutStatus === 'paid' ? 'completed' :
              w.payoutStatus === 'cancelled' ? 'rejected' :
-             w.payoutStatus // fallback
+             w.payoutStatus, // fallback
+      payoutMethod: w.payoutMethod,
+      bankDetails: w.bank ? {
+        id: w.bank.id,
+        bankName: w.bank.bankName,
+        accountNumber: w.bank.accountNumber,
+        accountName: w.bank.accountName,
+        bankCode: w.bank.bankCode,
+      } : null
     }));
+    this.logger.log(colors.green('Withdrawal requests fetched successfully.'));
     return new ApiResponse(true, 'Withdrawal requests fetched.', formatted);
   }
 }

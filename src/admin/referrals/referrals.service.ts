@@ -83,51 +83,7 @@ export class ReferralsService {
                 };
             }));
 
-            // 4. Overview (summary and trends)
-            // Use 'This Year' as selected timeframe
             const now = new Date();
-            // const startOfYear = new Date(now.getFullYear(), 0, 1);
-            // const endOfYear = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
-            // const [
-            //     yearRevenueAgg,
-            //     yearClicks,
-            //     yearConversions,
-            //     yearNewAffiliates
-            // ] = await Promise.all([
-            //     this.prisma.commissionReferral.aggregate({ _sum: { amount: true }, where: { createdAt: { gte: startOfYear, lte: endOfYear } } }),
-            //     this.prisma.referral.count({ where: { createdAt: { gte: startOfYear, lte: endOfYear } } }),
-            //     this.prisma.referral.count({ where: { isUsed: true, createdAt: { gte: startOfYear, lte: endOfYear } } }),
-            //     this.prisma.affiliate.count({ where: { createdAt: { gte: startOfYear, lte: endOfYear } } })
-            // ]);
-            // Trend data: last 12 months
-            // const trendData = await Promise.all(Array.from({ length: 12 }).map(async (_, i) => {
-            //     const month = i;
-            //     const year = now.getFullYear();
-            //     const start = new Date(year, month, 1);
-            //     const end = new Date(year, month + 1, 1);
-            //     const revenueAgg = await this.prisma.commissionReferral.aggregate({ _sum: { amount: true }, where: { createdAt: { gte: start, lt: end } } });
-            //     const clicks = await this.prisma.referral.count({ where: { createdAt: { gte: start, lt: end } } });
-            //     const conversions = await this.prisma.referral.count({ where: { isUsed: true, createdAt: { gte: start, lt: end } } });
-            //     return {
-            //         date: start.toISOString().slice(0, 7), // YYYY-MM
-            //         revenue: Number(revenueAgg._sum.amount || 0),
-            //         clicks,
-            //         conversions
-            //     };
-            // }));
-            // const overview = {
-            //     timeframes: ['Today', 'This Week', 'This Month', 'This Year'],
-            //     selectedTimeframe: 'This Year',
-            //     summary: {
-            //         revenue: Number(yearRevenueAgg._sum.amount || 0),
-            //         clicks: yearClicks,
-            //         conversions: yearConversions,
-            //         newAffiliates: yearNewAffiliates
-            //     },
-            //     trendData
-            // };
-
-            // 5. Payouts (pending and completed commissions)
             const payoutsRaw = await this.prisma.withdrawalRequest.findMany({
                 orderBy: { createdAt: 'desc' },
                 take: 10
@@ -499,31 +455,31 @@ export class ReferralsService {
     /**
      * Get all affiliate links for a user
      */
-    async getAffiliateLinksForUser(userId: string) {
-        this.logger.log('Fetching affiliate links for user...');
-        try {
-            const links = await this.prisma.affiliateLink.findMany({
-                where: { userId },
-                include: {
-                    product: true
-                }
-            });
-            this.logger.log('Affiliate links fetched successfully.');
-            return {
-                success: true,
-                message: 'Affiliate links fetched successfully.',
-                data: links
-            };
-        } catch (error) {
-            this.logger.error('Error fetching affiliate links:', error);
-            return {
-                success: false,
-                message: 'Failed to fetch affiliate links.',
-                data: null,
-                error: error?.message || error
-            };
-        }
-    }
+    // async getAffiliateLinksForUser(userId: string) {
+    //     this.logger.log('Fetching affiliate links for user...');
+    //     try {
+    //         const links = await this.prisma.affiliateLink.findMany({
+    //             where: { userId },
+    //             include: {
+    //                 product: true
+    //             }
+    //         });
+    //         this.logger.log('Affiliate links fetched successfully.');
+    //         return {
+    //             success: true,
+    //             message: 'Affiliate links fetched successfully.',
+    //             data: links
+    //         };
+    //     } catch (error) {
+    //         this.logger.error('Error fetching affiliate links:', error);
+    //         return {
+    //             success: false,
+    //             message: 'Failed to fetch affiliate links.',
+    //             data: null,
+    //             error: error?.message || error
+    //         };
+    //     }
+    // }
 
     /**
      * Track a click on an affiliate link (by slug)
@@ -1078,7 +1034,7 @@ export class ReferralsService {
                         allTimeEarning: wallet?.total_earned ?? 0,
                         availableForWithdrawal: wallet?.available_for_withdrawal ?? 0,
                         totalWithdrawn: wallet?.total_withdrawn ?? 0,
-                        pendingApproval: wallet?.awaiting_approval ?? 0
+                        pendingApproval: wallet?.commission_awaiting_approval ?? 0
                     },
                     withdrawalAccountDetails: {
                         bankName: bank?.bankName ?? '',
@@ -1166,10 +1122,10 @@ export class ReferralsService {
                 commissionReferralsPendingTotal
             ] = await Promise.all([
                 this.prisma.commissionReferral.findMany({
-                    skip,
-                    take: limit,
-                    orderBy: { createdAt: 'desc' },
-                    include: { user: true, order: true }
+                skip,
+                take: limit,
+                orderBy: { createdAt: 'desc' },
+                include: { user: true, order: true }
                 }),
                 this.prisma.commissionReferral.count(),
                 this.prisma.commissionReferral.findMany({
@@ -1371,7 +1327,7 @@ export class ReferralsService {
                 data: {
                     userId: commissionReferral.userId,
                     total_earned: 0,
-                    awaiting_approval: 0,
+                    commission_awaiting_approval: 0,
                     available_for_withdrawal: 0,
                     total_withdrawn: 0,
                     balance_before: 0,
@@ -1460,7 +1416,7 @@ export class ReferralsService {
                     commissionAmount: updatedCommissionReferral.amount || 0,
                     walletBefore: {
                         available: walletBefore.available_for_withdrawal ?? 0,
-                        pending: walletBefore.awaiting_approval ?? 0,
+                        pending: walletBefore.commission_awaiting_approval ?? 0,
                         total: walletBefore.total_earned ?? 0
                     },
                     walletAfter: {
@@ -1489,7 +1445,7 @@ export class ReferralsService {
         // Format wallet analysis
         const walletAnalysisBefore = {
             total_earned: walletBefore.total_earned,
-            awaiting_approval: walletBefore.awaiting_approval,
+            awaiting_approval: walletBefore.commission_awaiting_approval,
             available_for_withdrawal: walletBefore.available_for_withdrawal,
             total_withdrawn: walletBefore.total_withdrawn,
             balance_before: walletBefore.balance_before,

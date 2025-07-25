@@ -46,12 +46,12 @@ export class ReferralsController {
     }
 
     // Get all affiliate links for a user
-    @Get(':userId/links')
-    async getAffiliateLinksForUser(
-        @Param('userId') userId: string
-    ) {
-        return this.referralsService.getAffiliateLinksForUser(userId);
-    }
+    // @Get(':userId/links')
+    // async getAffiliateLinksForUser(
+    //     @Param('userId') userId: string
+    // ) {
+    //     return this.referralsService.getAffiliateLinksForUser(userId);
+    // }
 
     // Track click on affiliate link
     @Post('link/:slug/click')
