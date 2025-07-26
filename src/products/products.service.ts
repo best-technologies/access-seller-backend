@@ -74,6 +74,8 @@ export class ProductsService {
       });
     });
 
+    this.logger.log(`[getAllPublicProductsSections] Available categories: ${availableCategories.size}`);
+
     // New Arrivals: last 10 products added
     const newArrivals = await this.prisma.product.findMany({
       orderBy: { createdAt: 'desc' },
@@ -476,7 +478,7 @@ export class ProductsService {
         include: {
           categories: { select: { id: true, name: true } },
         },
-        take: 10,
+        take: 20,
         orderBy: { createdAt: 'desc' },
       });
       this.logger.log(`[searchSuggestions] Found ${products.length} results for query '${q}'.`);

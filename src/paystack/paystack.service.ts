@@ -249,6 +249,7 @@ export class PaystackService {
             paystackReference: paystackResponse.data.data.reference,
             paystackAuthorizationUrl: paystackResponse.data.data.authorization_url,
             paystackAccessCode: paystackResponse.data.data.access_code,
+            orderPaymentMethod: 'payment_gateway',
           }
         });
       } catch (error) {
@@ -392,8 +393,8 @@ export class PaystackService {
               const orderItem = updatedOrder.items[0]; // Since affiliate orders have single items
               const productCommission = orderItem.product.commission;
               
-              // Calculate commission using the product's commission percentage
-              const commissionPercentage = productCommission ? parseFloat(productCommission) : 20; // Default to 20% if not set
+              // Calculate commission using the product's commission percentage or fallback to env
+              const commissionPercentage = productCommission ? parseFloat(productCommission) : parseFloat(process.env.AFFILIATE_COMMISSION_PERCENT || '20');
               commissionAmount = (updatedOrder.total_amount * commissionPercentage) / 100;
               this.logger.log(`order total value: ${existingOrder.total_amount}`);
               this.logger.log(`commission amount: ${commissionAmount}`);
@@ -719,7 +720,7 @@ export class PaystackService {
       ));
 
       return { order };
-    }, { timeout: 20000 }); // 20 seconds
+    }, { timeout: 10000 }); // 10 seconds
 
     // 3. Prepare Paystack payload
     const amount = Math.round((dto.partialPayment?.payNow || dto.total) * 100);
@@ -922,8 +923,8 @@ export class PaystackService {
 
               // amount earned should be the commission amount (not commissionPercentage * total)
               const amountEarned = commissionAmount;
-              this.logger.log(`Total purchase cost: ${updatedOrder.total_amount}`);
-              this.logger.log(`Total referral earning: ${amountEarned}`);
+              // this.logger.log(`Total purchase cost: ${updatedOrder.total_amount}`);
+              // this.logger.log(`Total referral earning: ${amountEarned}`);
               
               
               // update users wallet (logic unchanged)
@@ -1188,7 +1189,8 @@ export class PaystackService {
         orderPaymentStatus: 'awaiting_verification',
         shipmentStatus: "awaiting_verification",
         trackingNumber,
-        paymentMethod: "bank_deposit",
+        // paymentMethod: "bank_deposit",
+        orderPaymentMethod: 'bank_deposit',
         isPartialPayment: !!dto.partialPayment,
         partialPayNow: dto.partialPayment?.payNow,
         partialPayLater: dto.partialPayment?.payLater,

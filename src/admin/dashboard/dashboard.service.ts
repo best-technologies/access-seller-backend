@@ -38,10 +38,19 @@ export class DashboardService {
                     }
                 })
             ]);
+
+            // Order counts by shipping status
+            const shipmentStatuses = ['awaiting_payment', 'processing', 'in_transit', 'awaiting_verification'];
+            const orderCountsByShippingStatus: Record<string, number> = {};
+            await Promise.all(shipmentStatuses.map(async status => {
+                orderCountsByShippingStatus[status] = await this.prisma.order.count({ where: { shipmentStatus: status as any } });
+            }));
+
             const revenueCard = {
                 allTimeRevenue: Math.round(totalRevenueAgg._sum.total_amount || 0),
                 juneRevenue: Math.round(juneRevenueAgg._sum.total_amount || 0),
-                mayRevenue: Math.round(mayRevenueAgg._sum.total_amount || 0)
+                mayRevenue: Math.round(mayRevenueAgg._sum.total_amount || 0),
+                orderCountsByShippingStatus
             };
 
             // Order stats

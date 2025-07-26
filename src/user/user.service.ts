@@ -196,6 +196,7 @@ export class UserService {
           buyerName: order ? order.user?.first_name + ' ' + order.user?.last_name : '',
           buyerEmail: order ? order.user?.email : '',
           orderAmount: order ? formatAmount(order.total_amount) : '',
+          payment_channel: order?.orderPaymentMethod,
           // withdrawalStatus: order ? order.withdrawalStatus : '',
           displayImage: order?.items?.[0]?.product?.displayImages?.[0]?.secure_url,
           commissionEarned: formatAmount(record.amount || 0),
@@ -626,6 +627,8 @@ export class UserService {
         this.logger.log(colors.red('You do not have an active wallet, kindly contact support.'));
         return new ApiResponse(false, 'You do not have an active wallet, kindly contact support.');
       }
+
+      console.log("WALLET", wallet);
 
       // confirm that the withdrawal amount is less than the available balance for withdrawal
       if(Number(dto.amount) > Number(wallet.available_for_withdrawal)) {

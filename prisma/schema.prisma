@@ -4,7 +4,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url = env("DATABASE_URL")
+  url      = env("DATABASE_URL")
 }
 
 model Store {
@@ -122,6 +122,7 @@ model Product {
   allowCustomerReview Boolean?
   purchaseNote        String?
   tags                String[]
+  inStock             Boolean              @default(true)
   AffiliateLink       AffiliateLink[]
   cartItems           CartItem[]
   CommissionReferral  CommissionReferral[]
@@ -207,7 +208,7 @@ model Order {
   paystackAuthorizationUrl String?
   paystackAccessCode       String?
   bankDepositSlips         Json?
-  paymentMethod            OrderPaymentmethod?   @default(paystack)
+  orderPaymentMethod       OrderPaymentmethod?   @default(payment_gateway)
   orderStatus              OrderStatus?          @default(pending)
   commissions              Commission[]
   CommissionReferral       CommissionReferral[]
@@ -379,7 +380,7 @@ model AffiliateLink {
   commission Float    @default(0)
   product    Product  @relation(fields: [productId], references: [id])
   user       User     @relation(fields: [userId], references: [id])
-  status     String?   @default("active")
+  status     String?  @default("active")
 
   @@unique([userId, productId])
 }
@@ -453,7 +454,7 @@ model Wallet {
   id                           String   @id @default(cuid())
   userId                       String   @unique
   total_earned                 Float    @default(0)
-  commission_awaiting_approval            Float?   @default(0)
+  commission_awaiting_approval Float?   @default(0)
   available_for_withdrawal     Float    @default(0)
   withdrawal_awaiting_approval Float?   @default(0)
   total_withdrawn              Float    @default(0)
@@ -695,6 +696,7 @@ enum orderPaymentStatus {
 
 enum OrderPaymentmethod {
   paystack
+  payment_gateway
   bank_deposit
 }
 

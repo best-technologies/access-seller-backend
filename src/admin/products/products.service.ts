@@ -963,22 +963,63 @@ export class ProductsService {
             console.log('[BulkImport] No file uploaded');
             throw new BadRequestException('No file uploaded');
         }
+
+        console.log(`[BulkImport] File received: ${file.originalname}, size: ${file.size}, mimetype: ${file.mimetype}`);
+
         let records;
         try {
-            records = csv.parse(file.buffer.toString(), {
-                columns: true,
-                skip_empty_lines: true,
-                trim: true
-            });
+            // Check if it's an Excel file
+            if (file.mimetype === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' || 
+                file.originalname.endsWith('.xlsx')) {
+                console.log('[BulkImport] Processing as Excel file');
+                const workbook = XLSX.read(file.buffer, { type: 'buffer' });
+                const sheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[sheetName];
+                records = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+                
+                // Convert to CSV-like format
+                if (records.length > 0) {
+                    const headers = records[0];
+                    records = records.slice(1).map(row => {
+                        const obj: any = {};
+                        headers.forEach((header: string, index: number) => {
+                            obj[header] = row[index] || '';
+                        });
+                        return obj;
+                    });
+                }
+            } else {
+                // Process as CSV
+                console.log('[BulkImport] Processing as CSV file');
+                const fileContent = file.buffer.toString('utf8');
+                console.log('[BulkImport] File content preview:', fileContent.substring(0, 500));
+                
+                records = csv.parse(fileContent, {
+                    columns: true,
+                    skip_empty_lines: true,
+                    trim: true,
+                    relax_quotes: true,
+                    relax_column_count: true
+                });
+            }
         } catch (err) {
-            console.log('[BulkImport] Invalid CSV file');
-            throw new BadRequestException('Invalid CSV file');
+            console.log('[BulkImport] CSV/Excel parsing error:', err);
+            console.log('[BulkImport] Error details:', {
+                message: err.message,
+                stack: err.stack,
+                fileSize: file.size,
+                mimetype: file.mimetype,
+                originalname: file.originalname
+            });
+            throw new BadRequestException(`Invalid file format. Please ensure it's a valid CSV or Excel file. Error: ${err.message}`);
         }
+
         console.log(`[BulkImport] Starting bulk import: ${records.length} rows`);
         if (records.length === 0) {
-            console.log('[BulkImport] CSV file is empty');
-            return new ApiResponse(false, 'CSV file is empty', { results: [], errors: [] });
+            console.log('[BulkImport] File is empty or has no data rows');
+            return new ApiResponse(false, 'File is empty or has no data rows', { results: [], errors: [] });
         }
+
         // Log first 5 rows for debugging
         records.slice(0, 5).forEach((row, idx) => {
             console.log(`[BulkImport] Row ${idx + 1}:`, row);
@@ -995,25 +1036,29 @@ export class ProductsService {
             try {
                 // Map CSV columns to Product fields
                 const productData: any = {
-                    bookId: row['bookId'] || undefined,
-                    sku: row['SKU'] || undefined,
+                    bookId: row['ID'] ? String(row['ID']) : undefined,
+                    sku: row['SKU'] ? String(row['SKU']) : undefined,
                     name: row['Name'],
                     isFeatured: row['Is featured?'] === '1',
+                    author: row['Short description'] || undefined,
                     status: row['Visibility in catalog'] === 'active' ? 'active' : 'inactive',
                     description: row['Description'] || '',
+                    inStock: row['In stock?'] === '1',
                     shortDescription: row['Short description'] || '',
                     taxStatus: row['Tax status'] || undefined,
-                    stock: parseInt(row['Stock'] || row['total stock'] || '0', 10),
-                    backorders: row['Backorders allowed?'] === '1',
-                    soldIndividually: row['Sold individually?'] === '1',
+                    stock: parseInt(row['Stock'] || row['total stock'] || '0', 100),
+                    backorders: row['Backorders allowed?'] === '0',
+                    soldIndividually: row['Sold individually?'] === '0',
                     weight: row['Weight (kg)'] ? parseFloat(row['Weight (kg)']) : undefined,
                     length: row['Length (cm)'] ? parseFloat(row['Length (cm)']) : undefined,
                     width: row['Width (cm)'] ? parseFloat(row['Width (cm)']) : undefined,
                     height: row['Height (cm)'] ? parseFloat(row['Height (cm)']) : undefined,
                     allowCustomerReview: row['Allow customer reviews?'] !== '0',
                     purchaseNote: row['Purchase note'] || undefined,
-                    sellingPrice: parseFloat(row['Sale price'] || row['normal price'] || '0'),
-                    normalPrice: parseFloat(row['Regular price'] || row['selling price'] || '0'),
+                    sellingPrice: row['Regular price'] && !isNaN(Number(row['Regular price'])) ? parseFloat(row['Regular price']) : 0,
+                    normalPrice: row['Regular price'] && !isNaN(Number(row['Regular price']))
+                                ? parseFloat(row['Regular price'])
+                                : 0,
                     tags: row['Tags'] ? row['Tags'].split(',').map((t: string) => t.trim()) : [],
                     // Handle multiple images
                     displayImages: row['Images'] ? row['Images']
@@ -1044,6 +1089,151 @@ export class ProductsService {
                         productData.categories = { connect: categoryIds.map(id => ({ id })) };
                     }
                 }
+
+                // Formats: handle special logic for simple/downloadable types
+                if (row['Type']) {
+                    const formatTypes = row['Type'].split(',').map((f: string) => f.trim().toLowerCase()).filter(Boolean);
+                    
+                    // Create all formats in the database (including virtual)
+                    const allFormatIds: string[] = [];
+                    for (const formatName of formatTypes) {
+                        let format = await this.prisma.format.findFirst({ where: { name: formatName } });
+                        if (!format) {
+                            format = await this.prisma.format.create({
+                                data: {
+                                    name: formatName,
+                                    isActive: true,
+                                }
+                            });
+                        }
+                        allFormatIds.push(format.id);
+                    }
+                    
+                    // Filter out 'virtual' and only process 'simple' and 'downloadable' for product creation
+                    const validFormats = formatTypes.filter((type: string) => type === 'simple' || type === 'downloadable');
+                    
+                    // Map format types
+                    const formatMappings: { [key: string]: string } = {
+                        'simple': 'hardcopy',
+                        'downloadable': 'ebook'
+                    };
+                    
+                    const mappedFormats = validFormats.map(type => formatMappings[type] || type);
+                    
+                    // Determine product creation logic
+                    const hasSimple = validFormats.includes('simple');
+                    const hasDownloadable = validFormats.includes('downloadable');
+                    
+                    let productsToCreate: Array<{ name: string; formats: string[] }> = [];
+                    
+                    if (hasSimple && hasDownloadable) {
+                        // Create two products
+                        productsToCreate = [
+                            { name: row['Name'], formats: ['hardcopy'] },
+                            { name: `${row['Name']} [E-Book]`, formats: ['ebook'] }
+                        ];
+                    } else if (hasSimple) {
+                        // Create one product without suffix (hardcopy)
+                        productsToCreate = [
+                            { name: row['Name'], formats: ['hardcopy'] }
+                        ];
+                    } else if (hasDownloadable) {
+                        // Create one product with [E-Book] suffix
+                        productsToCreate = [
+                            { name: `${row['Name']} [E-Book]`, formats: ['ebook'] }
+                        ];
+                    }
+                    
+                    // Create products for each format combination
+                    for (const productConfig of productsToCreate) {
+                        const productData: any = {
+                            bookId: row['ID'] ? String(row['ID']) : undefined,
+                            sku: row['SKU'] ? String(row['SKU']) : undefined,
+                            author: row['Short description'] || undefined,
+                            name: productConfig.name,
+                            isFeatured: row['Is featured?'] === '1',
+                            stock: row['Stock'] ? parseInt(row['Stock']) : 100,
+                            inStock: row['In stock?'] === '1',
+                            backorders: row['Backorders allowed?'] === '0',
+                            soldIndividually: row['Sold individually?'] === '0',
+                            weight: row['Weight (kg)'] ? parseFloat(row['Weight (kg)']) : undefined,
+                            length: row['Length (cm)'] ? parseFloat(row['Length (cm)']) : undefined,
+                            width: row['Width (cm)'] ? parseFloat(row['Width (cm)']) : undefined,
+                            height: row['Height (cm)'] ? parseFloat(row['Height (cm)']) : undefined,
+                            description: row['Description'] || undefined,
+                            sellingPrice: row['Regular price'] ? parseFloat(row['Regular price']) : undefined,
+                            normalPrice: row['Regular price'] && !isNaN(Number(row['Regular price']))
+                                ? parseFloat(row['Regular price'])
+                                : 0,
+                            commission: row['Commission'] ? parseFloat(row['Commission']) : undefined,
+                            // stock: row['Stock'] ? parseInt(row['Stock']) : 10,
+                            publishedDate: row['Published date'] ? new Date(row['Published date']) : undefined,
+                            isActive: row['Active'] === 'true' || row['Active'] === '1',
+                            storeId: defaultStoreId,
+                            // ... rest of the fields
+                        };
+
+                        // Handle images
+                        if (row['Images']) {
+                            const imageUrls = row['Images']
+                                .split(',')
+                                .map((url: string) => url.trim())
+                                .filter((url: string) => url.length > 0);
+                            productData.displayImages = imageUrls;
+                        }
+
+                        // Categories: resolve by name (assume comma-separated), create if missing
+                        if (row['Categories']) {
+                            const categoryNames = row['Categories'].split(',').map((c: string) => c.trim()).filter(Boolean);
+                            const categoryIds: string[] = [];
+                            for (const name of categoryNames) {
+                                let category = await this.prisma.category.findFirst({ where: { name } });
+                                if (!category) {
+                                    category = await this.prisma.category.create({
+                                        data: {
+                                            name,
+                                            storeId: defaultStoreId,
+                                            isActive: true,
+                                        }
+                                    });
+                                }
+                                categoryIds.push(category.id);
+                            }
+                            productData.categories = { connect: categoryIds.map(id => ({ id })) };
+                        }
+
+                        // Handle formats for this product (only the ones that should create products)
+                        const formatIds: string[] = [];
+                        for (const formatName of productConfig.formats) {
+                            let format = await this.prisma.format.findFirst({ where: { name: formatName } });
+                            if (!format) {
+                                format = await this.prisma.format.create({
+                                    data: {
+                                        name: formatName,
+                                        isActive: true,
+                                    }
+                                });
+                            }
+                            formatIds.push(format.id);
+                        }
+                        productData.formats = { connect: formatIds.map(id => ({ id })) };
+
+                        // Create the product
+                        const product = await this.prisma.product.create({
+                            data: productData,
+                            include: {
+                                categories: true,
+                                formats: true,
+                            }
+                        });
+                        results.push(product);
+                    }
+                    
+                    // Skip the rest of the loop since we've handled this row
+                    continue;
+                }
+                
+                // Handle rows without Type field (legacy format)
                 // Save product
                 const created = await this.prisma.product.create({ data: productData });
                 results.push({ row: i + 1, id: created.id });
@@ -1208,4 +1398,4 @@ export class ProductsService {
             throw error;
         }
     }
-} 
+}
