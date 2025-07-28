@@ -12,6 +12,7 @@ import { AuthModule } from './auth/auth.module';
 import { SharedModule } from './shared/shared.module';
 import { AdminModule } from './admin/admin.module';
 import { PaystackModule } from './paystack/paystack.module';
+import { PaystackWebhookModule } from './paystack/webhook/paystack-webhook.module';
 import { ProductsModule } from './products/products.module';
 import { UserModule } from './user/user.module';
 import { DiscountModule } from './discount/discount.module';
@@ -32,6 +33,7 @@ import { OrderModule } from './order/order.module';
     SharedModule,
     AdminModule,
     PaystackModule,
+    PaystackWebhookModule,
     ProductsModule,
     UserModule,
     DiscountModule,

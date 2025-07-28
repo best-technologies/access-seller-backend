@@ -14,6 +14,13 @@ import { CheckoutFromCartDto, VerifyAccountNumberDto } from './dto/paystack.dto'
 import * as argon2 from 'argon2';
 import { generateOrderId, generateTrackingId } from '../shared/helper-functions/generator';
 
+let paystackSecretKey: string;
+if(process.env.NODE_ENV === "production") {
+  paystackSecretKey = process.env.PAYSTACK_LIVE_SECRET_KEY || "";
+} else {
+  paystackSecretKey = process.env.PAYSTACK_TEST_SECRET_KEY || "";
+}
+
 
 @Injectable()
 export class PaystackService {
@@ -61,7 +68,7 @@ export class PaystackService {
         payload,
         {
           headers: {
-            Authorization: `Bearer ${process.env.PAYSTACK_TEST_SECRET_KEY}`,
+            Authorization: `Bearer ${paystackSecretKey}`,
             'Content-Type': 'application/json',
           },
         },
@@ -236,7 +243,7 @@ export class PaystackService {
           payload,
           {
             headers: {
-              Authorization: `Bearer ${process.env.PAYSTACK_TEST_SECRET_KEY}`,
+              Authorization: `Bearer ${paystackSecretKey}`,
               'Content-Type': 'application/json',
             },
           },
@@ -321,7 +328,7 @@ export class PaystackService {
         try {
             response = await axios.get(`https://api.paystack.co/transaction/verify/${dto.reference}`, {
                 headers: {
-                    Authorization: `Bearer ${process.env.PAYSTACK_TEST_SECRET_KEY}`
+                    Authorization: `Bearer ${paystackSecretKey}`
                 }
             });
         } catch (error) {
@@ -751,7 +758,7 @@ export class PaystackService {
         payload,
         {
           headers: {
-            Authorization: `Bearer ${process.env.PAYSTACK_TEST_SECRET_KEY}`,
+            Authorization: `Bearer ${paystackSecretKey}`,
             'Content-Type': 'application/json',
           },
         },
@@ -816,7 +823,7 @@ export class PaystackService {
         try {
             response = await axios.get(`https://api.paystack.co/transaction/verify/${dto.reference}`, {
                 headers: {
-                    Authorization: `Bearer ${process.env.PAYSTACK_TEST_SECRET_KEY}`
+                    Authorization: `Bearer ${paystackSecretKey}`
                 }
             });
         } catch (error) {
@@ -1364,7 +1371,7 @@ export class PaystackService {
     try {
           response = await axios.get(`https://api.paystack.co/bank`, {
           headers: {
-            Authorization: `Bearer ${process.env.PAYSTACK_TEST_SECRET_KEY}`,
+            Authorization: `Bearer ${paystackSecretKey}`,
             'Content-Type': 'application/json',
           },
         });
@@ -1404,7 +1411,7 @@ export class PaystackService {
         const response = await axios.get(`https://api.paystack.co/bank/resolve`, {
             params: reqBody,
             headers: {
-                Authorization: `Bearer ${process.env.PAYSTACK_TEST_SECRET_KEY}`
+                Authorization: `Bearer ${paystackSecretKey}`
             }
         });
 
