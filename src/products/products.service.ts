@@ -74,7 +74,7 @@ export class ProductsService {
       });
     });
 
-    this.logger.log(`[getAllPublicProductsSections] Available categories: ${availableCategories.size}`);
+    this.logger.log(`Available categories: ${availableCategories.size}`);
 
     // New Arrivals: last 10 products added
     const newArrivals = await this.prisma.product.findMany({

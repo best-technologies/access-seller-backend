@@ -93,7 +93,7 @@ export class VerifyEmailOTPDto {
     otp: string
 }
 
-export class VerifyresetOtp {
+export class VerifyOTPAndResetPasswordDTO {
     @IsString()
     @IsNotEmpty()
     otp: string
@@ -101,6 +101,10 @@ export class VerifyresetOtp {
     @IsString()
     @IsNotEmpty()
     email: string
+
+    @IsString()
+    @IsNotEmpty()
+    new_password: string
 }
 
 export class ResetPasswordDTO {
@@ -110,7 +114,7 @@ export class ResetPasswordDTO {
     
     @IsString()
     @IsNotEmpty()
-    confirm_password: string
+    otp: string
 
     @IsString()
     @IsNotEmpty()

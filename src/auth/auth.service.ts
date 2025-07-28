@@ -4,7 +4,7 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import * as argon from 'argon2';
 import { ResponseHelper } from 'src/shared/helper-functions/response.helpers';
 import { formatDate } from 'src/shared/helper-functions/formatter';
-import { loggedInUserProfileDto, RegisterDto, RequestLoginOtpDTO, RequestPasswordResetDTO, ResetPasswordDTO, SignInDto, VerifyEmailOTPDto, VerifyresetOtp } from 'src/shared/dto/auth.dto';
+import { RegisterDto, RequestLoginOtpDTO, RequestPasswordResetDTO, ResetPasswordDTO, SignInDto, VerifyEmailOTPDto, VerifyOTPAndResetPasswordDTO } from 'src/shared/dto/auth.dto';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { CloudinaryService } from 'src/shared/services/cloudinary.service';
@@ -540,8 +540,8 @@ export class AuthService {
         }
     }
 
-    async verifyResetPasswordOTP(dto: VerifyresetOtp) {
-        this.logger.log(`Verifying email: ${dto.email} with OTP: ${dto.otp}`);
+    async verifyOTPAndResetPassword(dto: VerifyOTPAndResetPasswordDTO) {
+        this.logger.log(`Verifying otp and resetting password...`);
 
         try {
             // Find user with matching email and OTP
@@ -568,27 +568,31 @@ export class AuthService {
                 throw new BadRequestException("Invalid or expired OTP provided");
             }
 
-            // Update user with verified OTP and clear OTP fields
-            const updatedUser = await this.prisma.user.update({
+            // Hash the new password
+            const hashedPassword = await argon.hash(dto.new_password);
+
+            // Update user with new password and clear OTP fields
+            await this.prisma.user.update({
                 where: { id: user.id },
                 data: {
-                    is_otp_verified: true,
+                    password: hashedPassword,
+                    is_otp_verified: false, // Reset OTP verification status
                     otp: "",
                     otp_expires_at: null,
                 },
             });
 
-            this.logger.log("OTP successfully verified");
+            this.logger.log("Password reset successfully");
 
-            return new ApiResponse(true, "OTP verified successfully, Proceed and change your password");
+            return new ApiResponse(true, "Password reset successfully");
         } catch (error) {
-            this.logger.error("Error verifying OTP:", error);
+            this.logger.error("Error resetting password:", error);
 
             if (error instanceof HttpException) {
                 throw error;
             }
 
-            throw new InternalServerErrorException("OTP verification failed");
+            throw new InternalServerErrorException("Password reset failed");
         }
     }
 
@@ -596,26 +600,21 @@ export class AuthService {
         this.logger.log("Resetting password...");
 
         try {
-            // compare new_password and compare_password
-            if(dto.new_password !== dto.confirm_password) {
-                this.logger.warn("New password and confirm Password do not match")
-                throw new BadRequestException({
-                    success: false,
-                    message: "New password and confirm Password do not match",
-                    error: null,
-                    statusCode: 400
-                });
-            }
 
             const existingUser = await this.prisma.user.findFirst({
                 where: { 
                     email: dto.email,
-                    is_otp_verified: true
+                    // is_otp_verified: true
                 }
             });
 
             if (!existingUser || !existingUser.is_otp_verified) {
                 throw new BadRequestException("User not found or OTP not verified");
+            }
+
+            // check if the otp is valid
+            if(existingUser.otp !== dto.otp) {
+                throw new BadRequestException("Invalid or expired OTP entered");
             }
 
             // Hash the new password

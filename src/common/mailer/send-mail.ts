@@ -198,7 +198,7 @@ export const sendOnboardingMailToBTechAdmin = async (
   
     const mailOptions = {
       from: {
-        name: 'Smart Edu Hub',
+        name: 'Access Seller',
         address: process.env.EMAIL_USER as string,
       },
       to: email,
