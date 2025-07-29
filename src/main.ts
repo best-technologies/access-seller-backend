@@ -28,18 +28,18 @@ async function bootstrap() {
   // Get AppService instance from Nest application context
 
   // Cron job setup
-  if (process.env.CRON_ENV === 'production' || process.env.NODE_ENV === "production") {
-    cron.schedule('*/10 * * * *', async () => {
-      logger.log('Running a task every 10 minutes'); 
-      try {
-        const url = 'https://access-seller-backend.onrender.com/api/v1/hello';
-        const response = await axios.get(url);
-        logger.log(`Pinged endpoint, response: ${JSON.stringify(response.data)}`);
-      } catch (err) {
-        logger.error(`Error pinging endpoint: ${err.message}`);
-      }
-    });
-  }
+  // if (process.env.CRON_ENV === 'production' || process.env.NODE_ENV === "production") {
+  //   cron.schedule('*/10 * * * *', async () => {
+  //     logger.log('Running a task every 10 minutes'); 
+  //     try {
+  //       const url = 'https://access-seller-backend.onrender.com/api/v1/hello';
+  //       const response = await axios.get(url);
+  //       logger.log(`Pinged endpoint, response: ${JSON.stringify(response.data)}`);
+  //     } catch (err) {
+  //       logger.error(`Error pinging endpoint: ${err.message}`);
+  //     }
+  //   });
+  // }
 
   logger.log(`Server is running on port ${process.env.PORT ?? 2000}`);
 }
