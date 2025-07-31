@@ -68,6 +68,7 @@ model User {
   affiliateStatus             AffiliateStatus      @default(not_affiliate)
   createdAt                   DateTime             @default(now())
   updatedAt                   DateTime             @updatedAt
+  permissions                 String[]             @default([])
   Affiliate                   Affiliate?
   AffiliateLink               AffiliateLink[]
   banks                       Bank[]
@@ -85,6 +86,7 @@ model User {
   store                       Store?               @relation(fields: [store_id], references: [id])
   wallet                      Wallet?
   withdrawalRequests          WithdrawalRequest[]
+  userPermissions             UserPermission[]
 }
 
 model Product {
@@ -92,7 +94,6 @@ model Product {
   name                String
   description         String?
   sellingPrice        Float
-  normalPrice         Float
   stock               Int
   displayImages       Json?
   storeId             String?
@@ -123,6 +124,7 @@ model Product {
   purchaseNote        String?
   tags                String[]
   inStock             Boolean              @default(true)
+  normalPrice         Float
   AffiliateLink       AffiliateLink[]
   cartItems           CartItem[]
   CommissionReferral  CommissionReferral[]
@@ -208,8 +210,8 @@ model Order {
   paystackAuthorizationUrl String?
   paystackAccessCode       String?
   bankDepositSlips         Json?
-  orderPaymentMethod       OrderPaymentmethod?   @default(payment_gateway)
   orderStatus              OrderStatus?          @default(pending)
+  orderPaymentMethod       OrderPaymentmethod?   @default(payment_gateway)
   commissions              Commission[]
   CommissionReferral       CommissionReferral[]
   shippingAddress          ShippingAddress?      @relation(fields: [shippingAddressId], references: [id])
@@ -378,9 +380,9 @@ model AffiliateLink {
   clicks     Int      @default(0)
   orders     Int      @default(0)
   commission Float    @default(0)
+  status     String?  @default("active")
   product    Product  @relation(fields: [productId], references: [id])
   user       User     @relation(fields: [userId], references: [id])
-  status     String?  @default("active")
 
   @@unique([userId, productId])
 }
@@ -398,37 +400,36 @@ model CommissionPayout {
 }
 
 model WithdrawalRequest {
-  id                   String              @id @default(cuid())
-  payoutId             String?             @unique
-  userId               String
-  orderId              String?
-  commissionId         String?
-  buyerName            String?
-  buyerEmail           String?
-  totalPurchaseAmount  Float?
-  commissionAmount     Float?
-  withdrawal_amount    Float?
-  commissionPercentage String?
-  payoutMethod         String
-  bankId               String?
-  payoutStatus         WithdrawalStatus    @default(pending)
-  reference            String              @unique
-  requestedAt          DateTime            @default(now())
-  processedAt          DateTime?
-  processedBy          String?
-  notes                String?
-  rejectionReason      String?
-  createdAt            DateTime?           @default(now())
-  updatedAt            DateTime?           @updatedAt
-  commissionReferralId String?
-  bank                 Bank?               @relation(fields: [bankId], references: [id])
-  commission           Commission?         @relation(fields: [commissionId], references: [id])
-  CommissionReferral   CommissionReferral? @relation(fields: [commissionReferralId], references: [id])
-  order                Order?              @relation(fields: [orderId], references: [id])
-  user                 User                @relation(fields: [userId], references: [id])
-
-  availableBalanceBefore Float? @default(0)
-  availableBalanceAfter  Float? @default(0)
+  id                     String              @id @default(cuid())
+  payoutId               String?             @unique
+  userId                 String
+  orderId                String?
+  commissionId           String?
+  buyerName              String?
+  buyerEmail             String?
+  totalPurchaseAmount    Float?
+  commissionAmount       Float?
+  withdrawal_amount      Float?
+  commissionPercentage   String?
+  payoutMethod           String
+  bankId                 String?
+  payoutStatus           WithdrawalStatus    @default(pending)
+  reference              String              @unique
+  requestedAt            DateTime            @default(now())
+  processedAt            DateTime?
+  processedBy            String?
+  notes                  String?
+  rejectionReason        String?
+  createdAt              DateTime?           @default(now())
+  updatedAt              DateTime?           @updatedAt
+  commissionReferralId   String?
+  availableBalanceAfter  Float?              @default(0)
+  availableBalanceBefore Float?              @default(0)
+  bank                   Bank?               @relation(fields: [bankId], references: [id])
+  commission             Commission?         @relation(fields: [commissionId], references: [id])
+  CommissionReferral     CommissionReferral? @relation(fields: [commissionReferralId], references: [id])
+  order                  Order?              @relation(fields: [orderId], references: [id])
+  user                   User                @relation(fields: [userId], references: [id])
 
   @@index([userId])
   @@index([orderId])
@@ -454,14 +455,14 @@ model Wallet {
   id                           String   @id @default(cuid())
   userId                       String   @unique
   total_earned                 Float    @default(0)
-  commission_awaiting_approval Float?   @default(0)
   available_for_withdrawal     Float    @default(0)
-  withdrawal_awaiting_approval Float?   @default(0)
   total_withdrawn              Float    @default(0)
   balance_before               Float    @default(0)
   balance_after                Float    @default(0)
   createdAt                    DateTime @default(now())
   updatedAt                    DateTime @updatedAt
+  withdrawal_awaiting_approval Float?   @default(0)
+  commission_awaiting_approval Float?   @default(0)
   user                         User     @relation(fields: [userId], references: [id])
 
   @@index([userId])
@@ -512,6 +513,32 @@ model CommissionReferral {
   @@index([referrerId])
   @@index([referredId])
   @@index([productId])
+}
+
+model Permission {
+  id              String           @id @default(cuid())
+  name            String           @unique
+  displayName     String
+  category        String
+  description     String?
+  isActive        Boolean          @default(true)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  userPermissions UserPermission[]
+}
+
+model UserPermission {
+  id           String     @id @default(cuid())
+  userId       String
+  permissionId String
+  grantedAt    DateTime   @default(now())
+  grantedBy    String?
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, permissionId])
+  @@index([userId])
+  @@index([permissionId])
 }
 
 enum StoreStatus {
@@ -696,8 +723,8 @@ enum orderPaymentStatus {
 
 enum OrderPaymentmethod {
   paystack
-  payment_gateway
   bank_deposit
+  payment_gateway
 }
 
 enum CommissionReferralStatus {

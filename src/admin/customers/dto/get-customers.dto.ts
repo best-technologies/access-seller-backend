@@ -1,19 +1,13 @@
-import { IsOptional, IsString, IsNumber, IsIn, Min, Max, IsDateString } from 'class-validator';
-import { Transform } from 'class-transformer';
+import { IsOptional, IsString, IsNumber, IsEnum, IsDateString } from 'class-validator';
 
 export class GetCustomersDto {
     @IsOptional()
-    @Transform(({ value }) => parseInt(value))
     @IsNumber()
-    @Min(1)
-    page?: number = 1;
+    page?: number;
 
     @IsOptional()
-    @Transform(({ value }) => parseInt(value))
     @IsNumber()
-    @Min(1)
-    @Max(100)
-    limit?: number = 25;
+    limit?: number;
 
     @IsOptional()
     @IsString()
@@ -28,7 +22,7 @@ export class GetCustomersDto {
     phone?: string;
 
     @IsOptional()
-    @IsIn(['active', 'suspended', 'inactive'])
+    @IsString()
     status?: string;
 
     @IsOptional()
@@ -40,22 +34,23 @@ export class GetCustomersDto {
     endDate?: string;
 
     @IsOptional()
-    @Transform(({ value }) => parseFloat(value))
     @IsNumber()
-    @Min(0)
     minTotalValue?: number;
 
     @IsOptional()
-    @Transform(({ value }) => parseFloat(value))
     @IsNumber()
-    @Min(0)
     maxTotalValue?: number;
 
     @IsOptional()
-    @IsIn(['createdAt', 'totalOrders', 'totalValue', 'lastOrderDate'])
+    @IsString()
     sortBy?: string;
 
     @IsOptional()
-    @IsIn(['asc', 'desc'])
+    @IsEnum(['asc', 'desc'])
     sortOrder?: 'asc' | 'desc';
+}
+
+export class GetUserForEditDTO {
+    @IsString()
+    id: string;
 } 

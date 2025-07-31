@@ -161,6 +161,7 @@ export class DashboardService {
                     customerPhone: order.user?.phone_number || '',
                     orderAmount: formatAmount(Math.round(order.total_amount)),
                     paymentStatus: order.orderPaymentStatus || '',
+                    paymentMethod: order.orderPaymentMethod || '',
                     orderShippingStatus: order.shipmentStatus || '',
                     date: formatDateWithoutTime(order.createdAt),
                     totalItems: order.items.reduce((sum, item) => sum + item.quantity, 0),
