@@ -16,7 +16,7 @@ export class CategoryService {
     constructor(private prisma: PrismaService) {}
 
     async getAllCategories(req: any, page?: number, limit?: number, search?: string, storeId?: string) {
-        this.logger.log("Fetching all categories");
+        // this.logger.log("Fetching all categories");
 
         const whereClause: any = {};
         if (search) {
@@ -47,7 +47,7 @@ export class CategoryService {
             ]);
             const totalPages = Math.ceil(total / (limit || 10));
             
-            this.logger.log(`Total of ${categories.length} categories found`)
+            // this.logger.log(`Total of ${categories.length} categories found`)
             return new ApiResponse(true, '', {
                 pagination: {
                     currentPage: page || 1,
@@ -116,12 +116,12 @@ export class CategoryService {
     }
 
     async getAllGenres() {
-        this.logger.log('Fetching all genres...');
+        // this.logger.log('Fetching all genres...');
 
         try {
             const genres = await this.prisma.genre.findMany({ orderBy: { createdAt: 'desc' } });
 
-            this.logger.log(`Total of ${genres.length} genres found`);
+            // this.logger.log(`Total of ${genres.length} genres found`);
             const formattedGenres = genres.map(g => ({
                 id: g.id,
                 name: g.name,
@@ -173,10 +173,10 @@ export class CategoryService {
     }
 
     async getAllLanguages() {
-        this.logger.log('Fetching all languages...');
+        // this.logger.log('Fetching all languages...');
         try {
             const languages = await this.prisma.language.findMany({ orderBy: { createdAt: 'desc' } });
-            this.logger.log(`Total of ${languages.length} languages found`);
+            // this.logger.log(`Total of ${languages.length} languages found`);
             const formattedLanguages = languages.map(l => ({
                 id: l.id,
                 name: l.name,
@@ -227,10 +227,10 @@ export class CategoryService {
     }
 
     async getAllFormats() {
-        this.logger.log('Fetching all formats...');
+        // this.logger.log('Fetching all formats...');
         try {
             const formats = await this.prisma.format.findMany({ orderBy: { createdAt: 'desc' } });
-            this.logger.log(`Total of ${formats.length} formats found`);
+            // this.logger.log(`Total of ${formats.length} formats found`);
             const formattedFormats = formats.map(f => ({
                 id: f.id,
                 name: f.name,
@@ -281,10 +281,10 @@ export class CategoryService {
     }
 
     async getAllAgeRatings() {
-        this.logger.log('Fetching all age ratings...');
+        // this.logger.log('Fetching all age ratings...');
         try {
             const ageRatings = await this.prisma.ageRating.findMany({ orderBy: { createdAt: 'desc' } });
-            this.logger.log(`Total of ${ageRatings.length} age ratings found`);
+            // this.logger.log(`Total of ${ageRatings.length} age ratings found`);
             const formattedAgeRatings = ageRatings.map(a => ({
                 name: a.name,
                 description: a.description,
@@ -335,7 +335,7 @@ export class CategoryService {
 
     async getAllMetadata(req: any) {
         
-        this.logger.log("fetching metadata")
+        // this.logger.log("fetching metadata")
 
         try {
             // Fetch all in parallel

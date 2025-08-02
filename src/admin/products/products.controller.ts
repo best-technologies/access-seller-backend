@@ -3,6 +3,7 @@ import { FileFieldsInterceptor, FileInterceptor } from '@nestjs/platform-express
 import { ProductsService } from './products.service';
 import { JwtGuard } from '../../auth/guard';
 import { GetProductsDto, GetProductByIdDto } from './dto/get-products.dto';
+import { EditProductDTO } from './dto/edit-product.dto';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { DynamicFileFieldsInterceptor } from './interceptors/dynamic-file-fields.interceptor';
 
@@ -31,34 +32,7 @@ export class ProductsController {
             query.page,
             query.limit,
             query.search,
-            query.category,
-            query.status,
             query.format,
-            query.publisher,
-            query.author,
-            query.minPrice,
-            query.maxPrice,
-            query.inStock,
-            query.sortBy,
-            query.sortOrder
-        );
-    }
-    @Get()
-    async getAllProducts(@Query() query: GetProductsDto) {
-        return this.productsService.getAllProducts(
-            query.page,
-            query.limit,
-            query.search,
-            query.category,
-            query.status,
-            query.format,
-            query.publisher,
-            query.author,
-            query.minPrice,
-            query.maxPrice,
-            query.inStock,
-            query.sortBy,
-            query.sortOrder
         );
     }
 
@@ -126,6 +100,22 @@ export class ProductsController {
         @Query('limit') limit: number = 20
     ) {
         return this.productsService.getProductsByCategoryName(categoryName, Number(page), Number(limit));
+    }
+
+    @Get('edit/:id')
+    async getProductForEdit(@Param('id') id: string) {
+        return this.productsService.getProductForEdit(id);
+    }
+
+    @Put('edit/:id')
+    @UseInterceptors(FileInterceptor('coverImage'))
+    async editProduct(
+        @Param('id') id: string,
+        @Body() editProductDto: any, // Changed to any to handle multipart form data more flexibly
+        @UploadedFile() coverImage: Express.Multer.File
+    ) {
+        const coverImages = coverImage ? [coverImage] : [];
+        return this.productsService.editProduct(id, editProductDto, coverImages);
     }
 
 } 

@@ -4,6 +4,7 @@ import { ValidationPipe, Logger } from '@nestjs/common';
 import * as cron from 'node-cron';
 import axios from 'axios';
 import { AppService } from './app.service';
+import * as morgan from 'morgan';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
@@ -18,10 +19,44 @@ async function bootstrap() {
 
   app.setGlobalPrefix('api/v1');
   
+  // Setup Morgan logging middleware with custom format
+  const morganFormat = ':method :url :status :res[content-length] - :response-time ms';
+  app.use(morgan(morganFormat, {
+    stream: {
+      write: (message: string) => {
+        logger.log(`[HTTP Request] ${message.trim()}`);
+      },
+    },
+  }));
+
+  // Custom request logging middleware for better endpoint tracking
+  app.use((req, res, next) => {
+    // const start = Date.now();
+    const { method, url } = req;
+    
+    // Log the incoming request
+    logger.log(`🚀 [${method}] ${url}`);
+    
+    // Log response when it finishes
+    // res.on('finish', () => {
+    //   const duration = Date.now() - start;
+    //   const { statusCode } = res;
+      
+    //   // Color coding based on status
+    //   let statusEmoji = '✅';
+    //   if (statusCode >= 400) statusEmoji = '❌';
+    //   else if (statusCode >= 300) statusEmoji = '⚠️';
+      
+    //   logger.log(`${statusEmoji} [${method}] ${url} - ${statusCode} (${duration}ms)`);
+    // });
+    
+    next();
+  });
+  
   app.useGlobalPipes(new ValidationPipe({
     whitelist: true,
     transform: false, // Disable if not needed
-    forbidNonWhitelisted: true,
+    forbidNonWhitelisted: false, // Changed to false to allow unknown properties (like files)
   }));
   await app.listen(process.env.PORT || 3000);
 
