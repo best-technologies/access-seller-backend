@@ -1,9 +1,6 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe, Logger } from '@nestjs/common';
-import * as cron from 'node-cron';
-import axios from 'axios';
-import { AppService } from './app.service';
 import * as morgan from 'morgan';
 
 async function bootstrap() {

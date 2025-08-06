@@ -9,6 +9,7 @@ import { ReferralsModule } from './referrals/referrals.module';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Reflector } from '@nestjs/core';
 import { CategoryModule } from './category/category.module';
+import { CronModule } from './cron/cron.module';
 
 @Module({
     imports: [
@@ -17,7 +18,8 @@ import { CategoryModule } from './category/category.module';
         OrdersModule,
         CustomersModule,
         ReferralsModule,
-        CategoryModule
+        CategoryModule,
+        CronModule
     ],
     controllers: [AdminController],
     providers: [AdminService, RolesGuard, Reflector],

@@ -711,6 +711,12 @@ enum ShipmentStatus {
   processing
   in_transit
   awaiting_verification
+  delivered
+  cancelled
+  returned
+  lost
+  damaged
+  other
 }
 
 enum orderPaymentStatus {

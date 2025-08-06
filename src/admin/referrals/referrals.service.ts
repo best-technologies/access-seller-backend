@@ -152,8 +152,8 @@ export class ReferralsService {
 
             const formatted_withdrawal_request = withdrawalRequests.map(w => ({
               id: w.id,
-              payoutId: w.payoutId,
               userId: w.userId,
+              payoutId: w.payoutId,
               user: w.user,
               amount: w.commissionAmount ?? w.withdrawal_amount ?? 0,
               payoutMethod: w.payoutMethod,

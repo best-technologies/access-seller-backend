@@ -10,6 +10,7 @@ import { orderConfirmationBuyerTemplate } from "../email-templates/order-confirm
 import { orderConfirmationAdminTemplate } from "../email-templates/order-confirmation-admin";
 import { commissionApprovedTemplate, CommissionApprovedTemplateProps } from '../email-templates/commission-approved-template';
 import { referralUsedTemplate, ReferralUsedTemplateProps } from '../email-templates/referral-used-template';
+import { commissionApprovalReportTemplate, CommissionApprovalReportProps } from '../email-templates/commission-approval-report-template';
 
 const logger = new Logger('SendMail');
 
@@ -512,4 +513,43 @@ export async function sendReferralUsedMail(props: ReferralUsedTemplateProps, to:
         html: htmlContent,
     };
     await transporter.sendMail(mailOptions);
+}
+
+export async function sendCommissionApprovalReportMail(props: CommissionApprovalReportProps, adminEmails: string[]) {
+    try {
+        logger.log(`Sending commission approval report to ${adminEmails.length} admin(s)`);
+
+        if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
+            throw new Error("SMTP credentials missing in environment variables");
+        }
+
+        const transporter = nodemailer.createTransport({
+            service: 'gmail',
+            host: process.env.GOOGLE_SMTP_HOST,
+            port: process.env.GOOGLE_SMTP_PORT ? parseInt(process.env.GOOGLE_SMTP_PORT) : 587,
+            secure: false,
+            auth: {
+                user: process.env.EMAIL_USER,
+                pass: process.env.EMAIL_PASSWORD,
+            },
+        });
+
+        const htmlContent = commissionApprovalReportTemplate(props);
+
+        const mailOptions = {
+            from: {
+                name: 'Acces-Sellr Commission System',
+                address: process.env.EMAIL_USER as string,
+            },
+            to: adminEmails.join(', '),
+            subject: `📊 Commission Approval Report - ${props.reportDate}`,
+            html: htmlContent,
+        };
+
+        await transporter.sendMail(mailOptions);
+        logger.log(`Commission approval report sent successfully to ${adminEmails.length} admin(s)`);
+    } catch (error) {
+        logger.error(`Error sending commission approval report: ${error}`);
+        throw new Error('Failed to send commission approval report');
+    }
 }
