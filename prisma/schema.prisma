@@ -260,7 +260,7 @@ model ShippingInformation {
   depotId          String?
   depot            Depot?    @relation(fields: [depotId], references: [id])
   
-  // Delivery instructions (for doorstep)
+  // Delivery instructions (for doorstep) null
   deliveryInstructions String? 
   
   // Timestamps
