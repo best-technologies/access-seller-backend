@@ -55,8 +55,7 @@ async function bootstrap() {
     transform: false, // Disable if not needed
     forbidNonWhitelisted: false, // Changed to false to allow unknown properties (like files)
   }));
-  const port = Number(process.env.PORT) || 3000;
-  await app.listen(port, '0.0.0.0');
+  await app.listen(process.env.PORT || 3000);
 
   // Get AppService instance from Nest application context
 
@@ -74,6 +73,6 @@ async function bootstrap() {
   //   });
   // }
 
-  logger.log(`Server is running on port ${port}`);
+  logger.log(`Server is running on port ${process.env.PORT ?? 2000}`);
 }
 bootstrap();
