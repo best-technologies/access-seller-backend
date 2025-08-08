@@ -9,7 +9,7 @@ console.log('Current NODE_ENV:', env);
 // Map environment to database URL env variable
 const envToDbUrl = {
   development: 'DATABASE_URL',
-  production: 'DATABASE_URL_PRODUCTION'
+  production: 'DATABASE_URL'
 };
 
 // Get the correct database URL env variable name
