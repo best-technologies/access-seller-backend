@@ -565,7 +565,20 @@ export class PaystackService {
   }
 
   async checkoutFromCartWithPaystackInitialisation(dto: CheckoutFromCartDto) {
-    this.logger.log("Checking out from cart with paystack initialisation");
+    this.logger.log("Checking out from cart with paystack initialisation with data");
+    
+    // Get effective shipping method (from root or shippingInfo)
+    const shippingMethod = dto.shippingMethod || dto.shippingInfo?.shippingMethod;
+    const selectedDepotId = dto.selectedDepotId || dto.shippingInfo?.selectedDepotId;
+    
+    if (!shippingMethod) {
+      throw new BadRequestException('Shipping method is required');
+    }
+    
+    if (shippingMethod === 'pickup-depot' && !selectedDepotId) {
+      throw new BadRequestException('Depot ID is required for depot pickup');
+    }
+    
     // 1. Validate all products exist and have enough stock
     for (const item of dto.items) {
       const product = await this.prisma.product.findUnique({ where: { id: item.productId } });
@@ -581,6 +594,8 @@ export class PaystackService {
         );
       }
     }
+
+    // console.log("Data from dto:", dto);
 
     // --- Move non-DB operations outside transaction ---
     // Prepare user info
@@ -638,16 +653,14 @@ export class PaystackService {
 
     // --- Start transaction for DB-only operations ---
     const { order } = await this.prisma.$transaction(async (tx) => {
-      // Find or create shipping address
+      // Find or create shipping address for doorstep delivery
       let shippingAddressId: string | undefined = undefined;
-      if (dto.shippingInfo && userId) {
+      if (shippingMethod === 'doorstep' && dto.shippingInfo && userId) {
         let shippingAddress = await tx.shippingAddress.findFirst({
           where: {
             userId,
-            address: dto.shippingInfo.address || '',
             city: dto.shippingInfo.city || '',
             state: dto.shippingInfo.state || '',
-            houseAddress: dto.shippingInfo.houseAddress || '',
           }
         });
         if (!shippingAddress) {
@@ -676,21 +689,19 @@ export class PaystackService {
           storeId = firstProduct.storeId;
         }
       }
-      if (!storeId) {
-        const firstStore = await tx.store.findFirst();
-        if (!firstStore) throw new Error('No store found in the database to attach to the order.');
-        storeId = firstStore.id;
-      }
+      // if (!storeId) {
+      //   const firstStore = await tx.store.findFirst();
+      //   if (!firstStore) throw new Error('No store found in the database to attach to the order.');
+      //   storeId = firstStore.id;
+      // }
 
       // Prepare order data
       const orderData: any = {
         orderStatus: 'pending',
         orderId,
-        // total: dto.total,
         total_amount: dto.total,
-        shippingInfo: dto.shippingInfo || {},
         orderPaymentStatus: 'awaiting_payment',
-        shipmentStatus: "awaiting_payment",
+        shipmentStatus: 'awaiting_payment',
         trackingNumber,
         isPartialPayment: !!dto.partialPayment,
         partialPayNow: dto.partialPayment?.payNow,
@@ -706,12 +717,100 @@ export class PaystackService {
         promoDiscountAmount: dto.promoDiscountAmount,
         user: { connect: { id: userId } },
         store: { connect: { id: storeId } },
+        // shippingMethod, // Add shipping method to order
       };
-      if (shippingAddressId) {
+      
+      // Only connect shipping address for doorstep delivery
+      if (shippingMethod === 'doorstep' && shippingAddressId) {
         orderData.shippingAddress = { connect: { id: shippingAddressId } };
       }
-      // console.log("orderData just before create:", orderData);
-      const order = await tx.order.create({ data: orderData });
+      // Create the order
+      const order = await tx.order.create({ 
+        data: orderData,
+        include: { user: true } // Include user for shipping information
+      });
+
+      // Prepare shipping information
+      const shippingInfoData: any = {
+        order: { connect: { id: order.id } },
+        user: { connect: { id: userId } },
+        shippingMethod: shippingMethod,
+        isPickup: shippingMethod === 'pickup-depot' || shippingMethod === 'pickup-park',
+        trackingNumber: trackingNumber,
+        fullName: `${dto.shippingInfo?.firstName || ''} ${dto.shippingInfo?.lastName || ''}`.trim(),
+        phoneNumber: dto.shippingInfo?.phone || '',
+        email: dto.shippingInfo?.email || '',
+      };
+
+      // Add shipping details based on shipping method
+      switch (shippingMethod) {
+        case 'pickup-depot':
+          // For depot pickup, use depot address
+          if (selectedDepotId) {
+            const existingDepot = await tx.depot.findUnique({ where: { id: selectedDepotId } });
+            if (existingDepot) {
+              shippingInfoData.addressLine1 = existingDepot.depo_officer_house_address || '';
+              shippingInfoData.city = existingDepot.city || '';
+              shippingInfoData.state = existingDepot.state || '';
+              // Connect the depot using the relation
+              shippingInfoData.depot = {
+                connect: { id: existingDepot.id }
+              };
+            }
+          }
+          break;
+          
+        case 'pickup-park':
+          // For park pickup, store park location and pickup date
+          shippingInfoData.parkLocation = dto.shippingInfo?.parkLocation || '';
+          if (dto.shippingInfo?.pickupDate) {
+            shippingInfoData.pickupDate = new Date(dto.shippingInfo.pickupDate);
+          }
+          shippingInfoData.city = dto.shippingInfo?.city || '';
+          shippingInfoData.state = dto.shippingInfo?.state || '';
+          break;
+          
+        case 'doorstep':
+          // For doorstep delivery, store full address and delivery instructions
+          shippingInfoData.addressLine1 = dto.shippingInfo?.houseAddress || '';
+          shippingInfoData.addressLine2 = dto.shippingInfo?.address || '';
+          shippingInfoData.city = dto.shippingInfo?.city || '';
+          shippingInfoData.state = dto.shippingInfo?.state || '';
+          shippingInfoData.deliveryInstructions = dto.shippingInfo?.deliveryInstructions || '';
+          break;
+      }
+
+      // Log shipping information for debugging
+      // this.logger.log(`Saving shipping information for order with shipping method: ${dto.shippingMethod}`);
+      // this.logger.debug('Shipping info data:', JSON.stringify(shippingInfoData, null, 2));
+
+      // Log the shipping info data before creation
+      // this.logger.log('Attempting to create shipping information with data:', {
+      //   orderId: order.id,
+      //   userId,
+      //   shippingMethod: shippingMethod,
+      //   hasShippingInfo: !!dto.shippingInfo,
+      //   shippingInfoKeys: dto.shippingInfo ? Object.keys(dto.shippingInfo) : []
+      // });
+
+      let shippingInfo;
+      try {
+        // Create shipping information record using the transaction client so it can see the newly created order
+        shippingInfo = await tx.shippingInformation.create({
+          data: shippingInfoData,
+        });
+
+        this.logger.log(`Shipping information saved with ID: ${shippingInfo.id}`);
+      } catch (error) {
+        this.logger.error('Error creating shipping information:', {
+          error: error.message,
+          errorDetails: error,
+          shippingInfoData: JSON.stringify(shippingInfoData, (key, value) => 
+            key === 'password' ? '***' : value // Don't log sensitive data
+          )
+        });
+        throw new Error(`Failed to create shipping information: ${error.message}`);
+      }
 
       // Create order items
       await Promise.all(dto.items.map(item =>
@@ -747,6 +846,8 @@ export class PaystackService {
         total: dto.total,
         partialPayment: dto.partialPayment,
         fullPayment: dto.fullPayment,
+        shippingMethod: shippingMethod,
+        ...(selectedDepotId && { selectedDepotId }),
       },
     };
 

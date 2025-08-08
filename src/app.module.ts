@@ -17,6 +17,7 @@ import { ProductsModule } from './products/products.module';
 import { UserModule } from './user/user.module';
 import { DiscountModule } from './discount/discount.module';
 import { OrderModule } from './order/order.module';
+import { PublicModule } from './public/public.module';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { OrderModule } from './order/order.module';
     UserModule,
     DiscountModule,
     OrderModule,
+    PublicModule,
   ],
   controllers: [AppController],
   providers: [AppService],

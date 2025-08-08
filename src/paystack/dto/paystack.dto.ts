@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsString, IsArray, IsNumber, IsOptional, ValidateNested } from "class-validator";
+import { IsNotEmpty, IsString, IsArray, IsNumber, IsOptional, ValidateNested, IsEmail, IsIn } from "class-validator";
 import { Type } from 'class-transformer';
 
 export class VerifyAccountNumberDto {
@@ -59,28 +59,58 @@ export class FullPaymentDto {
 
 export class ShippingInfoDto {
   @IsString()
+  @IsNotEmpty()
   firstName: string;
 
   @IsString()
+  @IsNotEmpty()
   lastName: string;
 
   @IsString()
+  @IsEmail()
   email: string;
 
   @IsString()
+  @IsNotEmpty()
   phone: string;
 
   @IsString()
-  state: string;
+  @IsOptional()
+  state?: string;
 
   @IsString()
-  city: string;
+  @IsOptional()
+  city?: string;
 
   @IsString()
-  houseAddress: string;
+  @IsOptional()
+  houseAddress?: string;
 
   @IsString()
-  address: string;
+  @IsOptional()
+  address?: string;
+
+  @IsString()
+  @IsIn(['pickup-depot', 'pickup-park', 'doorstep'])
+  shippingMethod: 'pickup-depot' | 'pickup-park' | 'doorstep';
+
+  @IsString()
+  @IsOptional()
+  selectedDepotId?: string;
+
+  // Fields for pickup-park
+  @IsString()
+  @IsOptional()
+  parkLocation?: string;
+
+  @IsString()
+  @IsOptional()
+  pickupDate?: string;
+
+  // Fields for doorstep delivery
+  @IsString()
+  @IsOptional()
+  deliveryInstructions?: string;
 }
 
 export class CheckoutFromCartDto {
@@ -93,7 +123,17 @@ export class CheckoutFromCartDto {
   totalItems: number;
 
   @IsString()
+  @IsOptional()
   callbackUrl?: string;
+
+  @IsString()
+  @IsOptional()
+  @IsIn(['pickup-depot', 'pickup-park', 'doorstep'])
+  shippingMethod?: 'pickup-depot' | 'pickup-park' | 'doorstep';
+
+  @IsString()
+  @IsOptional()
+  selectedDepotId?: string;
 
   @IsOptional()
   @IsString()

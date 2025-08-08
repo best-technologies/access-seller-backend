@@ -373,7 +373,24 @@ export class CategoryService {
                 ageRatings: (ageRatingsData.ageRatings || []).map((a: any) => ({ id: a.id, name: this.capitalizeFirstLetter(a.name) }))
             };
 
-            return new ApiResponse(true, 'Fetched all metadata', formattedResponse);
+            // fetch for all depots
+            const depots = await this.prisma.depot.findMany({ where: { storeId: req.user.storeId } });
+            const formattedDepots = depots.map((d: any) => ({
+                id: d.id,
+                state: d.state,
+                city: d.city,
+                depot_officer_name: d.depot_officer_name,
+                depot_officer_email: d.depot_officer_email,
+                depot_officer_phone: d.depot_officer_phone,
+                depo_officer_house_address: d.depo_officer_house_address,
+                status: d.status,
+                createdAt: formatDate(d.createdAt),
+                updatedAt: formatDate(d.updatedAt),
+                createdByName: d.createdByName,
+                createdByEmail: d.createdByEmail
+            }));
+
+            return new ApiResponse(true, 'Fetched all metadata', { ...formattedResponse, depots: formattedDepots });
         } catch (error) {
             this.logger.error('Error fetching all metadata', error);
             return new ApiResponse(false, 'Error fetching all metadata');

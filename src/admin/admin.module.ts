@@ -8,7 +8,8 @@ import { CustomersModule } from './customers/customers.module';
 import { ReferralsModule } from './referrals/referrals.module';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Reflector } from '@nestjs/core';
-import { CategoryModule } from './category/category.module';
+import { CategoryModule } from './metadata/category.module';
+import { DepotModule } from './metadata/depot/depot.module';
 import { CronModule } from './cron/cron.module';
 
 @Module({
@@ -19,6 +20,7 @@ import { CronModule } from './cron/cron.module';
         CustomersModule,
         ReferralsModule,
         CategoryModule,
+        DepotModule,
         CronModule
     ],
     controllers: [AdminController],
