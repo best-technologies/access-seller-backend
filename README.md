@@ -97,3 +97,73 @@ Nest is an MIT-licensed open source project. It can grow thanks to the sponsors 
 ## License
 
 Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+
+### Database Backup (Production)
+
+Safely back up your production Postgres database (schema + data) on macOS.
+
+- Ensure CLI tools exist (once):
+
+```bash
+brew install libpq
+echo 'export PATH="/opt/homebrew/opt/libpq/bin:$PATH"' >> ~/.zshrc
+source ~/.zshrc
+```
+
+- Set connection (TLS recommended) and prepare a backup folder:
+
+```bash
+export DATABASE_URL='postgresql://<USER>:<PASSWORD>@<HOST>/<DB_NAME>?sslmode=require'
+TS=$(date +"%Y%m%d_%H%M%S")
+mkdir -p "$HOME/db_backups"
+```
+
+- Create a compressed archive backup (recommended):
+
+```bash
+pg_dump "$DATABASE_URL" \
+  --format=custom \
+  --blobs \
+  --no-owner \
+  --no-privileges \
+  --jobs=4 \
+  --compress=9 \
+  --file "$HOME/db_backups/<db_name>_${TS}.backup"
+```
+
+- Optionally also create a plain SQL backup:
+
+```bash
+pg_dump "$DATABASE_URL" \
+  --format=plain \
+  --blobs \
+  --no-owner \
+  --no-privileges \
+  > "$HOME/db_backups/<db_name>_${TS}.sql"
+```
+
+- Verify the backup files:
+
+```bash
+pg_restore -l "$HOME/db_backups/<db_name>_${TS}.backup" | head -50
+ls -lh "$HOME/db_backups/<db_name>_${TS}.backup" "$HOME/db_backups/<db_name>_${TS}.sql"
+shasum -a 256 "$HOME/db_backups/<db_name>_${TS}.backup"
+```
+
+- Restore later:
+
+```bash
+# From archive
+pg_restore --clean --if-exists --no-owner --no-privileges --exit-on-error \
+  --dbname="postgresql://<USER>:<PASSWORD>@<HOST>/<DB_NAME>?sslmode=require" \
+  "$HOME/db_backups/<db_name>_${TS}.backup"
+
+# From SQL
+psql "postgresql://<USER>:<PASSWORD>@<HOST>/<DB_NAME>?sslmode=require" \
+  -v ON_ERROR_STOP=1 -f "$HOME/db_backups/<db_name>_${TS}.sql"
+```
+
+Notes:
+- Replace placeholders `<USER>`, `<PASSWORD>`, `<HOST>`, `<DB_NAME>`, `<db_name>`.
+- `pg_dump` takes a consistent snapshot and does not block writes.
+- Store backups securely off the server (e.g., cloud storage with encryption).
