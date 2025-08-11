@@ -11,7 +11,7 @@
     "build:staging": "npm run prisma:generate:lean && npm run prisma:migrate && npx swc src -d dist -D",
     "prisma:generate:lean": "npm run prisma:use-env && prisma generate --no-engine",
     "start:staging": "node dist/main.js",
-    "start": "node --max-old-space-size=512 node_modules/@nestjs/cli/bin/nest.js start",
+    "start": "node node_modules/@nestjs/cli/bin/nest.js start",
     "start:dev": "npx nest start --watch",
     "start:debug": "npx nest start --debug --watch",
     "start:prod": "node dist/main",
