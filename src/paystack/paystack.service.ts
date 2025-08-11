@@ -9,6 +9,7 @@ import { CloudinaryService } from '../shared/services/cloudinary.service';
 import type { CloudinaryUploadResult } from '../shared/services/cloudinary.service';
 import { ApiResponse } from 'src/shared/helper-functions/response';
 import { formatAmount, formatDate } from 'src/shared/helper-functions/formatter';
+import { calculateAffiliateCommissionPercentage } from 'src/shared/helper-functions/commission';
 import { sendOrderConfirmationToBuyer, sendOrderNotificationToAdmin, sendReferralUsedMail } from 'src/common/mailer/send-mail';
 import { CheckoutFromCartDto, VerifyAccountNumberDto } from './dto/paystack.dto';
 import * as argon2 from 'argon2';
@@ -348,7 +349,7 @@ export class PaystackService {
         // this.logger.log(`amount in kobo: ${amountInKobo}`);
 
         // update the payment status in db to success
-        const updatedOrder = await this.prisma.order.update({
+          const updatedOrder = await this.prisma.order.update({
             where: { paystackReference: dto.reference },
             data: { 
               orderPaymentStatus: "completed",
@@ -361,7 +362,8 @@ export class PaystackService {
                 include: {
                   product: true
                 }
-              }
+              },
+              shippingInformation: true
             }
           });
 
@@ -399,9 +401,8 @@ export class PaystackService {
               // Get the product from the order items to get its commission percentage
               const orderItem = updatedOrder.items[0]; // Since affiliate orders have single items
               const productCommission = orderItem.product.commission;
-              
-              // Calculate commission using the product's commission percentage or fallback to env
-              const commissionPercentage = productCommission ? parseFloat(productCommission) : parseFloat(process.env.AFFILIATE_COMMISSION_PERCENT || '20');
+              // New rule: commission percent is based on total purchase amount schedule
+              const commissionPercentage = calculateAffiliateCommissionPercentage(updatedOrder.total_amount);
               commissionAmount = (updatedOrder.total_amount * commissionPercentage) / 100;
               this.logger.log(`order total value: ${existingOrder.total_amount}`);
               this.logger.log(`commission amount: ${commissionAmount}`);
@@ -514,12 +515,35 @@ export class PaystackService {
         this.logger.log("Payment verified successfully");
 
         // Prepare email data
-        const shippingAddressString = (updatedOrder.shippingInfo && typeof updatedOrder.shippingInfo === 'object' && 'address' in updatedOrder.shippingInfo)
-          ? String(updatedOrder.shippingInfo.address)
-          : '';
-        const shippingState = (updatedOrder.shippingInfo && typeof updatedOrder.shippingInfo === 'object' && 'state' in updatedOrder.shippingInfo) ? String(updatedOrder.shippingInfo.state) : '';
-        const shippingCity = (updatedOrder.shippingInfo && typeof updatedOrder.shippingInfo === 'object' && 'city' in updatedOrder.shippingInfo) ? String(updatedOrder.shippingInfo.city) : '';
-        const shippingHouseAddress = (updatedOrder.shippingInfo && typeof updatedOrder.shippingInfo === 'object' && 'houseAddress' in updatedOrder.shippingInfo) ? String(updatedOrder.shippingInfo.houseAddress) : '';
+        // Prefer ShippingInformation relation; fallback to legacy JSON field
+        let shippingAddressString = '';
+        let shippingState = '';
+        let shippingCity = '';
+        let shippingHouseAddress = '';
+        let trackingNumber = updatedOrder.trackingNumber || undefined;
+        if (updatedOrder.shippingInformation) {
+          const si = updatedOrder.shippingInformation as any;
+          const method = si.shippingMethod;
+          shippingState = si.state || '';
+          shippingCity = si.city || '';
+          trackingNumber = trackingNumber || si.trackingNumber || undefined;
+          if (method === 'doorstep') {
+            shippingHouseAddress = si.addressLine1 || '';
+            shippingAddressString = si.addressLine2 || '';
+          } else if (method === 'pickup-depot') {
+            shippingHouseAddress = 'Depot pickup';
+            shippingAddressString = si.addressLine1 || '';
+          } else if (method === 'pickup-park') {
+            shippingHouseAddress = 'Park pickup';
+            shippingAddressString = si.parkLocation || '';
+          }
+        } else if (updatedOrder.shippingInfo && typeof updatedOrder.shippingInfo === 'object') {
+          const js = updatedOrder.shippingInfo as any;
+          shippingAddressString = js.address ? String(js.address) : '';
+          shippingState = js.state ? String(js.state) : '';
+          shippingCity = js.city ? String(js.city) : '';
+          shippingHouseAddress = js.houseAddress ? String(js.houseAddress) : '';
+        }
         const emailData = {
           orderId: updatedOrder.orderId || "",
           firstName: updatedOrder.user?.first_name || '',
@@ -529,7 +553,7 @@ export class PaystackService {
           state: shippingState,
           city: shippingCity,
           houseAddress: shippingHouseAddress,
-          trackingNumber: updatedOrder.trackingNumber || undefined,
+          trackingNumber,
           paymentStatus: updatedOrder.orderPaymentStatus || 'paid',
           shippingAddress: shippingAddressString,
           orderCreated: formatDate(updatedOrder.createdAt),
@@ -565,7 +589,7 @@ export class PaystackService {
   }
 
   async checkoutFromCartWithPaystackInitialisation(dto: CheckoutFromCartDto) {
-    this.logger.log("Checking out from cart with paystack initialisation with data");
+    this.logger.log("Checking out from cart with paystack initialisation with data", JSON.stringify(dto, null, 2));
     
     // Get effective shipping method (from root or shippingInfo)
     const shippingMethod = dto.shippingMethod || dto.shippingInfo?.shippingMethod;
@@ -578,6 +602,8 @@ export class PaystackService {
     if (shippingMethod === 'pickup-depot' && !selectedDepotId) {
       throw new BadRequestException('Depot ID is required for depot pickup');
     }
+
+    this.logger.log(`Shipping method: ${shippingMethod}`);
     
     // 1. Validate all products exist and have enough stock
     for (const item of dto.items) {
@@ -978,7 +1004,8 @@ export class PaystackService {
                 include: {
                   product: true
                 }
-              }
+              },
+              shippingInformation: true
             }
           });
 
@@ -1003,8 +1030,8 @@ export class PaystackService {
         // Check for referral code (referral code owner)
         if (updatedOrder.referralCode) {
           this.logger.log(`Referral code exists: ${updatedOrder.referralCode}`);
-          const commissionPercentage = parseFloat(process.env.AFFILIATE_COMMISSION_PERCENT || '20');
-          this.logger.log(`Set commission percentage: ${commissionPercentage}`);
+          const commissionPercentage = calculateAffiliateCommissionPercentage(updatedOrder.total_amount);
+          this.logger.log(`Set commission percentage by schedule: ${commissionPercentage}`);
           commissionAmount = (updatedOrder.total_amount * commissionPercentage) / 100;
 
           try {
@@ -1114,12 +1141,35 @@ export class PaystackService {
         this.logger.log("Payment verified successfully");
 
         // Prepare email data
-        const shippingAddressString = (updatedOrder.shippingInfo && typeof updatedOrder.shippingInfo === 'object' && 'address' in updatedOrder.shippingInfo)
-          ? String(updatedOrder.shippingInfo.address)
-          : '';
-        const shippingState = (updatedOrder.shippingInfo && typeof updatedOrder.shippingInfo === 'object' && 'state' in updatedOrder.shippingInfo) ? String(updatedOrder.shippingInfo.state) : '';
-        const shippingCity = (updatedOrder.shippingInfo && typeof updatedOrder.shippingInfo === 'object' && 'city' in updatedOrder.shippingInfo) ? String(updatedOrder.shippingInfo.city) : '';
-        const shippingHouseAddress = (updatedOrder.shippingInfo && typeof updatedOrder.shippingInfo === 'object' && 'houseAddress' in updatedOrder.shippingInfo) ? String(updatedOrder.shippingInfo.houseAddress) : '';
+        // Prefer ShippingInformation relation; fallback to legacy JSON field
+        let shippingAddressString = '';
+        let shippingState = '';
+        let shippingCity = '';
+        let shippingHouseAddress = '';
+        let trackingNumber = updatedOrder.trackingNumber || undefined;
+        if (updatedOrder.shippingInformation) {
+          const si = updatedOrder.shippingInformation as any;
+          const method = si.shippingMethod;
+          shippingState = si.state || '';
+          shippingCity = si.city || '';
+          trackingNumber = trackingNumber || si.trackingNumber || undefined;
+          if (method === 'doorstep') {
+            shippingHouseAddress = si.addressLine1 || '';
+            shippingAddressString = si.addressLine2 || '';
+          } else if (method === 'pickup-depot') {
+            shippingHouseAddress = 'Depot pickup';
+            shippingAddressString = si.addressLine1 || '';
+          } else if (method === 'pickup-park') {
+            shippingHouseAddress = 'Park pickup';
+            shippingAddressString = si.parkLocation || '';
+          }
+        } else if (updatedOrder.shippingInfo && typeof updatedOrder.shippingInfo === 'object') {
+          const js = updatedOrder.shippingInfo as any;
+          shippingAddressString = js.address ? String(js.address) : '';
+          shippingState = js.state ? String(js.state) : '';
+          shippingCity = js.city ? String(js.city) : '';
+          shippingHouseAddress = js.houseAddress ? String(js.houseAddress) : '';
+        }
         const emailData = {
           orderId: updatedOrder.orderId || "",
           firstName: updatedOrder.user?.first_name || '',
@@ -1129,7 +1179,7 @@ export class PaystackService {
           state: shippingState,
           city: shippingCity,
           houseAddress: shippingHouseAddress,
-          trackingNumber: updatedOrder.trackingNumber || undefined,
+          trackingNumber,
           paymentStatus: updatedOrder.orderPaymentStatus || 'paid',
           shippingAddress: shippingAddressString,
           orderCreated: formatDate(updatedOrder.createdAt),
@@ -1166,7 +1216,16 @@ export class PaystackService {
   }
 
   async manualBankDeposit(dto: CheckoutFromCartDto, files: Array<Express.Multer.File>) {
-    this.logger.log("Manual bank deposit checkout initiated");
+    this.logger.log("Manual bank deposit checkout initiated", JSON.stringify(dto, null, 2));
+    // Align shipping handling with checkoutFromCartWithPaystackInitialisation
+    const shippingMethod = dto.shippingMethod || dto.shippingInfo?.shippingMethod;
+    const selectedDepotId = dto.selectedDepotId || dto.shippingInfo?.selectedDepotId;
+    if (!shippingMethod) {
+      throw new BadRequestException('Shipping method is required');
+    }
+    if (shippingMethod === 'pickup-depot' && !selectedDepotId) {
+      throw new BadRequestException('Depot ID is required for depot pickup');
+    }
     // 1. Validate all products exist and have enough stock
     for (const item of dto.items) {
       const product = await this.prisma.product.findUnique({ where: { id: item.productId } });
@@ -1243,16 +1302,14 @@ export class PaystackService {
 
     // --- Start transaction for DB-only operations ---
     const { order } = await this.prisma.$transaction(async (tx) => {
-      // Find or create shipping address
+      // Find or create shipping address (doorstep only)
       let shippingAddressId: string | undefined = undefined;
-      if (dto.shippingInfo && userId) {
+      if (shippingMethod === 'doorstep' && dto.shippingInfo && userId) {
         let shippingAddress = await tx.shippingAddress.findFirst({
           where: {
             userId,
-            address: dto.shippingInfo.address || '',
             city: dto.shippingInfo.city || '',
             state: dto.shippingInfo.state || '',
-            houseAddress: dto.shippingInfo.houseAddress || '',
           }
         });
         if (!shippingAddress) {
@@ -1320,14 +1377,60 @@ export class PaystackService {
       }
       const order = await tx.order.create({ data: orderData });
 
+      // Prepare and save shipping information, same as paystack checkout
+      const shippingInfoData: any = {
+        order: { connect: { id: order.id } },
+        user: { connect: { id: userId } },
+        shippingMethod: shippingMethod,
+        isPickup: shippingMethod === 'pickup-depot' || shippingMethod === 'pickup-park',
+        trackingNumber: trackingNumber,
+        fullName: `${dto.shippingInfo?.firstName || ''} ${dto.shippingInfo?.lastName || ''}`.trim(),
+        phoneNumber: dto.shippingInfo?.phone || '',
+        email: dto.shippingInfo?.email || '',
+      };
+
+      switch (shippingMethod) {
+        case 'pickup-depot': {
+          if (selectedDepotId) {
+            const existingDepot = await tx.depot.findUnique({ where: { id: selectedDepotId } });
+            if (existingDepot) {
+              shippingInfoData.addressLine1 = existingDepot.depo_officer_house_address || '';
+              shippingInfoData.city = existingDepot.city || '';
+              shippingInfoData.state = existingDepot.state || '';
+              shippingInfoData.depot = { connect: { id: existingDepot.id } };
+            }
+          }
+          break;
+        }
+        case 'pickup-park': {
+          shippingInfoData.parkLocation = dto.shippingInfo?.parkLocation || '';
+          if (dto.shippingInfo?.pickupDate) {
+            shippingInfoData.pickupDate = new Date(dto.shippingInfo.pickupDate);
+          }
+          shippingInfoData.city = dto.shippingInfo?.city || '';
+          shippingInfoData.state = dto.shippingInfo?.state || '';
+          break;
+        }
+        case 'doorstep': {
+          shippingInfoData.addressLine1 = dto.shippingInfo?.houseAddress || '';
+          shippingInfoData.addressLine2 = dto.shippingInfo?.address || '';
+          shippingInfoData.city = dto.shippingInfo?.city || '';
+          shippingInfoData.state = dto.shippingInfo?.state || '';
+          shippingInfoData.deliveryInstructions = dto.shippingInfo?.deliveryInstructions || '';
+          break;
+        }
+      }
+
+      await tx.shippingInformation.create({ data: shippingInfoData });
+
       let commissionAmount: number | undefined;
       let referralCodeOwner: any = null;
       let commissionType: string | undefined;
 
       if (order.referralCode) {
         this.logger.log(`Referral code exists: ${order.referralCode}`);
-        const commissionPercentage = parseFloat(process.env.AFFILIATE_COMMISSION_PERCENT || '20');
-        this.logger.log(`Set commission percentage: ${commissionPercentage}`);
+        const commissionPercentage = calculateAffiliateCommissionPercentage(order.total_amount);
+        this.logger.log(`Set commission percentage by schedule: ${commissionPercentage}`);
         commissionAmount = (order.total_amount * commissionPercentage) / 100;
 
         try {
