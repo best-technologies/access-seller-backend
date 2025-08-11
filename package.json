@@ -8,8 +8,8 @@
   "scripts": {
     "build": "npm run prisma:generate && npm run prisma:migrate && npx nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
-    "build:staging": "npm run prisma:generate:lean && npm run prisma:migrate && npx swc src -d dist -D",
     "prisma:generate:lean": "npm run prisma:use-env && prisma generate --no-engine",
+    "build:staging": "npm run prisma:generate:lean && npm run prisma:migrate && npx swc src -d dist -D",
     "start:staging": "node dist/main.js",
     "start": "node node_modules/@nestjs/cli/bin/nest.js start",
     "start:dev": "npx nest start --watch",
