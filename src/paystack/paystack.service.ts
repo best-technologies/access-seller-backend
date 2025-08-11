@@ -728,7 +728,7 @@ export class PaystackService {
       const order = await tx.order.create({ 
         data: orderData,
         include: { user: true } // Include user for shipping information
-      });
+      }); 
 
       // Prepare shipping information
       const shippingInfoData: any = {
