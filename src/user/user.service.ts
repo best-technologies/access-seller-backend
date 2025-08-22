@@ -190,6 +190,7 @@ export class UserService {
         const fourDaysAgo = new Date();
         fourDaysAgo.setDate(fourDaysAgo.getDate() - 2);
         const approved = order && order.createdAt < fourDaysAgo;
+        const commissionPercent = record.commissionPercentage;
         return {
           id: record.id,
           orderId: order?.orderId,
@@ -197,6 +198,7 @@ export class UserService {
           buyerEmail: order ? order.user?.email : '',
           orderAmount: order ? formatAmount(order.total_amount) : '',
           payment_channel: order?.orderPaymentMethod,
+          commissionPercent: commissionPercent,
           // withdrawalStatus: order ? order.withdrawalStatus : '',
           displayImage: order?.items?.[0]?.product?.displayImages?.[0]?.secure_url,
           commissionEarned: formatAmount(record.amount || 0),

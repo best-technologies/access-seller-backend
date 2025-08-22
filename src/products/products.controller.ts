@@ -1,5 +1,6 @@
-import { Controller, Get, Param, Query } from '@nestjs/common';
+import { Controller, Get, Param, Query, Res } from '@nestjs/common';
 import { ProductsService } from './products.service';
+import { Response } from 'express';
 
 @Controller('products')
 export class ProductsController {
@@ -32,6 +33,16 @@ export class ProductsController {
   @Get('search-suggestions')
   async searchSuggestions(@Query('q') q: string) {
     return this.productsService.searchSuggestions(q);
+  }
+
+  @Get('statistics')
+  async getProductStatistics() {
+    return this.productsService.getProductStatistics();
+  }
+
+  @Get('export/null-images-pdf')
+  async exportProductsWithNullImagesToPDF(@Res() res: Response) {
+    return this.productsService.exportProductsWithNullImagesToPDF(res);
   }
 
   @Get(':id')

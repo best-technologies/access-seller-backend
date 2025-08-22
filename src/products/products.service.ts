@@ -3,6 +3,8 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import * as colors from "colors";
 import { ApiResponse } from 'src/shared/helper-functions/response';
 import { formatAmount, formatDateWithoutTime } from 'src/shared/helper-functions/formatter';
+import * as PDFDocument from 'pdfkit';
+import { Response } from 'express';
 
 @Injectable()
 export class ProductsService {
@@ -508,6 +510,311 @@ export class ProductsService {
     } catch (error) {
       this.logger.error(`[searchSuggestions] Error: ${error.message || error}`);
       return { success: false, data: [], error: error.message || error.toString() };
+    }
+  }
+
+  async getProductStatistics() {
+    this.logger.log("Fetching product statistics");
+    
+    try {
+      // Get total product count
+      const totalProducts = await this.prisma.product.count();
+      
+      // Get all products to check display images
+      const allProducts = await this.prisma.product.findMany({
+        select: { displayImages: true }
+      });
+      
+      // Count products with null/empty display images
+      const productsWithNullImages = allProducts.filter(product => {
+        if (!product.displayImages) return true;
+        
+        let images;
+        if (typeof product.displayImages === 'string') {
+          try {
+            images = JSON.parse(product.displayImages);
+          } catch {
+            return true; // Invalid JSON counts as null
+          }
+        } else {
+          images = product.displayImages;
+        }
+        
+        return !images || (Array.isArray(images) && images.length === 0) || 
+               (typeof images === 'object' && Object.keys(images).length === 0);
+      }).length;
+
+      // Get count of products with valid display images
+      const productsWithValidImages = totalProducts - productsWithNullImages;
+
+      const statistics = {
+        totalProducts,
+        productsWithNullImages,
+        productsWithValidImages,
+        percentageWithImages: totalProducts > 0 ? ((productsWithValidImages / totalProducts) * 100).toFixed(2) : '0.00',
+        percentageWithoutImages: totalProducts > 0 ? ((productsWithNullImages / totalProducts) * 100).toFixed(2) : '0.00'
+      };
+
+      this.logger.log(`Product statistics: ${JSON.stringify(statistics)}`);
+      return new ApiResponse(true, 'Product statistics fetched successfully', statistics);
+    } catch (error) {
+      this.logger.error('Error fetching product statistics:', error);
+      return new ApiResponse(false, 'Failed to fetch product statistics', { error: error.message || error.toString() });
+    }
+  }
+
+  async getTotalProductCount() {
+    this.logger.log("Fetching total product count");
+    
+    try {
+      const totalProducts = await this.prisma.product.count();
+      
+      this.logger.log(`Total products in database: ${totalProducts}`);
+      return new ApiResponse(true, 'Total product count fetched successfully', { totalProducts });
+    } catch (error) {
+      this.logger.error('Error fetching total product count:', error);
+      return new ApiResponse(false, 'Failed to fetch total product count', { error: error.message || error.toString() });
+    }
+  }
+
+  async exportProductsWithNullImagesToPDF(res: Response) {
+    this.logger.log("Exporting products with null display images to PDF");
+    
+    try {
+      // Get all products
+      const allProducts = await this.prisma.product.findMany({
+        select: {
+          id: true,
+          name: true,
+          description: true,
+          sellingPrice: true,
+          stock: true,
+          displayImages: true,
+          storeId: true,
+          commission: true,
+          BookFormat: true,
+          isActive: true,
+          status: true,
+          rated: true,
+          isbn: true,
+          publisher: true,
+          author: true,
+          pages: true,
+          publishedDate: true,
+          createdAt: true,
+          updatedAt: true,
+          isFeatured: true,
+          bookId: true,
+          sku: true,
+          shortDescription: true,
+          taxStatus: true,
+          backorders: true,
+          soldIndividually: true,
+          weight: true,
+          length: true,
+          width: true,
+          height: true,
+          allowCustomerReview: true,
+          purchaseNote: true,
+          tags: true,
+          inStock: true,
+          normalPrice: true,
+          store: {
+            select: {
+              first_name: true,
+              last_name: true,
+              email: true
+            }
+          },
+          categories: {
+            select: {
+              id: true,
+              name: true
+            }
+          },
+          formats: {
+            select: {
+              id: true,
+              name: true
+            }
+          },
+          genres: {
+            select: {
+              id: true,
+              name: true
+            }
+          },
+          languages: {
+            select: {
+              id: true,
+              name: true
+            }
+          }
+        }
+      });
+      
+      // Filter products with null/empty display images
+      const productsWithNullImages = allProducts.filter(product => {
+        if (!product.displayImages) return true;
+        
+        let images;
+        if (typeof product.displayImages === 'string') {
+          try {
+            images = JSON.parse(product.displayImages);
+          } catch {
+            return true; // Invalid JSON counts as null
+          }
+        } else {
+          images = product.displayImages;
+        }
+        
+        return !images || (Array.isArray(images) && images.length === 0) || 
+               (typeof images === 'object' && Object.keys(images).length === 0);
+      });
+
+      // Create PDF
+      const doc = new PDFDocument({ margin: 50 });
+      
+      // Set response headers
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="products-without-images-${new Date().toISOString().split('T')[0]}.pdf"`);
+      
+      // Pipe PDF to response
+      doc.pipe(res);
+      
+      // Pagination settings
+      const itemsPerPage = 15;
+      const totalPages = Math.ceil(productsWithNullImages.length / itemsPerPage);
+      
+      // Define table headers with serial number
+      const headers = [
+        'S/N', 'ID', 'Name', 'Description', 'Selling Price', 'Stock', 'Store ID', 'Commission',
+        'Book Format', 'Active', 'Status', 'Rated', 'ISBN', 'Publisher', 'Author',
+        'Pages', 'Published Date', 'Created At', 'Updated At', 'Featured', 'Book ID',
+        'SKU', 'Short Description', 'Tax Status', 'Backorders', 'Sold Individually',
+        'Weight', 'Length', 'Width', 'Height', 'Allow Reviews', 'Purchase Note',
+        'Tags', 'In Stock', 'Normal Price', 'Store Name', 'Categories', 'Formats',
+        'Genres', 'Languages'
+      ];
+      
+      // Set table properties
+      const tableTop = 120;
+      const tableLeft = 30;
+      const colWidth = 70;
+      const rowHeight = 25;
+      const fontSize = 7;
+      
+      // Process each page
+      for (let pageNum = 0; pageNum < totalPages; pageNum++) {
+        if (pageNum > 0) {
+          doc.addPage();
+        }
+        
+        // Add page title
+        doc.fontSize(16).text('Products Without Display Images', { align: 'center' });
+        doc.moveDown(0.5);
+        doc.fontSize(10).text(`Page ${pageNum + 1} of ${totalPages} | Generated: ${new Date().toLocaleString()}`, { align: 'center' });
+        doc.fontSize(9).text(`Total products without images: ${productsWithNullImages.length}`, { align: 'center' });
+        doc.moveDown(1);
+        
+        // Get products for this page
+        const startIndex = pageNum * itemsPerPage;
+        const endIndex = Math.min(startIndex + itemsPerPage, productsWithNullImages.length);
+        const pageProducts = productsWithNullImages.slice(startIndex, endIndex);
+        
+        // Draw headers
+        doc.fontSize(fontSize);
+        headers.forEach((header, index) => {
+          const x = tableLeft + (index * colWidth);
+          doc.rect(x, tableTop, colWidth, rowHeight).stroke();
+          doc.text(header, x + 2, tableTop + 2, { 
+            width: colWidth - 4, 
+            height: rowHeight - 4,
+            align: 'center'
+          });
+        });
+        
+        // Draw data rows
+        pageProducts.forEach((product, rowIndex) => {
+          const y = tableTop + ((rowIndex + 1) * rowHeight);
+          
+          // Product data with serial number
+          const rowData = [
+            (startIndex + rowIndex + 1).toString(), // Serial number
+            product.id,
+            product.name || '',
+            product.description || '',
+            product.sellingPrice?.toString() || '',
+            product.stock?.toString() || '',
+            product.storeId || '',
+            product.commission || '',
+            product.BookFormat || '',
+            product.isActive?.toString() || '',
+            product.status || '',
+            product.rated || '',
+            product.isbn || '',
+            product.publisher || '',
+            product.author || '',
+            product.pages?.toString() || '',
+            product.publishedDate ? new Date(product.publishedDate).toLocaleDateString() : '',
+            product.createdAt ? new Date(product.createdAt).toLocaleDateString() : '',
+            product.updatedAt ? new Date(product.updatedAt).toLocaleDateString() : '',
+            product.isFeatured?.toString() || '',
+            product.bookId || '',
+            product.sku || '',
+            product.shortDescription || '',
+            product.taxStatus || '',
+            product.backorders?.toString() || '',
+            product.soldIndividually?.toString() || '',
+            product.weight?.toString() || '',
+            product.length?.toString() || '',
+            product.width?.toString() || '',
+            product.height?.toString() || '',
+            product.allowCustomerReview?.toString() || '',
+            product.purchaseNote || '',
+            product.tags?.join(', ') || '',
+            product.inStock?.toString() || '',
+            product.normalPrice?.toString() || '',
+            product.store ? `${product.store.first_name} ${product.store.last_name}` : '',
+            product.categories?.map(c => c.name).join(', ') || '',
+            product.formats?.map(f => f.name).join(', ') || '',
+            product.genres?.map(g => g.name).join(', ') || '',
+            product.languages?.map(l => l.name).join(', ') || ''
+          ];
+          
+          // Draw cells
+          rowData.forEach((cellData, colIndex) => {
+            const x = tableLeft + (colIndex * colWidth);
+            doc.rect(x, y, colWidth, rowHeight).stroke();
+            doc.text(cellData || '', x + 2, y + 2, { 
+              width: colWidth - 4, 
+              height: rowHeight - 4,
+              ellipsis: true
+            });
+          });
+        });
+        
+        // Add page footer
+        doc.fontSize(8).text(
+          `Page ${pageNum + 1} of ${totalPages} | Products ${startIndex + 1} to ${endIndex} of ${productsWithNullImages.length}`,
+          tableLeft,
+          doc.page.height - 50,
+          { width: doc.page.width - 60 }
+        );
+      }
+      
+      // Finalize PDF
+      doc.end();
+      
+      this.logger.log(`PDF exported successfully with ${productsWithNullImages.length} products across ${totalPages} pages`);
+      
+    } catch (error) {
+      this.logger.error('Error exporting PDF:', error);
+      res.status(500).json({ 
+        success: false, 
+        message: 'Failed to export PDF', 
+        error: error.message || error.toString() 
+      });
     }
   }
 }
