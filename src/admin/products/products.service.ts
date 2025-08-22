@@ -1582,10 +1582,10 @@ export class ProductsService {
               this.logger.log(`Uploaded image ${i + 1}: ${img.secure_url} (public_id: ${img.public_id})`);
             }
             
-            // Add uploaded images to current images
+            // Add uploaded images to current images (new images first)
             const beforeUpload = currentImages.length;
-            currentImages = [...currentImages, ...uploadedImages];
-            this.logger.log(`✅ Added ${uploadedImages.length} uploaded images. Total images: ${beforeUpload} → ${currentImages.length}`);
+            currentImages = [...uploadedImages, ...currentImages];
+            this.logger.log(`✅ Added ${uploadedImages.length} uploaded images to the beginning. Total images: ${beforeUpload} → ${currentImages.length}`);
           } catch (error) {
             this.logger.error('❌ Failed to upload images to Cloudinary:', error);
           }
