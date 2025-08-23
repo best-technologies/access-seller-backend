@@ -9,3 +9,13 @@ export class requestAffiliatePermissionDto {
     @IsString()
     reason: string;
 }
+
+export class affiliateMembershipRequestDto {
+    @IsNotEmpty()
+    @IsString()
+    niche: string;
+
+    @IsNotEmpty()
+    @IsString()
+    reason: string;
+}

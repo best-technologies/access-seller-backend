@@ -3,19 +3,23 @@ import { Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import * as colors from "colors";
 import { ApiResponse } from 'src/shared/helper-functions/response';
-import { requestAffiliatePermissionDto } from './dto/afiliate.dto';
+import { requestAffiliatePermissionDto, affiliateMembershipRequestDto } from './dto/afiliate.dto';
 import { RequestCommissionPayoutDto, } from './dto/commission-payout.dto';
 import { AffiliateStatus } from '@prisma/client';
 import { formatAmount, formatDate, formatDateWithoutTime } from 'src/shared/helper-functions/formatter';
 import { AddBankDto, DeleteBankDto, UpdateBankStatusDto } from './dto/bank.dto';
 import { PayoutMethod, RequestWithdrawalNewDto } from './dto/withdrawal-request.dto';
 import { generatePayoutId } from '../shared/helper-functions/generator';
+import { CloudinaryService } from '../shared/services/cloudinary.service';
 // import { PayoutMethod } from './dto/withdrawal-request.dto';
 
 @Injectable()
 export class UserService {
   private readonly logger = new Logger(UserService.name);
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly cloudinaryService: CloudinaryService
+  ) {}
 
   async getUserAllowedPartialpayment(payload) {
 
@@ -122,6 +126,124 @@ export class UserService {
       return new ApiResponse(
         false,
         'Failed to submit affiliate request.'
+      );
+    }
+  }
+
+  async affiliateMembershipRequest(dto: affiliateMembershipRequestDto, ninImage: Express.Multer.File, payload: any) {
+    this.logger.log(colors.cyan("Requesting affiliate membership with NIN verification"), dto);
+
+    try {
+      // Validate that NIN image is provided
+      if (!ninImage) {
+        this.logger.error(colors.red("NIN image is required"));
+        return new ApiResponse(false, 'NIN image is required for affiliate membership request.');
+      }
+
+      // Fetch user
+      const user = await this.prisma.user.findFirst({ where: { email: payload.email } });
+      if (!user) {
+        return new ApiResponse(false, 'User not found.');
+      }
+
+      if (user.isAffiliate) {
+        this.logger.log(colors.red("User is already an affiliate"));
+        return new ApiResponse(false, 'You are already an affiliate.');
+      }
+
+      if (user.affiliateStatus === 'pending') {
+        this.logger.log(colors.red("You already have a pending affiliate request."));
+        return new ApiResponse(false, 'You already have a pending affiliate request.');
+      }
+
+      // Check if there is already a pending Affiliate
+      const existingRequest = await this.prisma.affiliate.findFirst({
+        where: { userId: user.id, status: 'pending' }
+      });
+      if (existingRequest) {
+        this.logger.log(colors.red("You already have a pending affiliate request."));
+        return new ApiResponse(false, 'You already have a pending affiliate request.');
+      }
+
+      // Upload NIN image to Cloudinary
+      this.logger.log(colors.cyan("Uploading NIN image to Cloudinary..."));
+      const uploadResults = await this.cloudinaryService.uploadToCloudinary(
+        [ninImage], 
+        'acces-sellr/affiliate-nin-docs'
+      );
+
+      if (!uploadResults || uploadResults.length === 0) {
+        this.logger.error(colors.red("Failed to upload NIN image"));
+        return new ApiResponse(false, 'Failed to upload NIN image.');
+      }
+
+      const ninImageUrl = uploadResults[0].secure_url;
+      const ninImagePublicId = uploadResults[0].public_id;
+
+      // Create Affiliate record (request) with NIN image
+      const newAffiliate = await this.prisma.affiliate.create({
+        data: {
+          userId: user.id,
+          userName: user.first_name + ' ' + user.last_name,
+          userEmail: user.email,
+          status: 'pending',
+          requestedAt: new Date(),
+          category: dto.niche,
+          reason: dto.reason || "",
+          reviewedAt: null,
+          reviewedByName: null,
+          reviewedByEmail: null,
+          notes: null,
+          ninImageUrl: ninImageUrl,
+          ninImagePublicId: ninImagePublicId
+        }
+      });
+
+      // Update user affiliate status
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: {
+          isAffiliate: false,
+          affiliateStatus: 'awaiting_approval',
+        },
+      });
+
+      const formattedResponse = {
+        id: user.id,
+        userName: user.first_name + ' ' + user.last_name,
+        userEmail: user.email,
+        status: newAffiliate.status,
+        requestedAt: new Date(),
+        category: newAffiliate.category,
+        reason: newAffiliate.reason || "",
+        ninImageUrl: ninImageUrl
+      };
+
+      this.logger.log(colors.magenta("Successfully requested for affiliate membership with NIN verification"));
+      return new ApiResponse(
+        true,
+        'Affiliate membership request submitted with NIN verification and is awaiting approval.',
+        formattedResponse
+      );
+    } catch (error) {
+      this.logger.error('Error requesting affiliate membership', error);
+      
+      // Cleanup uploaded files if there was an error after upload
+      if (error.message && error.message.includes('Failed to upload NIN image')) {
+        // The error occurred before upload, so no cleanup needed
+      } else {
+        // Try to cleanup any uploaded files
+        try {
+          // This would need to be implemented if we want to cleanup on error
+          this.logger.log(colors.yellow("Attempting to cleanup uploaded files due to error"));
+        } catch (cleanupError) {
+          this.logger.error('Error during cleanup', cleanupError);
+        }
+      }
+
+      return new ApiResponse(
+        false,
+        'Failed to submit affiliate membership request.'
       );
     }
   }

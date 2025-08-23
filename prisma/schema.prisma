@@ -43,9 +43,9 @@ model Document {
 }
 
 model User {
-  id                          String               @id @default(cuid())
+  id                          String                @id @default(cuid())
   store_id                    String?
-  email                       String               @unique
+  email                       String                @unique
   password                    String
   guest_password              String?
   first_name                  String
@@ -53,38 +53,38 @@ model User {
   phone_number                String?
   display_picture             String?
   address                     String?
-  gender                      Gender               @default(other)
-  role                        UserRole             @default(user)
-  status                      UserStatus           @default(active)
-  is_active                   Boolean              @default(true)
-  level                       UserLevel            @default(bronze)
-  otp                         String?              @default("")
+  gender                      Gender                @default(other)
+  role                        UserRole              @default(user)
+  status                      UserStatus            @default(active)
+  is_active                   Boolean               @default(true)
+  level                       UserLevel             @default(bronze)
+  otp                         String?               @default("")
   otp_expires_at              DateTime?
-  is_email_verified           Boolean?             @default(false)
-  is_otp_verified             Boolean?             @default(false)
-  allowedPartialPayment       Float?               @default(0)
+  is_email_verified           Boolean?              @default(false)
+  is_otp_verified             Boolean?              @default(false)
+  allowedPartialPayment       Float?                @default(0)
   referralPercentage          Float?
   referralPaymentCount        Int?
-  isAffiliate                 Boolean              @default(false)
-  affiliateStatus             AffiliateStatus      @default(not_affiliate)
-  createdAt                   DateTime             @default(now())
-  updatedAt                   DateTime             @updatedAt
-  permissions                 String[]             @default([])
+  isAffiliate                 Boolean               @default(false)
+  affiliateStatus             AffiliateStatus       @default(not_affiliate)
+  createdAt                   DateTime              @default(now())
+  updatedAt                   DateTime              @updatedAt
+  permissions                 String[]              @default([])
   Affiliate                   Affiliate?
   AffiliateLink               AffiliateLink[]
   banks                       Bank[]
   cart                        Cart?
   commissions                 Commission[]
   CommissionPayout            CommissionPayout[]
-  commissionReferralsReceived CommissionReferral[] @relation("CommissionReferralReferred")
-  commissionReferralsMade     CommissionReferral[] @relation("CommissionReferralReferrer")
+  commissionReferralsReceived CommissionReferral[]  @relation("CommissionReferralReferred")
+  commissionReferralsMade     CommissionReferral[]  @relation("CommissionReferralReferrer")
   CommissionReferral          CommissionReferral[]
   orders                      Order[]
-  referredBy                  Referral[]           @relation("Referred")
-  referrals_made              Referral[]           @relation("Referrer")
+  referredBy                  Referral[]            @relation("Referred")
+  referrals_made              Referral[]            @relation("Referrer")
   referralCode                ReferralCode?
   shippingAddresses           ShippingAddress[]
-  store                       Store?               @relation(fields: [store_id], references: [id])
+  store                       Store?                @relation(fields: [store_id], references: [id])
   wallet                      Wallet?
   withdrawalRequests          WithdrawalRequest[]
   userPermissions             UserPermission[]
@@ -226,47 +226,47 @@ model Order {
 
 // Shipping information for orders
 model ShippingInformation {
-  id               String    @id @default(cuid())
-  orderId          String    @unique(map: "ShippingInformation_order_unique")
-  order            Order     @relation(fields: [orderId], references: [id])
-  
+  id      String @id @default(cuid())
+  orderId String @unique(map: "ShippingInformation_order_unique")
+  order   Order  @relation(fields: [orderId], references: [id])
+
   // User reference
-  userId           String
-  user             User      @relation(fields: [userId], references: [id])
-  
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
   // Shipping method and tracking
-  shippingMethod   String    // 'pickup-depot', 'pickup-park', 'doorstep'
-  isPickup         Boolean   @default(false) 
-  trackingNumber   String?   
-  
+  shippingMethod String // 'pickup-depot', 'pickup-park', 'doorstep'
+  isPickup       Boolean @default(false)
+  trackingNumber String?
+
   // Contact information
-  fullName         String?   
-  phoneNumber      String?   
-  email            String?   
-  
+  fullName    String?
+  phoneNumber String?
+  email       String?
+
   // Address information (for doorstep delivery)
-  addressLine1     String?   
-  addressLine2     String?   
-  city             String?   
-  state            String?   
-  country          String?   @default("Nigeria")
-  postalCode       String?   
-  
+  addressLine1 String?
+  addressLine2 String?
+  city         String?
+  state        String?
+  country      String? @default("Nigeria")
+  postalCode   String?
+
   // Park pickup specific fields (for pickup-park)
-  parkLocation     String?   
-  pickupDate       DateTime? 
-  
+  parkLocation String?
+  pickupDate   DateTime?
+
   // Depot information (for pickup-depot)
-  depotId          String?
-  depot            Depot?    @relation(fields: [depotId], references: [id])
-  
+  depotId String?
+  depot   Depot?  @relation(fields: [depotId], references: [id])
+
   // Delivery instructions (for doorstep) null
-  deliveryInstructions String? 
-  
+  deliveryInstructions String?
+
   // Timestamps
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
-  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   // Ensure orderId is unique
   @@unique([orderId])
 }
@@ -404,21 +404,23 @@ model ReferralSetting {
 }
 
 model Affiliate {
-  id              String          @id @default(cuid())
-  userId          String          @unique
-  userName        String
-  userEmail       String
-  status          AffiliateStatus @default(pending)
-  requestedAt     DateTime        @default(now())
-  category        String?
-  reason          String?
-  reviewedAt      DateTime?
-  reviewedByName  String?
-  reviewedByEmail String?
-  notes           String?
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
-  user            User            @relation(fields: [userId], references: [id])
+  id               String          @id @default(cuid())
+  userId           String          @unique
+  userName         String
+  userEmail        String
+  status           AffiliateStatus @default(pending)
+  requestedAt      DateTime        @default(now())
+  category         String?
+  reason           String?
+  reviewedAt       DateTime?
+  reviewedByName   String?
+  reviewedByEmail  String?
+  notes            String?
+  ninImageUrl      String?
+  ninImagePublicId String?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  user             User            @relation(fields: [userId], references: [id])
 }
 
 model AffiliateLink {
@@ -791,7 +793,7 @@ enum CommissionReferralStatus {
 }
 
 model Depot {
-  id                         String   @id @default(cuid())
+  id                         String                @id @default(cuid())
   storeId                    String
   state                      String
   city                       String
@@ -800,10 +802,10 @@ model Depot {
   depot_officer_phone        String
   depo_officer_house_address String
   description                String?
-  status                     DepotStatus @default(active)
-  createdAt                  DateTime @default(now())
-  updatedAt                  DateTime @updatedAt
-  store                      Store               @relation(fields: [storeId], references: [id])
+  status                     DepotStatus           @default(active)
+  createdAt                  DateTime              @default(now())
+  updatedAt                  DateTime              @updatedAt
+  store                      Store                 @relation(fields: [storeId], references: [id])
   shippingInformations       ShippingInformation[]
 }
 

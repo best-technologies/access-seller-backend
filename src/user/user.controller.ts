@@ -1,11 +1,13 @@
-import { Body, Controller, Get, Param, Post, Query, Request, UseGuards, Delete, Patch } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query, Request, UseGuards, Delete, Patch, UseInterceptors, UploadedFile } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { UserService } from './user.service';
 import { JwtGuard } from 'src/auth/guard';
-import { requestAffiliatePermissionDto } from './dto/afiliate.dto';
+import { requestAffiliatePermissionDto, affiliateMembershipRequestDto } from './dto/afiliate.dto';
 import { RequestCommissionPayoutDto } from './dto/commission-payout.dto';
 import { GenerateAffiliateLinkDto } from 'src/admin/referrals/dto/generate-affiliate-link.dto';
 import { AddBankDto, DeleteBankDto, UpdateBankStatusDto } from './dto/bank.dto';
 import { RequestWithdrawalNewDto } from './dto/withdrawal-request.dto';
+import { FileValidationInterceptor } from 'src/shared/interceptors/file-validation.interceptor';
 
 @Controller('user')
 @UseGuards(JwtGuard)
@@ -20,6 +22,19 @@ export class UserController {
   @Post('request-affiliate-access')
   async requestToBecomeAnAffiliate(@Body() dto: requestAffiliatePermissionDto, @Request() req) {
     return this.userService.requestToBecomeAnAffiliate(dto, req.user);
+  }
+
+  @Post('affiliate-membership-request')
+  @UseInterceptors(
+    FileInterceptor('ninImage'),
+    FileValidationInterceptor
+  )
+  async affiliateMembershipRequest(
+    @Body() dto: affiliateMembershipRequestDto, 
+    @UploadedFile() ninImage: Express.Multer.File,
+    @Request() req
+  ) {
+    return this.userService.affiliateMembershipRequest(dto, ninImage, req.user);
   }
 
   @Get('affiliate-dashboard')
