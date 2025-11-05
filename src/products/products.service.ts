@@ -502,6 +502,8 @@ export class ProductsService {
           title: product.name,
           author: product.author || '',
           image,
+          price: product.sellingPrice,
+          originalPrice: product.normalPrice,
           slug: `${product.id}-${product.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
           category: product.categories && product.categories.length > 0 ? product.categories[0].name : '',
         };
