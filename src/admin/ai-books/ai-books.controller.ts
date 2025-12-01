@@ -1,4 +1,4 @@
-import { Controller, UseGuards } from '@nestjs/common';
+import { Controller, Get, UseGuards } from '@nestjs/common';
 import { JwtGuard } from '../../auth/guard';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { AiBooksService } from './ai-books.service';
@@ -8,6 +8,11 @@ import { AiBooksService } from './ai-books.service';
 @Roles('admin')
 export class AiBooksController {
     constructor(private readonly aiBooksService: AiBooksService) {}
+
+    @Get('dashboard')
+    getDashboard() {
+        return this.aiBooksService.getDashboard();
+    }
 }
 
 
