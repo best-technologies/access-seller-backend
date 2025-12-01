@@ -425,18 +425,25 @@ model AiBookCategory {
   createdByUserId String?
   createdByUser   User?    @relation("AiBookCategoryCreator", fields: [createdByUserId], references: [id])
 
-  aiBooks AiBook[]
+  aiBooks  AiBook[]
+  subjects AiBookSubject[]
 }
 
 model AiBookSubject {
   id             String   @id @default(cuid())
   name           String   @unique
+  code           String?  @unique
   description    String?
   isActive       Boolean  @default(true)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
   createdByName  String?
   createdByEmail String?
+  categoryId     String?
+  classId        String?
+
+  category AiBookCategory? @relation(fields: [categoryId], references: [id])
+  class    AiBookClass?    @relation(fields: [classId], references: [id])
 
   aiBooks AiBook[]
 }
@@ -444,6 +451,7 @@ model AiBookSubject {
 model AiBookClass {
   id             String   @id @default(cuid())
   name           String   @unique
+  code           String   @unique
   description    String?
   isActive       Boolean  @default(true)
   createdAt      DateTime @default(now())
@@ -451,7 +459,8 @@ model AiBookClass {
   createdByName  String?
   createdByEmail String?
 
-  aiBooks AiBook[]
+  aiBooks  AiBook[]
+  subjects AiBookSubject[]
 }
 
 model PromoCode {
