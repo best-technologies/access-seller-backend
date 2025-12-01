@@ -11,6 +11,7 @@ import { orderConfirmationAdminTemplate } from "../email-templates/order-confirm
 import { commissionApprovedTemplate, CommissionApprovedTemplateProps } from '../email-templates/commission-approved-template';
 import { referralUsedTemplate, ReferralUsedTemplateProps } from '../email-templates/referral-used-template';
 import { commissionApprovalReportTemplate, CommissionApprovalReportProps } from '../email-templates/commission-approval-report-template';
+import { cronErrorTemplate, CronErrorTemplateProps } from '../email-templates/cron-error-template';
 
 const logger = new Logger('SendMail');
 
@@ -551,5 +552,44 @@ export async function sendCommissionApprovalReportMail(props: CommissionApproval
     } catch (error) {
         logger.error(`Error sending commission approval report: ${error}`);
         throw new Error('Failed to send commission approval report');
+    }
+}
+
+export async function sendCronErrorMailToAdmins(props: CronErrorTemplateProps, adminEmails: string[]) {
+    try {
+        logger.log(`Sending cron error alert to ${adminEmails.length} admin(s)`);
+
+        if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
+            throw new Error("SMTP credentials missing in environment variables");
+        }
+
+        const transporter = nodemailer.createTransport({
+            service: 'gmail',
+            host: process.env.GOOGLE_SMTP_HOST,
+            port: process.env.GOOGLE_SMTP_PORT ? parseInt(process.env.GOOGLE_SMTP_PORT) : 587,
+            secure: false,
+            auth: {
+                user: process.env.EMAIL_USER,
+                pass: process.env.EMAIL_PASSWORD,
+            },
+        });
+
+        const htmlContent = cronErrorTemplate(props);
+
+        const mailOptions = {
+            from: {
+                name: 'Acces-Sellr System Monitor',
+                address: process.env.EMAIL_USER as string,
+            },
+            to: adminEmails.join(', '),
+            subject: `🚨 Cron Service Error Alert - ${props.timestamp}`,
+            html: htmlContent,
+        };
+
+        await transporter.sendMail(mailOptions);
+        logger.log(`Cron error alert sent successfully to ${adminEmails.length} admin(s)`);
+    } catch (error) {
+        logger.error(`Error sending cron error alert: ${error}`);
+        // Don't throw here - we don't want email failures to crash the app
     }
 }
