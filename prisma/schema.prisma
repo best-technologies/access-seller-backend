@@ -4,7 +4,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url = env("DATABASE_URL")
+  url      = env("DATABASE_URL")
 }
 
 model Store {
@@ -89,6 +89,7 @@ model User {
   withdrawalRequests          WithdrawalRequest[]
   userPermissions             UserPermission[]
   shippingInformation         ShippingInformation[]
+  aiBookCategoriesCreated     AiBookCategory[]      @relation("AiBookCategoryCreator")
 }
 
 model Product {
@@ -370,6 +371,87 @@ model AgeRating {
   updatedAt      DateTime @updatedAt
   createdByName  String?
   createdByEmail String?
+}
+
+// AI Books system – enables chat-with-textbook experiences
+model AiBook {
+  id            String  @id @default(cuid())
+  title         String
+  coverImageUrl String? // S3 or CDN URL to the book cover/thumbnail
+  storageKey    String? // S3 object key for the source file
+  bookCode      String  @unique
+
+  // Relations
+  subjectId  String?
+  categoryId String?
+  classId    String?
+
+  subject  AiBookSubject?  @relation(fields: [subjectId], references: [id])
+  category AiBookCategory? @relation(fields: [categoryId], references: [id])
+  class    AiBookClass?    @relation(fields: [classId], references: [id])
+
+  // Enrollment aggregates
+  enrollmentTotal     Int @default(0)
+  enrollmentActive    Int @default(0)
+  enrollmentInactive  Int @default(0)
+  enrollmentSuspended Int @default(0)
+
+  // AI readiness & indexing
+  aiReady             Boolean      @default(false)
+  aiStatus            AiBookStatus @default(DRAFT)
+  aiInteractionsTotal Int          @default(0)
+  lastInteractionAt   DateTime?
+
+  // Vector index / processing metadata
+  indexNamespace  String? // Pinecone or other vector index namespace
+  chunkCount      Int?      @default(0)
+  lastIndexedAt   DateTime?
+  processingError String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model AiBookCategory {
+  id              String   @id @default(cuid())
+  name            String   @unique
+  code            String?  @unique
+  description     String?
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  createdByName   String?
+  createdByEmail  String?
+  createdByUserId String?
+  createdByUser   User?    @relation("AiBookCategoryCreator", fields: [createdByUserId], references: [id])
+
+  aiBooks AiBook[]
+}
+
+model AiBookSubject {
+  id             String   @id @default(cuid())
+  name           String   @unique
+  description    String?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  createdByName  String?
+  createdByEmail String?
+
+  aiBooks AiBook[]
+}
+
+model AiBookClass {
+  id             String   @id @default(cuid())
+  name           String   @unique
+  description    String?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  createdByName  String?
+  createdByEmail String?
+
+  aiBooks AiBook[]
 }
 
 model PromoCode {
@@ -731,6 +813,14 @@ enum BookFormat {
   hardcover
   paperback
   hardcopy
+}
+
+enum AiBookStatus {
+  DRAFT
+  PROCESSING
+  READY
+  INACTIVE
+  ERROR
 }
 
 enum AffiliateStatus {

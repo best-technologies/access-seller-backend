@@ -11,6 +11,7 @@ import { Reflector } from '@nestjs/core';
 import { CategoryModule } from './metadata/category.module';
 import { DepotModule } from './metadata/depot/depot.module';
 import { CronModule } from './cron/cron.module';
+import { AiBooksModule } from './ai-books/ai-books.module';
 
 @Module({
     imports: [
@@ -21,7 +22,8 @@ import { CronModule } from './cron/cron.module';
         ReferralsModule,
         CategoryModule,
         DepotModule,
-        CronModule
+        CronModule,
+        AiBooksModule
     ],
     controllers: [AdminController],
     providers: [AdminService, RolesGuard, Reflector],
@@ -30,7 +32,8 @@ import { CronModule } from './cron/cron.module';
         ProductsModule,
         OrdersModule,
         CustomersModule,
-        ReferralsModule
+        ReferralsModule,
+        AiBooksModule
     ]
 })
 export class AdminModule {}
