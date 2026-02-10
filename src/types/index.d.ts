@@ -1,0 +1,1 @@
+// Declare module types placeholder
