@@ -89,6 +89,8 @@ model User {
   withdrawalRequests          WithdrawalRequest[]
   userPermissions             UserPermission[]
   shippingInformation         ShippingInformation[]
+  consignmentsReceived        Consignment[]
+  auditLogs                   AuditLog[]
 }
 
 model Product {
@@ -814,4 +816,287 @@ enum DepotStatus {
   inactive
   pending
   rejected
+}
+
+// ============ ELECTRONICS WAREHOUSE & DISTRIBUTION ============
+
+enum ConsignmentStatus {
+  pending    // Expected / in transit
+  received   // Arrived at warehouse
+  inspected  // Quality check done
+  available  // Ready for bulk buyers
+  partial_out // Some items allocated
+  closed     // Fully allocated / done
+}
+
+enum BulkOrderStatus {
+  pending
+  confirmed
+  packing
+  completed
+  cancelled
+}
+
+enum BulkOrderPaymentStatus {
+  pending
+  partial
+  paid
+}
+
+model Consignment {
+  id                String            @id @default(cuid())
+  referenceNumber   String            @unique
+  supplierName      String            // Manufacturer name
+  supplierReference String?
+
+  // Sales person
+  salesPersonName   String?
+  salesPersonPhone  String?
+  salesPersonEmail  String?
+
+  // Invoice & delivery
+  invoiceNumber     String?           @unique
+  deliveryNote      String?
+  deliveryDate      DateTime?
+  deliveryTime      String?           // "HH:mm" format
+
+  // Payment terms
+  paymentModeTerms  String?
+
+  // Optional references
+  manufacturerOrderNumber  String?
+  dispatchDocumentNumber   String?
+
+  // Overall totals (from items)
+  overallTotalCartons  Int?            @default(0)
+  overallTotalQuantity Int?            @default(0)
+  overallTotalCost     Float?          @default(0)
+
+  // Bank account paid to (manufacturer)
+  bankName          String?
+  bankAccountNumber String?
+  bankAccountName   String?
+
+  // Payment
+  totalPaid         Float?            @default(0)
+  balanceToPay      Float?            @default(0)
+
+  // Amount in words
+  amountToPayInWords  String?
+  amountPaidInWords   String?
+
+  receivedAt        DateTime?
+  status            ConsignmentStatus @default(pending)
+  warehouseLocation String?
+  notes             String?
+  receivedById      String?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  receivedBy  User?                 @relation(fields: [receivedById], references: [id])
+  items       ConsignmentItem[]
+  documents   ConsignmentDocument[]
+}
+
+model ConsignmentItem {
+  id            String      @id @default(cuid())
+  consignmentId String
+  productId     String?     // Link to DistributionProduct (select from catalog)
+  productName   String?     // Product/item name (fallback when productId null)
+  sku           String?     // Optional SKU
+  description   String?     // Optional description
+  brand         String?
+  model         String?
+  cartons       Int         @default(0)
+  quantity      Int
+  unit          String      @default("pieces")
+  unitPrice     Float       @default(0)
+  totalCost     Float       @default(0)  // quantity * unitPrice (or entered)
+  unitCost      Float?      // Legacy alias
+  condition     String?     @default("new")
+  metadata      Json?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  consignment   Consignment         @relation(fields: [consignmentId], references: [id], onDelete: Cascade)
+  product       DistributionProduct? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  bulkOrderItems BulkOrderItem[]
+
+  @@index([productId])
+}
+
+model ConsignmentDocument {
+  id            String     @id @default(cuid())
+  consignmentId String
+  documentType  String     // invoice, packing_list, etc.
+  secure_url    String
+  public_id     String
+  createdAt     DateTime   @default(now())
+
+  consignment Consignment @relation(fields: [consignmentId], references: [id], onDelete: Cascade)
+}
+
+model BulkOrder {
+  id              String                 @id @default(cuid())
+  referenceNumber String                 @unique
+  buyerName       String
+  buyerEmail      String?
+  buyerPhone      String?
+  buyerCompany    String?
+  status          BulkOrderStatus        @default(pending)
+  totalAmount     Float?                 // Sum of (quantity * unitPrice) per item
+  amountPaid      Float?                 @default(0)
+  paymentStatus   BulkOrderPaymentStatus? @default(pending)
+  paymentMethod   String?                // bank_transfer, cash, etc.
+  paidAt          DateTime?
+  invoiceNumber   String?                @unique
+  notes           String?
+  createdById     String?
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+
+  items     BulkOrderItem[]
+  documents BulkOrderDocument[]
+  invoices  Invoice[]
+}
+
+model BulkOrderDocument {
+  id           String   @id @default(cuid())
+  bulkOrderId  String
+  documentType String   // invoice, delivery_note, receipt, etc.
+  secure_url   String
+  public_id    String
+  createdAt    DateTime @default(now())
+
+  bulkOrder BulkOrder @relation(fields: [bulkOrderId], references: [id], onDelete: Cascade)
+}
+
+model BulkOrderItem {
+  id                String   @id @default(cuid())
+  bulkOrderId       String
+  consignmentItemId String
+  quantity          Int
+  unitPrice         Float?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  bulkOrder       BulkOrder       @relation(fields: [bulkOrderId], references: [id], onDelete: Cascade)
+  consignmentItem ConsignmentItem @relation(fields: [consignmentItemId], references: [id], onDelete: Cascade)
+
+  @@unique([bulkOrderId, consignmentItemId])
+  @@index([bulkOrderId])
+  @@index([consignmentItemId])
+}
+
+// ============ STOCK / PRODUCT (Distribution) ============
+// Master product catalog - select from here when creating consignments.
+// currentStock updates when: consignment received (+), invoice paid (-), manual adjust.
+
+model DistributionProduct {
+  id                String   @id @default(cuid())
+  sku               String   @unique
+  name              String
+  description       String?
+  brand             String?
+  model             String?
+  category          String?
+  unit              String   @default("pieces")
+  currentStock      Int      @default(0)
+  costPrice         Float?
+  reorderLevel      Int?     // Alert when stock below this
+  warehouseLocation String?
+  images            Json?    // [{ secure_url, public_id }] from Cloudinary
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  consignmentItems ConsignmentItem[]
+
+  @@index([sku])
+  @@index([name])
+  @@index([category])
+  @@index([isActive])
+}
+
+
+// ============ INVOICE (Distribution) ============
+
+enum InvoiceStatus {
+  draft
+  issued
+  partial
+  paid
+  overdue
+  cancelled
+}
+
+model Invoice {
+  id              String        @id @default(cuid())
+  invoiceNumber   String        @unique
+  bulkOrderId     String?       // Optional link to bulk order
+  customerName    String
+  customerEmail   String?
+  customerPhone   String?
+  customerCompany String?
+  issueDate       DateTime
+  dueDate         DateTime?
+  status          InvoiceStatus @default(draft)
+  subtotal        Float         @default(0)
+  taxAmount       Float?        @default(0)
+  totalAmount     Float         @default(0)
+  amountPaid      Float         @default(0)
+  balanceDue      Float         @default(0)
+  paymentTerms    String?
+  notes           String?
+  createdById     String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  bulkOrder BulkOrder? @relation(fields: [bulkOrderId], references: [id], onDelete: SetNull)
+  items     InvoiceItem[]
+
+  @@index([invoiceNumber])
+  @@index([status])
+  @@index([issueDate])
+  @@index([bulkOrderId])
+}
+
+model InvoiceItem {
+  id          String  @id @default(cuid())
+  invoiceId   String
+  description String
+  quantity    Int
+  unit        String  @default("pieces")
+  unitPrice   Float
+  totalAmount Float
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+}
+
+// ============ AUDIT LOG ============
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  actionType  String   // login, logout, reset_password, create_consignment, update_consignment, etc.
+  userId      String?
+  userEmail   String?  // Denormalized for display even if user is deleted
+  userName    String?  // first_name + last_name at time of action
+  entityType  String?  // consignment, bulk_order, user, etc.
+  entityId    String?
+  description String?  // Human-readable summary
+  metadata    Json?    // Extra context: ip, userAgent, old/new values, etc.
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([actionType])
+  @@index([entityType])
+  @@index([createdAt])
 }

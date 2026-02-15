@@ -1,13 +1,13 @@
 import { Module } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
-import { PrismaModule } from '../prisma/prisma.module';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { CloudinaryService } from 'src/shared/services/cloudinary.service';
 import { JwtStrategy } from './strategy/jwt.strategy';
-import * as colors from 'colors';
 import { SharedModule } from '../shared/shared.module';
+import { WarehouseController } from './warehouse/warehouse.controller';
+import { WarehouseService } from './warehouse/warehouse.service';
 
 @Module({
   imports: [
@@ -21,8 +21,8 @@ import { SharedModule } from '../shared/shared.module';
       inject: [ConfigService],
     })
   ],
-  controllers: [AuthController],
-  providers: [AuthService, CloudinaryService, JwtStrategy],
-  exports: [AuthService]
+  controllers: [AuthController, WarehouseController],
+  providers: [AuthService, CloudinaryService, JwtStrategy, WarehouseService],
+  exports: [AuthService, WarehouseService]
 })
 export class AuthModule {}

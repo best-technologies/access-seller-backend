@@ -1,6 +1,8 @@
 import { BadRequestException, HttpException, Injectable, InternalServerErrorException, NotFoundException, Logger } from '@nestjs/common';
 import * as colors from 'colors';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { AuditService } from 'src/shared/audit/audit.service';
+import { AuditActionType } from 'src/shared/audit/audit.types';
 import * as argon from 'argon2';
 import { ResponseHelper } from 'src/shared/helper-functions/response.helpers';
 import { formatDate } from 'src/shared/helper-functions/formatter';
@@ -20,6 +22,11 @@ interface CloudinaryUploadResult {
     original_filename: string;
 }
 
+interface AuthRequestContext {
+    ipAddress?: string;
+    userAgent?: string;
+}
+
 @Injectable()
 export class AuthService {
     private readonly logger = new Logger(AuthService.name);
@@ -27,7 +34,8 @@ export class AuthService {
         private prisma: PrismaService,
         private jwt: JwtService,
         private config: ConfigService,
-        private readonly cloudinaryService: CloudinaryService
+        private readonly cloudinaryService: CloudinaryService,
+        private readonly auditService: AuditService,
     ) {}
 
     // Request login OTP
@@ -74,7 +82,7 @@ export class AuthService {
     }
 
     // Verify login OTP
-    async verifyEmailOTPAndSignIn(dto: VerifyEmailOTPDto) {
+    async verifyEmailOTPAndSignIn(dto: VerifyEmailOTPDto, ctx?: AuthRequestContext) {
         this.logger.log(`Verifying email: ${dto.email} with OTP: ${dto.otp}`);
     
         try {
@@ -86,6 +94,15 @@ export class AuthService {
             // Check if user exists and OTP is valid
             if (!user || !user.otp_expires_at || new Date() > new Date(user.otp_expires_at)) {
                 this.logger.warn("Invalid or expired OTP provided");
+                await this.auditService.log({
+                    actionType: AuditActionType.LOGIN_FAILED,
+                    userEmail: dto.email,
+                    entityType: 'user',
+                    description: 'Admin login failed: invalid or expired OTP',
+                    metadata: { reason: 'invalid_or_expired_otp' },
+                    ipAddress: ctx?.ipAddress,
+                    userAgent: ctx?.userAgent,
+                });
                 throw new BadRequestException("Invalid or expired OTP provided");
             }
 
@@ -129,6 +146,19 @@ export class AuthService {
     
             this.logger.log("Email address successfully verified");
 
+            await this.auditService.log({
+                actionType: AuditActionType.LOGIN,
+                userId: user.id,
+                userEmail: user.email,
+                userName: `${user.first_name} ${user.last_name}`,
+                entityType: 'user',
+                entityId: user.id,
+                description: `Admin login successful (OTP verified): ${user.email}`,
+                metadata: { role: user.role, method: 'otp' },
+                ipAddress: ctx?.ipAddress,
+                userAgent: ctx?.userAgent,
+            });
+
             // Sign in the user and return token and role
             return ResponseHelper.success(
                 "Login successful",
@@ -139,11 +169,17 @@ export class AuthService {
             );
         } catch (error) {
             this.logger.error("Error verifying email:", error);
-    
             if (error instanceof HttpException) {
                 throw error;
             }
-    
+            await this.auditService.log({
+                actionType: AuditActionType.LOGIN_FAILED,
+                userEmail: dto.email,
+                description: 'Admin login failed',
+                metadata: { error: error instanceof Error ? error.message : String(error) },
+                ipAddress: ctx?.ipAddress,
+                userAgent: ctx?.userAgent,
+            });
             throw new InternalServerErrorException("Email verification failed");
         }
     }
@@ -177,7 +213,7 @@ export class AuthService {
         }
     }
 
-    async signIn(payload: SignInDto) {
+    async signIn(payload: SignInDto, ctx?: AuthRequestContext) {
         this.logger.log("Signing in...");
 
         try {
@@ -191,6 +227,15 @@ export class AuthService {
             // if user does not exist, return error
             if (!existing_user) {
                 this.logger.warn("User not found");
+                await this.auditService.log({
+                    actionType: AuditActionType.LOGIN_FAILED,
+                    userEmail: payload.email,
+                    entityType: 'user',
+                    description: 'Login failed: user not found',
+                    metadata: { reason: 'user_not_found' },
+                    ipAddress: ctx?.ipAddress,
+                    userAgent: ctx?.userAgent,
+                });
                 throw new NotFoundException({
                     success: false,
                     message: "User not found",
@@ -204,6 +249,18 @@ export class AuthService {
 
             if(!passwordMatches) {
                 this.logger.warn("Password does not match");
+                await this.auditService.log({
+                    actionType: AuditActionType.LOGIN_FAILED,
+                    userId: existing_user.id,
+                    userEmail: existing_user.email,
+                    userName: `${existing_user.first_name} ${existing_user.last_name}`,
+                    entityType: 'user',
+                    entityId: existing_user.id,
+                    description: 'Login failed: incorrect password',
+                    metadata: { reason: 'incorrect_password' },
+                    ipAddress: ctx?.ipAddress,
+                    userAgent: ctx?.userAgent,
+                });
                 throw new BadRequestException({
                     success: false,
                     message: "Passwords do not match",
@@ -230,12 +287,38 @@ export class AuthService {
                 // Send OTP to email
                 await sendLoginOtpByMail({ email: payload.email, otp });
 
+                await this.auditService.log({
+                    actionType: AuditActionType.ADMIN_LOGIN_OTP_REQUEST,
+                    userId: existing_user.id,
+                    userEmail: existing_user.email,
+                    userName: `${existing_user.first_name} ${existing_user.last_name}`,
+                    entityType: 'user',
+                    entityId: existing_user.id,
+                    description: `Admin login OTP sent to ${existing_user.email}`,
+                    metadata: { role: existing_user.role },
+                    ipAddress: ctx?.ipAddress,
+                    userAgent: ctx?.userAgent,
+                });
+
                 // Return role to frontend (no token)
                 return ResponseHelper.success(
                     "OTP sent to email. Please verify to continue.",
                     { role: existing_user.role }
                 );
             }
+
+            await this.auditService.log({
+                actionType: AuditActionType.LOGIN,
+                userId: existing_user.id,
+                userEmail: existing_user.email,
+                userName: `${existing_user.first_name} ${existing_user.last_name}`,
+                entityType: 'user',
+                entityId: existing_user.id,
+                description: `Login successful: ${existing_user.email}`,
+                metadata: { role: existing_user.role },
+                ipAddress: ctx?.ipAddress,
+                userAgent: ctx?.userAgent,
+            });
 
             // If role is 'user', proceed as normal
             this.logger.log("User signed in successfully!");
@@ -253,6 +336,15 @@ export class AuthService {
             if (error instanceof HttpException) {
                 throw error;
             }
+
+            await this.auditService.log({
+                actionType: AuditActionType.LOGIN_FAILED,
+                userEmail: payload.email,
+                description: 'Login failed',
+                metadata: { error: error instanceof Error ? error.message : String(error) },
+                ipAddress: ctx?.ipAddress,
+                userAgent: ctx?.userAgent,
+            });
 
             throw new InternalServerErrorException({
                 success: false,
@@ -456,6 +548,8 @@ export class AuthService {
                 phone_number: existing_user.phone_number || "+2348146694787",
                 profile_picture: existing_user.display_picture,
                 role: existing_user.role,
+                status: existing_user.status,
+                permissions: existing_user.permissions || [],
                 is_affiliate: existing_user.isAffiliate,
                 affiliate_status: existing_user.affiliateStatus,
                 joined_date: formatDate(existing_user.createdAt),

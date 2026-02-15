@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Query, Put, UseGuards, Request, Body, ParseUUIDPipe } from '@nestjs/common';
+import { Controller, Get, Param, Query, Patch, UseGuards, Request, Body, ParseUUIDPipe } from '@nestjs/common';
 import { CustomersService } from './customers.service';
 import { PermissionsService } from './permissions.service';
 import { JwtGuard } from '../../auth/guard';
@@ -77,7 +77,7 @@ export class CustomersController {
         }
     }
 
-    @Put('edit/:id')
+    @Patch('edit/:id')
     async editUser(
         @Param('id') id: string,
         @Body() editUserDto: EditUserDTO

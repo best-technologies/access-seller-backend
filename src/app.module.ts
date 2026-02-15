@@ -18,6 +18,8 @@ import { UserModule } from './user/user.module';
 import { DiscountModule } from './discount/discount.module';
 import { OrderModule } from './order/order.module';
 import { PublicModule } from './public/public.module';
+import { DistributionModule } from './distribution/distribution.module';
+import { AuditModule } from './shared/audit/audit.module';
 
 @Module({
   imports: [
@@ -30,6 +32,7 @@ import { PublicModule } from './public/public.module';
       storage: memoryStorage(),
     }),
     PrismaModule,
+    AuditModule,
     AuthModule,
     SharedModule,
     AdminModule,
@@ -40,6 +43,7 @@ import { PublicModule } from './public/public.module';
     DiscountModule,
     OrderModule,
     PublicModule,
+    DistributionModule,
   ],
   controllers: [AppController],
   providers: [AppService],

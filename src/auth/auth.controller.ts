@@ -61,14 +61,20 @@ export class AuthController {
     }
 
     @Post("admin-verify-login-otp")
-    verifyEmailOTPAndSignIn(@Body() dto: VerifyEmailOTPDto) {
-        return this.authService.verifyEmailOTPAndSignIn(dto)
+    verifyEmailOTPAndSignIn(@Body() dto: VerifyEmailOTPDto, @Request() req: { ip?: string; headers?: { [key: string]: string } }) {
+        return this.authService.verifyEmailOTPAndSignIn(dto, {
+            ipAddress: req.ip,
+            userAgent: req.headers?.['user-agent'],
+        });
     }
 
     @Post("sign-in")
     @HttpCode(200)
-    signIn(@Body() dto: SignInDto) {
-        return this.authService.signIn(dto);
+    signIn(@Body() dto: SignInDto, @Request() req: { ip?: string; headers?: { [key: string]: string } }) {
+        return this.authService.signIn(dto, {
+            ipAddress: req.ip,
+            userAgent: req.headers?.['user-agent'],
+        });
     }
 
     @Post("register")
