@@ -135,6 +135,36 @@ GET /distribution/dashboard?consignmentFromDate=2025-02-01&consignmentToDate=202
           "delivery_note": 25,
           "receipt": 15
         }
+      },
+      "stocks": {
+        "totalProducts": 150,
+        "activeProducts": 145,
+        "totalQuantity": 25000,
+        "totalValue": 1500000,
+        "lowStockCount": 12,
+        "outOfStockCount": 5,
+        "byCategory": [
+          {
+            "category": "Electronics",
+            "count": 50,
+            "quantity": 10000,
+            "value": 800000
+          }
+        ]
+      },
+      "invoices": {
+        "totalInvoices": 80,
+        "totalAmount": 500000,
+        "totalPaid": 350000,
+        "totalBalanceDue": 150000,
+        "byStatus": {
+          "draft": 5,
+          "issued": 10,
+          "partial": 15,
+          "paid": 45,
+          "overdue": 3,
+          "cancelled": 2
+        }
       }
     },
     "consignments": {
@@ -219,7 +249,7 @@ GET /distribution/dashboard?consignmentFromDate=2025-02-01&consignmentToDate=202
 
 ## Summary
 
-- **analysis** – Full breakdown of the **filtered set** (not just current page): consignments (totals, byStatus, bySupplier), bulk orders (totals, byStatus, byPaymentStatus), documents (counts by type).
+- **analysis** – Full breakdown: consignments (totals, byStatus, bySupplier), bulk orders (totals, byStatus, byPaymentStatus), documents (counts by type), **stocks** (products, quantity, value, low/out-of-stock, byCategory), **invoices** (totals, paid, balanceDue, byStatus).
 - **consignments** – Paginated list with `items` and `meta` (total, page, limit, totalPages, hasNextPage, hasPrevPage).
 - **bulkOrders** – Paginated list with `items` and `meta`.
 - **recentConsignmentDocuments** / **recentBulkOrderDocuments** – Latest 20 documents (filtered by the same criteria as consignments/bulk orders).

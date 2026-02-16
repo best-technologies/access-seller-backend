@@ -3,7 +3,7 @@
 **Base path:** `distribution/stock` (prefix with `/api/v1`)  
 **Auth:** All endpoints require JWT Bearer token.
 
-Master product catalog for distribution. Add products here, then select them when creating consignments. Stock increases when consignment items (with `productId`) are received; stock decreases when invoices are paid (integration pending).
+Master product catalog for distribution. Add products here, then select them when creating consignments. Stock increases when consignment items (with `productId`) are received; stock decreases when invoices are marked as paid (via `PATCH /distribution/invoicing/:id/mark-paid`).
 
 ---
 

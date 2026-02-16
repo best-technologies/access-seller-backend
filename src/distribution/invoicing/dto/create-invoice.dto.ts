@@ -18,6 +18,10 @@ export class CreateInvoiceItemDto {
   @IsString()
   description: string;
 
+  @IsOptional()
+  @IsString()
+  productId?: string; // Link to DistributionProduct – required for stock deduction when invoice is paid
+
   @IsNumber()
   @Min(1)
   quantity: number;
@@ -37,9 +41,9 @@ export class CreateInvoiceItemDto {
 }
 
 export class CreateInvoiceDto {
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
-  invoiceNumber: string;
+  invoiceNumber?: string; // Auto-generated if omitted (format: INV-YYYY-NNNN)
 
   @IsOptional()
   @IsString()
@@ -90,6 +94,22 @@ export class CreateInvoiceDto {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  @IsOptional()
+  @IsString()
+  companyAddress?: string; // Default: 121/123, Obafemi Awolowo Way, Oke-Ado, Ibadan
+
+  @IsOptional()
+  @IsString()
+  companyPhone?: string; // Default: 08038086862, 08174615808
+
+  @IsOptional()
+  @IsString()
+  managerSignedBy?: string;
+
+  @IsOptional()
+  @IsString()
+  customerSignedBy?: string;
 
   @IsArray()
   @ValidateNested({ each: true })

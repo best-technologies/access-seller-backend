@@ -115,6 +115,8 @@ export class DistributionDashboardService {
       allBulkOrdersForAnalysis,
       consignmentDocuments,
       bulkOrderDocuments,
+      allProducts,
+      allInvoices,
     ] = await Promise.all([
       this.prisma.consignment.findMany({
         where: consignmentWhere,
@@ -157,10 +159,39 @@ export class DistributionDashboardService {
         orderBy: { createdAt: 'desc' },
         take: 50,
       }),
+      this.prisma.distributionProduct.findMany({
+        select: {
+          currentStock: true,
+          costPrice: true,
+          reorderLevel: true,
+          category: true,
+          isActive: true,
+        },
+      }),
+      this.prisma.invoice.findMany({
+        select: {
+          status: true,
+          totalAmount: true,
+          amountPaid: true,
+          balanceDue: true,
+        },
+      }),
     ]);
 
     // Full analysis from filtered sets
-    const analysis = this.computeFullAnalysis(allConsignmentsForAnalysis, allBulkOrdersForAnalysis, consignmentDocuments, bulkOrderDocuments);
+    const baseAnalysis = this.computeFullAnalysis(
+      allConsignmentsForAnalysis,
+      allBulkOrdersForAnalysis,
+      consignmentDocuments,
+      bulkOrderDocuments,
+    );
+    const stocksAnalysis = this.computeStockAnalysis(allProducts);
+    const invoicesAnalysis = this.computeInvoiceAnalysis(allInvoices);
+    const analysis = {
+      ...baseAnalysis,
+      stocks: stocksAnalysis,
+      invoices: invoicesAnalysis,
+    };
 
     const consignmentTotalPages = Math.ceil(consignmentTotal / consignmentLimit);
     const bulkOrderTotalPages = Math.ceil(bulkOrderTotal / bulkOrderLimit);
@@ -207,7 +238,9 @@ export class DistributionDashboardService {
       recentBulkOrderDocuments: bulkOrderDocuments.slice(0, 20),
     };
 
-    this.logger.log(`Dashboard | consignments: ${consignmentTotal}, bulkOrders: ${bulkOrderTotal}`);
+    this.logger.log(
+      `Dashboard | consignments: ${consignmentTotal}, bulkOrders: ${bulkOrderTotal}, products: ${allProducts.length}, invoices: ${allInvoices.length}`,
+    );
 
     return ResponseHelper.success('Distribution dashboard retrieved', dashboard);
   }
@@ -321,6 +354,80 @@ export class DistributionDashboardService {
         consignmentByType: consignmentDocByType,
         bulkOrderByType: bulkOrderDocByType,
       },
+    };
+  }
+
+  private computeStockAnalysis(
+    products: Array<{
+      currentStock: number;
+      costPrice: number | null;
+      reorderLevel: number | null;
+      category: string | null;
+      isActive: boolean;
+    }>,
+  ) {
+    let totalQuantity = 0;
+    let totalValue = 0;
+    let lowStockCount = 0;
+    let outOfStockCount = 0;
+    const byCategory: Record<string, { count: number; quantity: number; value: number }> = {};
+
+    for (const p of products) {
+      if (!p.isActive) continue;
+      totalQuantity += p.currentStock;
+      totalValue += (p.costPrice ?? 0) * p.currentStock;
+      if (p.currentStock === 0) outOfStockCount++;
+      else if (p.reorderLevel != null && p.currentStock <= p.reorderLevel) lowStockCount++;
+
+      const cat = p.category ?? '_uncategorized';
+      if (!byCategory[cat]) byCategory[cat] = { count: 0, quantity: 0, value: 0 };
+      byCategory[cat].count += 1;
+      byCategory[cat].quantity += p.currentStock;
+      byCategory[cat].value += (p.costPrice ?? 0) * p.currentStock;
+    }
+
+    return {
+      totalProducts: products.length,
+      activeProducts: products.filter((p) => p.isActive).length,
+      totalQuantity,
+      totalValue: Math.round(totalValue * 100) / 100,
+      lowStockCount,
+      outOfStockCount,
+      byCategory: Object.entries(byCategory).map(([category, data]) => ({
+        category: category === '_uncategorized' ? null : category,
+        count: data.count,
+        quantity: data.quantity,
+        value: Math.round(data.value * 100) / 100,
+      })),
+    };
+  }
+
+  private computeInvoiceAnalysis(
+    invoices: Array<{
+      status: string;
+      totalAmount: number;
+      amountPaid: number;
+      balanceDue: number;
+    }>,
+  ) {
+    let totalAmount = 0;
+    let totalPaid = 0;
+    let totalBalanceDue = 0;
+    const byStatus: Record<string, number> = {};
+
+    for (const inv of invoices) {
+      totalAmount += inv.totalAmount ?? 0;
+      totalPaid += inv.amountPaid ?? 0;
+      totalBalanceDue += inv.balanceDue ?? 0;
+      byStatus[inv.status] = (byStatus[inv.status] ?? 0) + 1;
+    }
+
+    return {
+      totalInvoices: invoices.length,
+      totalAmount: Math.round(totalAmount * 100) / 100,
+      totalPaid: Math.round(totalPaid * 100) / 100,
+      totalBalanceDue: Math.round(totalBalanceDue * 100) / 100,
+      byStatus,
     };
   }
 }
