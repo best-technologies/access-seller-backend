@@ -39,7 +39,7 @@ POST /api/v1/auth/warehouse/onboard-warehouse-admin
 | phone_number| string | No       | Phone number                                                      |
 | password    | string | No       | Min 6 chars. If omitted, a temporary password is generated and returned |
 
-**Response:** Returns the created user with role `admin`. If no password was provided, `temporaryPassword` is included in the response.
+**Response:** Returns the created user with `role: admin` and `usertype: warehouse-admin` (hardcoded server-side, not sent from frontend). If no password was provided, `temporaryPassword` is included in the response.
 
 ---
 

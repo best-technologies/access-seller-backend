@@ -67,6 +67,7 @@ model User {
   referralPaymentCount        Int?
   isAffiliate                 Boolean               @default(false)
   affiliateStatus             AffiliateStatus       @default(not_affiliate)
+  usertype                    String?               // e.g. warehouse-admin (set on onboard)
   createdAt                   DateTime              @default(now())
   updatedAt                   DateTime              @updatedAt
   permissions                 String[]              @default([])
@@ -1001,9 +1002,11 @@ model DistributionProduct {
   model             String?
   category          String?
   unit              String   @default("pieces")
-  currentStock      Int      @default(0)
-  costPrice         Float?
-  reorderLevel      Int?     // Alert when stock below this
+  currentStock         Int      @default(0)
+  costPrice            Float?
+  normalSellingPrice   Float?   // Suggested/default selling price
+  discountedSellingPrice Float? // Discounted selling price
+  reorderLevel         Int?     // Alert when stock below this
   warehouseLocation String?
   images            Json?    // [{ secure_url, public_id }] from Cloudinary
   isActive          Boolean  @default(true)

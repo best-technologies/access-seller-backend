@@ -45,7 +45,7 @@ Content-Type: application/json
 
 | Section | Field | Type | Required | Description |
 |---------|-------|------|----------|-------------|
-| **Reference** | referenceNumber | string | yes | Unique reference (e.g. CONS-2025-001) |
+| **Reference** | referenceNumber | string | no | Optional. Omit to auto-generate (e.g. CONS-2025-001, CONS-2025-002). Must be unique if provided. |
 | | supplierName | string | yes | Manufacturer/supplier name |
 | | supplierReference | string | no | Supplier reference |
 | **Sales person** | salesPersonName | string | no | Sales person name |
@@ -553,5 +553,5 @@ GET /distribution/consignment/:id
 - **Create consignment:** `items` is optional. Omit or pass `[]` for the two-step flow.
 - **Add item:** Backend computes `totalCost = quantity × unitPrice` and updates consignment totals.
 - **Update/delete item:** Backend recalculates `overallTotalCartons`, `overallTotalQuantity`, `overallTotalCost` after every change.
-- **referenceNumber** must be unique.
+- **referenceNumber** is auto-generated (CONS-YYYY-NNN) if omitted; if provided, must be unique.
 - **invoiceNumber** must be unique when provided.

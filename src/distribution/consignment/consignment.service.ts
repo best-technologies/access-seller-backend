@@ -52,15 +52,32 @@ export class ConsignmentService {
     });
   }
 
+  private async generateReferenceNumber(): Promise<string> {
+    const year = new Date().getFullYear();
+    const prefix = `CONS-${year}-`;
+    const latest = await this.prisma.consignment.findMany({
+      where: { referenceNumber: { startsWith: prefix } },
+      select: { referenceNumber: true },
+      orderBy: { referenceNumber: 'desc' },
+      take: 1,
+    });
+    const nextSeq = latest.length === 0 ? 1 : (parseInt(latest[0].referenceNumber.slice(prefix.length), 10) || 0) + 1;
+    return `${prefix}${String(nextSeq).padStart(3, '0')}`;
+  }
+
   async create(dto: CreateConsignmentDto, receivedById?: string) {
     this.logger.log('Creating new consignment...');
 
+    const referenceNumber = dto.referenceNumber?.trim()
+      ? dto.referenceNumber.trim()
+      : await this.generateReferenceNumber();
+
     const existing = await this.prisma.consignment.findUnique({
-      where: { referenceNumber: dto.referenceNumber },
+      where: { referenceNumber },
     });
 
     if (existing) {
-      throw new BadRequestException(`Consignment with reference ${dto.referenceNumber} already exists`);
+      throw new BadRequestException(`Consignment with reference ${referenceNumber} already exists`);
     }
 
     const items = dto.items ?? [];
@@ -104,7 +121,7 @@ export class ConsignmentService {
 
     const consignment = await this.prisma.consignment.create({
       data: {
-        referenceNumber: dto.referenceNumber,
+        referenceNumber,
         supplierName: dto.supplierName,
         supplierReference: dto.supplierReference,
         salesPersonName: dto.salesPersonName,

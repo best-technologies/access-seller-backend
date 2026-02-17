@@ -23,8 +23,41 @@ export class WarehouseService {
     });
 
     if (existingUser) {
-      this.logger.warn('Warehouse admin with this email already exists');
-      throw new BadRequestException('A user with this email already exists');
+      if (existingUser.usertype === 'btech-distribution') {
+        this.logger.log(`User ${existingUser.email} already onboarded as Btech Distribution`);
+        return ResponseHelper.success('User is already onboarded as Best Technologies Electronics Admin', {
+          id: existingUser.id,
+          email: existingUser.email,
+          first_name: existingUser.first_name,
+          last_name: existingUser.last_name,
+          role: existingUser.role,
+          usertype: existingUser.usertype,
+          message: 'User is already onboarded as Best Technologies Electronics Admin',
+        });
+      }
+
+      // User exists but usertype is null or different – set usertype and role
+      const updated = await this.prisma.user.update({
+        where: { id: existingUser.id },
+        data: {
+          usertype: 'btech-distribution',
+          role: 'admin',
+          ...(dto.first_name && { first_name: dto.first_name }),
+          ...(dto.last_name && { last_name: dto.last_name }),
+          ...(dto.phone_number !== undefined && { phone_number: dto.phone_number ?? null }),
+        },
+      });
+
+      this.logger.log(`Existing user onboarded as Btech Distribution: ${updated.email}`);
+      return ResponseHelper.success('User onboarded as Best Technologies Electronics Admin', {
+        id: updated.id,
+        email: updated.email,
+        first_name: updated.first_name,
+        last_name: updated.last_name,
+        role: updated.role,
+        usertype: updated.usertype,
+        message: 'Existing user onboarded as Best Technologies Electronics Admin',
+      });
     }
 
     const password =
@@ -41,6 +74,7 @@ export class WarehouseService {
         phone_number: dto.phone_number ?? null,
         role: 'admin',
         store_id: null,
+        usertype: 'btech-distribution', // Hardcoded – not expected from frontend
       },
     });
 
@@ -52,6 +86,7 @@ export class WarehouseService {
       first_name: user.first_name,
       last_name: user.last_name,
       role: user.role,
+      usertype: user.usertype,
       createdAt: user.createdAt,
       ...(!dto.password && {
         temporaryPassword: password,

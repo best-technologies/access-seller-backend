@@ -59,6 +59,18 @@ export class CreateProductDto {
   @IsNumber()
   @Min(0)
   @Transform(toNumber)
+  normalSellingPrice?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Transform(toNumber)
+  discountedSellingPrice?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Transform(toNumber)
   reorderLevel?: number;
 
   @IsOptional()

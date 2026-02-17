@@ -67,9 +67,10 @@ export class ConsignmentItemDto {
 }
 
 export class CreateConsignmentDto {
-  @IsNotEmpty()
+  /** Optional. If omitted, backend auto-generates (e.g. CONS-2025-001). */
+  @IsOptional()
   @IsString()
-  referenceNumber: string;
+  referenceNumber?: string;
 
   @IsNotEmpty()
   @IsString()
