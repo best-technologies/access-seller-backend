@@ -11,15 +11,15 @@ import {
   ValidateNested,
 } from 'class-validator';
 
-/** Per-item fields */
+/** Per-item fields. productId is required for every item (from stock catalog). */
 export class ConsignmentItemDto {
-  @IsOptional()
+  @IsNotEmpty()
   @IsString()
-  productId?: string; // Select from stock catalog; if set, productName/sku copied from product
+  productId: string; // Required: select from stock catalog (GET /distribution/stock/search?q=...)
 
   @IsOptional()
   @IsString()
-  productName?: string; // Required when productId not set
+  productName?: string; // Filled from product when productId is set
 
   @IsOptional()
   @IsString()
@@ -57,6 +57,16 @@ export class ConsignmentItemDto {
   @IsNumber()
   @Min(0)
   totalCost?: number;  // Computed as qty × unitPrice if omitted
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  wholesalePrice?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  retailPrice?: number;
 
   @IsOptional()
   @IsString()

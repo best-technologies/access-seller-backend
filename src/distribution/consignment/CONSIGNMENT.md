@@ -77,13 +77,19 @@ Content-Type: application/json
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| productId | string | no | Select from stock (`GET /distribution/stock/search?q=`); if set, productName/sku copied, stock incremented |
-| productName | string | yes* | Product name (*required when productId not set) |
+**Every item must have `productId`** (from the stock catalog). If any item is missing `productId`, the request is rejected with 400. Use `GET /distribution/stock/search?q=...` to find product ids.
+
+**Item prices:** `unitPrice` = cost from supplier; `wholesalePrice` = wholesale selling price per unit; `retailPrice` = retail selling price per unit. All optional except `unitPrice` for cost.
+
+| productId | string | **yes** | Required. Select from stock catalog (`GET /distribution/stock/search?q=`). productName/sku are filled from the product. |
+| productName | string | no | Filled from product when productId is set; optional override. |
 | cartons | number | yes | Number of cartons |
 | quantity | number | yes | Quantity |
 | unit | string | no | Unit (default: "pieces") |
-| unitPrice | number | yes | Unit price |
+| unitPrice | number | yes | Cost price per unit (from supplier) |
 | totalCost | number | no | Computed as qty × unitPrice if omitted |
+| wholesalePrice | number | no | Wholesale selling price per unit |
+| retailPrice | number | no | Retail selling price per unit |
 | sku | string | no | SKU |
 | description | string | no | Description |
 | brand | string | no | Brand |
@@ -148,7 +154,9 @@ Content-Type: application/json
       "cartons": 10,
       "quantity": 500,
       "unitPrice": 85.50,
-      "totalCost": 42750
+      "totalCost": 42750,
+      "wholesalePrice": 110.00,
+      "retailPrice": 135.00
     },
     {
       "productName": "Tablet 64GB Silver",
@@ -156,7 +164,9 @@ Content-Type: application/json
       "cartons": 5,
       "quantity": 200,
       "unitPrice": 120.00,
-      "totalCost": 24000
+      "totalCost": 24000,
+      "wholesalePrice": 150.00,
+      "retailPrice": 179.00
     }
   ]
 }
@@ -217,11 +227,12 @@ Add a single item. **Backend computes `totalCost` from `quantity × unitPrice`**
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| productId | string | no | Select from stock; if set, productName/sku copied, stock incremented |
-| productName | string | yes* | Required when productId not set |
+| productId | string | **yes** | Required. Select from stock catalog (`GET /distribution/stock/search?q=`). |
 | cartons | number | yes | Number of cartons |
 | quantity | number | yes | Quantity |
-| unitPrice | number | yes | Unit price |
+| unitPrice | number | yes | Cost price per unit (from supplier) |
+| wholesalePrice | number | no | Wholesale selling price per unit |
+| retailPrice | number | no | Retail selling price per unit |
 | unit | string | no | Unit (default: "pieces") |
 | sku | string | no | SKU |
 | description | string | no | Description |
@@ -235,7 +246,9 @@ Add a single item. **Backend computes `totalCost` from `quantity × unitPrice`**
   "productName": "Smartphone 128GB Black",
   "cartons": 10,
   "quantity": 500,
-  "unitPrice": 85.50
+  "unitPrice": 85.50,
+  "wholesalePrice": 110.00,
+  "retailPrice": 135.00
 }
 ```
 
@@ -253,6 +266,8 @@ Add a single item. **Backend computes `totalCost` from `quantity × unitPrice`**
       "quantity": 500,
       "unitPrice": 85.5,
       "totalCost": 42750,
+      "wholesalePrice": 110,
+      "retailPrice": 135,
       "sku": null,
       "description": null,
       "brand": null,
@@ -280,14 +295,17 @@ PATCH /distribution/consignment/:id/items/:itemId
 
 Edit an item. All fields are optional (partial update). **Backend recalculates `totalCost` and consignment totals** when quantity or unitPrice changes.
 
-**Payload (all optional):**
+**Payload (all optional):** You can also set **productId** here to link this item to a product from the stock catalog (e.g. to fix items that were created without a product link). When productId is sent, backend validates it and fills productName/sku from the product.
 
 | Field | Type | Description |
 |-------|------|-------------|
+| productId | string | Link to product from catalog (GET /distribution/stock/search?q=...). When set, productName/sku are filled from the product. |
 | productName | string | Product/item name |
 | cartons | number | Number of cartons |
 | quantity | number | Quantity |
-| unitPrice | number | Unit price |
+| unitPrice | number | Cost price per unit |
+| wholesalePrice | number | Wholesale selling price per unit |
+| retailPrice | number | Retail selling price per unit |
 | unit | string | Unit |
 | sku | string | SKU |
 | description | string | Description |
@@ -295,11 +313,18 @@ Edit an item. All fields are optional (partial update). **Backend recalculates `
 | model | string | Model |
 | condition | string | Condition |
 
-**Example:**
+**Example (link item to product):**
+```json
+{ "productId": "clxyz123..." }
+```
+
+**Example (other fields):**
 ```json
 {
   "quantity": 600,
-  "unitPrice": 82.00
+  "unitPrice": 82.00,
+  "wholesalePrice": 108.00,
+  "retailPrice": 132.00
 }
 ```
 
@@ -314,7 +339,9 @@ Edit an item. All fields are optional (partial update). **Backend recalculates `
       "productName": "Smartphone 128GB Black",
       "quantity": 600,
       "unitPrice": 82,
-      "totalCost": 49200
+      "totalCost": 49200,
+      "wholesalePrice": 108,
+      "retailPrice": 132
     },
     "consignment": {
       "id": "clabc...",
@@ -364,11 +391,13 @@ Remove an item. **Backend recalculates consignment totals** after deletion.
 PATCH /distribution/consignment/:id/status
 ```
 
-Change consignment status. **Stock is updated automatically:**
+Change consignment status. **Stock is updated only for items linked to a product** (items with `productId` from the stock catalog).
 
-- **Status set to `received`:** Product stock is **increased** for every item that has a `productId` (and a `StockMovement` with type `consignment_in` is recorded). `receivedAt` is set to now if not already set.
-- **Status set to `pending`** (from `received`): Product stock is **reduced** for every item with a `productId` (and a `StockMovement` with type `consignment_revert` is recorded). Fails with 400 if any product would go below zero. `receivedAt` is set to `null`.
+- **Status set to `received`:** Product stock is **increased** for every item that has a `productId`. If the consignment has items but **none** have a `productId`, the API returns **400** with a message asking you to link items to products from the catalog (`GET /distribution/stock/search?q=...`). Response includes `stockUpdatedCount` (number of products whose stock was updated).
+- **Status set to `pending`** (from `received`): Product stock is **reduced** for every item with a `productId`. Fails with 400 if any product would go below zero. `receivedAt` is set to `null`.
 - **Any other status** (`inspected`, `available`, `partial_out`, `closed`): Only the status (and optionally `receivedAt`) is updated; no stock change.
+
+**Important:** When creating a consignment or adding items, set `productId` (from the stock catalog) on each line that should affect inventory. Items with only `productName` (no `productId`) will not update stock when status is set to received.
 
 **Payload:**
 
@@ -517,21 +546,22 @@ GET /distribution/consignment?fromDate=2025-02-01&toDate=2025-02-28&sortBy=overa
 GET /distribution/consignment/:id
 ```
 
-**Response:**
+**Response structure:**
 ```json
 {
   "success": true,
   "message": "Consignment retrieved",
   "data": {
-    "id": "string",
-    "referenceNumber": "string",
+    "id": "clabc...",
+    "referenceNumber": "CONS-2025-001",
     "supplierName": "string",
+    "supplierReference": "string | null",
     "salesPersonName": "string | null",
     "salesPersonPhone": "string | null",
     "salesPersonEmail": "string | null",
     "invoiceNumber": "string | null",
     "deliveryNote": "string | null",
-    "deliveryDate": "string | null",
+    "deliveryDate": "2025-02-10T00:00:00.000Z",
     "deliveryTime": "string | null",
     "paymentModeTerms": "string | null",
     "manufacturerOrderNumber": "string | null",
@@ -546,15 +576,46 @@ GET /distribution/consignment/:id
     "balanceToPay": 25000,
     "amountToPayInWords": "string | null",
     "amountPaidInWords": "string | null",
-    "status": "string",
+    "receivedAt": "2025-02-17T12:00:00.000Z | null",
+    "status": "pending | received | inspected | available | partial_out | closed",
     "warehouseLocation": "string | null",
     "notes": "string | null",
-    "receivedAt": "string | null",
     "receivedById": "string | null",
-    "createdAt": "string",
-    "updatedAt": "string",
-    "items": [...],
-    "documents": [...],
+    "createdAt": "2025-02-17T10:00:00.000Z",
+    "updatedAt": "2025-02-17T10:00:00.000Z",
+    "items": [
+      {
+        "id": "clxyz...",
+        "consignmentId": "clabc...",
+        "productId": "clprod... | null",
+        "productName": "string | null",
+        "sku": "string | null",
+        "description": "string | null",
+        "brand": "string | null",
+        "model": "string | null",
+        "cartons": 10,
+        "quantity": 500,
+        "unit": "pieces",
+        "unitPrice": 85.5,
+        "totalCost": 42750,
+        "wholesalePrice": 110 | null,
+        "retailPrice": 135 | null,
+        "condition": "new | null",
+        "metadata": null,
+        "createdAt": "2025-02-17T10:00:00.000Z",
+        "updatedAt": "2025-02-17T10:00:00.000Z"
+      }
+    ],
+    "documents": [
+      {
+        "id": "cldoc...",
+        "consignmentId": "clabc...",
+        "documentType": "invoice",
+        "secure_url": "https://...",
+        "public_id": "string",
+        "createdAt": "2025-02-17T10:00:00.000Z"
+      }
+    ],
     "receivedBy": {
       "id": "string",
       "email": "string",
@@ -565,6 +626,9 @@ GET /distribution/consignment/:id
   "statusCode": 200
 }
 ```
+
+- **data.receivedBy** is `null` if no user is linked (receivedById is null).
+- **data.items[].productId** is the catalog product id when the item is linked; `null` if not linked.
 
 ---
 

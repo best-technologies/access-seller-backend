@@ -7,6 +7,7 @@ import { AddConsignmentItemDto } from './dto/add-consignment-item.dto';
 import { UpdateConsignmentItemDto } from './dto/update-consignment-item.dto';
 import { ListConsignmentsQueryDto } from './dto/list-consignments-query.dto';
 import { ConsignmentStatus, StockMovementType } from '@prisma/client';
+import * as colors from 'colors';
 
 @Injectable()
 export class ConsignmentService {
@@ -20,7 +21,7 @@ export class ConsignmentService {
     const totalCost = 'totalCost' in item && item.totalCost != null ? item.totalCost : quantity * unitPrice;
     return {
       productId: item.productId ?? null,
-      productName: item.productName ?? '',
+      productName: (item as { productName?: string }).productName ?? '',
       sku: item.sku ?? null,
       description: item.description ?? null,
       brand: item.brand ?? null,
@@ -30,6 +31,8 @@ export class ConsignmentService {
       unit: item.unit ?? 'pieces',
       unitPrice,
       totalCost,
+      wholesalePrice: 'wholesalePrice' in item ? item.wholesalePrice ?? null : null,
+      retailPrice: 'retailPrice' in item ? item.retailPrice ?? null : null,
       condition: item.condition ?? 'new',
       metadata: item.metadata ? (item.metadata as Prisma.InputJsonValue) : undefined,
     };
@@ -66,7 +69,7 @@ export class ConsignmentService {
   }
 
   async create(dto: CreateConsignmentDto, receivedById?: string) {
-    this.logger.log('Creating new consignment...');
+    this.logger.log(colors.cyan(`Creating new consignment...`));
 
     const referenceNumber = dto.referenceNumber?.trim()
       ? dto.referenceNumber.trim()
@@ -81,22 +84,25 @@ export class ConsignmentService {
     }
 
     const items = dto.items ?? [];
+    const productIdsFromFrontend = items.map((it, idx) => `[${idx}]${it.productId ?? '(missing)'}`).join(', ');
+    this.logger.log(colors.cyan(`Create consignment: frontend sent productIds: ${productIdsFromFrontend}`));
+
     const resolvedItems: Array<ConsignmentItemDto & { _productName?: string; _sku?: string }> = [];
 
-    for (const item of items) {
-      if (item.productId) {
-        const product = await this.prisma.distributionProduct.findUnique({
-          where: { id: item.productId, isActive: true },
-        });
-        if (!product) {
-          throw new BadRequestException(`Product ${item.productId} not found or inactive`);
-        }
-        resolvedItems.push({ ...item, _productName: product.name, _sku: product.sku });
-      } else if (!item.productName?.trim()) {
-        throw new BadRequestException('Each item must have productId or productName');
-      } else {
-        resolvedItems.push({ ...item, _productName: item.productName, _sku: item.sku });
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (!item.productId?.trim()) {
+        throw new BadRequestException(
+          `Every item must have a productId from the stock catalog. Item at index ${i} is missing productId. Use GET /distribution/stock/search?q=... to find product ids.`,
+        );
       }
+      const product = await this.prisma.distributionProduct.findUnique({
+        where: { id: item.productId.trim(), isActive: true },
+      });
+      if (!product) {
+        throw new BadRequestException(`Product ${item.productId} not found or inactive`);
+      }
+      resolvedItems.push({ ...item, _productName: product.name, _sku: product.sku });
     }
 
     const overallTotalCartons =
@@ -188,6 +194,8 @@ export class ConsignmentService {
   }
 
   async addItem(consignmentId: string, dto: AddConsignmentItemDto) {
+    this.logger.log(colors.cyan(`Add item: frontend sent productId: "${dto.productId}"`));
+
     const consignment = await this.prisma.consignment.findUnique({
       where: { id: consignmentId },
       include: { items: true },
@@ -196,33 +204,23 @@ export class ConsignmentService {
       throw new NotFoundException('Consignment not found');
     }
 
-    let productName = dto.productName ?? null;
-    let sku = dto.sku ?? null;
-    let productId: string | null = null;
+    const product = await this.prisma.distributionProduct.findUnique({
+      where: { id: dto.productId, isActive: true },
+    });
+    if (!product) {
+      throw new BadRequestException('Product not found or inactive');
+    }
+    const productName = product.name;
+    const sku = product.sku;
+    const productId = product.id;
 
     let stockBeforeForMovement: number | null = null;
-    if (dto.productId) {
-      const product = await this.prisma.distributionProduct.findUnique({
-        where: { id: dto.productId, isActive: true },
+    if (consignment.status === ConsignmentStatus.received) {
+      stockBeforeForMovement = product.currentStock;
+      await this.prisma.distributionProduct.update({
+        where: { id: product.id },
+        data: { currentStock: { increment: dto.quantity } },
       });
-      if (!product) {
-        throw new BadRequestException('Product not found or inactive');
-      }
-      productName = product.name;
-      sku = product.sku;
-      productId = product.id;
-      // Only add stock when consignment is already received
-      if (consignment.status === ConsignmentStatus.received) {
-        stockBeforeForMovement = product.currentStock;
-        await this.prisma.distributionProduct.update({
-          where: { id: product.id },
-          data: { currentStock: { increment: dto.quantity } },
-        });
-      }
-    } else if (!dto.productName?.trim()) {
-      throw new BadRequestException('productName or productId is required');
-    } else {
-      productName = dto.productName.trim();
     }
 
     const totalCost = dto.quantity * dto.unitPrice;
@@ -240,12 +238,14 @@ export class ConsignmentService {
         unit: dto.unit ?? 'pieces',
         unitPrice: dto.unitPrice,
         totalCost,
+        wholesalePrice: dto.wholesalePrice ?? null,
+        retailPrice: dto.retailPrice ?? null,
         condition: dto.condition ?? 'new',
         metadata: dto.metadata ? (dto.metadata as Prisma.InputJsonValue) : undefined,
       },
     });
 
-    if (productId != null && stockBeforeForMovement != null && consignment.status === ConsignmentStatus.received) {
+    if (stockBeforeForMovement != null && consignment.status === ConsignmentStatus.received) {
       await this.prisma.stockMovement.create({
         data: {
           productId,
@@ -283,11 +283,31 @@ export class ConsignmentService {
     const unitPrice = dto.unitPrice ?? item.unitPrice;
     const totalCost = quantity * unitPrice;
 
+    const dtoProductId = (dto as { productId?: string }).productId;
+    let productIdUpdate: { productId: string; productName: string; sku: string | null } | undefined;
+    if (dtoProductId !== undefined && dtoProductId !== null) {
+      const product = await this.prisma.distributionProduct.findUnique({
+        where: { id: dtoProductId.trim(), isActive: true },
+      });
+      if (!product) {
+        throw new BadRequestException(`Product ${dtoProductId} not found or inactive`);
+      }
+      productIdUpdate = { productId: product.id, productName: product.name, sku: product.sku };
+      this.logger.log(colors.cyan(`Update item: frontend sent productId: "${dtoProductId}" -> resolved to product "${product.sku}"`));
+    }
+
     const updated = await this.prisma.consignmentItem.update({
       where: { id: itemId },
       data: {
-        ...(dto.productName != null && { productName: dto.productName }),
-        ...(dto.sku !== undefined && { sku: dto.sku ?? null }),
+        ...(productIdUpdate && {
+          productId: productIdUpdate.productId,
+          productName: productIdUpdate.productName,
+          sku: productIdUpdate.sku,
+        }),
+        ...(!productIdUpdate && (dto as { productName?: string }).productName != null && {
+          productName: (dto as { productName?: string }).productName,
+        }),
+        ...(!productIdUpdate && dto.sku !== undefined && { sku: dto.sku ?? null }),
         ...(dto.description !== undefined && { description: dto.description ?? null }),
         ...(dto.brand !== undefined && { brand: dto.brand ?? null }),
         ...(dto.model !== undefined && { model: dto.model ?? null }),
@@ -296,6 +316,8 @@ export class ConsignmentService {
         ...(dto.unit !== undefined && { unit: dto.unit ?? 'pieces' }),
         ...(dto.unitPrice != null && { unitPrice: dto.unitPrice }),
         totalCost,
+        ...(dto.wholesalePrice !== undefined && { wholesalePrice: dto.wholesalePrice ?? null }),
+        ...(dto.retailPrice !== undefined && { retailPrice: dto.retailPrice ?? null }),
         ...(dto.condition !== undefined && { condition: dto.condition ?? 'new' }),
         ...(dto.metadata !== undefined && {
           metadata: dto.metadata ? (dto.metadata as Prisma.InputJsonValue) : Prisma.JsonNull,
@@ -341,11 +363,13 @@ export class ConsignmentService {
    * and reduced when status is set back to pending (from received).
    */
   async updateStatus(id: string, dto: { status: ConsignmentStatus }) {
+    this.logger.log(colors.cyan(`Updating consignment status to ${dto.status} for consignment ${id}`));
     const consignment = await this.prisma.consignment.findUnique({
       where: { id },
       include: { items: true },
     });
     if (!consignment) {
+      this.logger.error(colors.red(`Consignment not found for id: ${id}`));
       throw new NotFoundException('Consignment not found');
     }
 
@@ -353,7 +377,26 @@ export class ConsignmentService {
     const wasReceived = consignment.status === ConsignmentStatus.received;
 
     // Status -> received: add stock for all items with productId
+    let stockUpdatedCount = 0;
     if (newStatus === ConsignmentStatus.received && !wasReceived) {
+      const productIdsOnConsignment = consignment.items.map((i) => i.productId ?? '(null)').join(', ');
+      this.logger.log(
+        colors.cyan(
+          `updateStatus: backend using productIds from consignment items (${consignment.items.length} items): [${productIdsOnConsignment}]`,
+        ),
+      );
+      const itemsWithProduct = consignment.items.filter((i) => i.productId != null);
+      if (consignment.items.length > 0 && itemsWithProduct.length === 0) {
+        this.logger.error(
+          colors.red(
+            `updateStatus failed: No items have productId. Consignment ${consignment.referenceNumber} has ${consignment.items.length} item(s) but none linked to stock catalog.`,
+          ),
+        );
+        throw new BadRequestException(
+          'No items are linked to a product from the stock catalog. Stock only updates when items have a productId. ' +
+            'Edit each item and select a product from the catalog (GET /distribution/stock/search?q=...) so stock can be updated when marking as received.',
+        );
+      }
       for (const item of consignment.items) {
         if (!item.productId) continue;
         const product = await this.prisma.distributionProduct.findUnique({
@@ -377,6 +420,7 @@ export class ConsignmentService {
             consignmentItemId: item.id,
           },
         });
+        stockUpdatedCount += 1;
       }
     }
 
@@ -388,12 +432,16 @@ export class ConsignmentService {
           where: { id: item.productId },
         });
         if (!product) {
+          this.logger.error(
+            colors.red(`updateStatus failed: Product ${item.productId} no longer exists; cannot revert stock.`),
+          );
           throw new BadRequestException(
             `Product ${item.productId} no longer exists; cannot revert stock`,
           );
         }
         const newStock = product.currentStock - item.quantity;
         if (newStock < 0) {
+          this.logger.error(colors.red(`Cannot set status to pending: insufficient stock for ${product.sku} (${product.name}). Current: ${product.currentStock}, required to revert: ${item.quantity}`));
           throw new BadRequestException(
             `Cannot set status to pending: insufficient stock for ${product.sku} (${product.name}). Current: ${product.currentStock}, required to revert: ${item.quantity}`,
           );
@@ -433,9 +481,17 @@ export class ConsignmentService {
     });
 
     this.logger.log(
-      `Consignment ${consignment.referenceNumber} status: ${consignment.status} -> ${newStatus}${newStatus === ConsignmentStatus.received ? ', stock added' : newStatus === ConsignmentStatus.pending && wasReceived ? ', stock reverted' : ''}`,
+      colors.green(
+        `Success: Consignment ${consignment.referenceNumber} status updated ${consignment.status} -> ${newStatus}` +
+          (newStatus === ConsignmentStatus.received ? `, stock added for ${stockUpdatedCount} product(s)` : '') +
+          (newStatus === ConsignmentStatus.pending && wasReceived ? ', stock reverted' : ''),
+      ),
     );
-    return ResponseHelper.success('Consignment status updated', updated);
+    const payload =
+      newStatus === ConsignmentStatus.received && !wasReceived
+        ? { ...updated, stockUpdatedCount }
+        : updated;
+    return ResponseHelper.success('Consignment status updated', payload);
   }
 
   private buildWhereFromQuery(query: ListConsignmentsQueryDto): Prisma.ConsignmentWhereInput {
@@ -588,6 +644,7 @@ export class ConsignmentService {
   }
 
   async findOne(id: string) {
+    this.logger.log(colors.cyan(`Find one: backend using consignment id: "${id}"`));
     const consignment = await this.prisma.consignment.findUnique({
       where: { id },
       include: {
@@ -598,11 +655,14 @@ export class ConsignmentService {
         },
       },
     });
+    
 
     if (!consignment) {
+      this.logger.error(colors.red(`Find one: consignment not found for id: ${id}`));
       throw new NotFoundException('Consignment not found');
     }
 
+    this.logger.log(colors.magenta(`Find one: success: consignment "${consignment.referenceNumber}" found`));
     return ResponseHelper.success('Consignment retrieved', consignment);
   }
 }

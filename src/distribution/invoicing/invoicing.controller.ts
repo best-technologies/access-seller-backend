@@ -46,16 +46,19 @@ export class InvoicingController {
     return this.invoicingService.create(dto, user?.id);
   }
 
+  // Download PDF
   @Get(':id/pdf')
   async downloadPdf(@Param('id') id: string, @Res() res: Response) {
     await this.invoicePdfService.generatePdf(id, res);
   }
 
+  // Get payment history
   @Get(':id/payments')
   getPayments(@Param('id') id: string) {
     return this.invoicingService.getPayments(id);
   }
 
+  // Record payment
   @Post(':id/payments')
   @UseInterceptors(
     FileInterceptor('receipt', { limits: { fileSize: MAX_RECEIPT_SIZE } }),
@@ -76,6 +79,7 @@ export class InvoicingController {
     return this.invoicingService.recordPayment(id, dto, receipt, user?.id);
   }
 
+  // Mark as paid
   @Patch(':id/mark-paid')
   markAsPaid(
     @Param('id') id: string,
@@ -84,16 +88,19 @@ export class InvoicingController {
     return this.invoicingService.markAsPaid(id, dto);
   }
 
+  // Unmark as paid
   @Patch(':id/unmark-paid')
   unmarkAsPaid(@Param('id') id: string) {
     return this.invoicingService.unmarkAsPaid(id);
   }
 
+  // Update invoice
   @Patch(':id')
   update(@Param('id') id: string, @Body() dto: UpdateInvoiceDto) {
     return this.invoicingService.update(id, dto);
   }
 
+  // Get invoice by ID
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.invoicingService.findOne(id);

@@ -912,8 +912,10 @@ model ConsignmentItem {
   cartons       Int         @default(0)
   quantity      Int
   unit          String      @default("pieces")
-  unitPrice     Float       @default(0)
+  unitPrice     Float       @default(0)  // Cost price (from supplier)
   totalCost     Float       @default(0)  // quantity * unitPrice (or entered)
+  wholesalePrice Float?     // Wholesale selling price per unit
+  retailPrice   Float?      // Retail selling price per unit
   unitCost      Float?      // Legacy alias
   condition     String?     @default("new")
   metadata      Json?
@@ -1005,9 +1007,9 @@ model DistributionProduct {
   unit              String   @default("pieces")
   currentStock         Int      @default(0)
   costPrice            Float?
-  normalSellingPrice   Float?   // Suggested/default selling price
-  discountedSellingPrice Float? // Discounted selling price
-  reorderLevel         Int?     // Alert when stock below this
+  wholesalePrice   Float?   // Wholesale selling price
+  retailPrice      Float?   // Retail selling price
+  reorderLevel     Int?     // Alert when stock below this
   warehouseLocation String?
   images            Json?    // [{ secure_url, public_id }] from Cloudinary
   isActive          Boolean  @default(true)
@@ -1136,6 +1138,7 @@ model InvoiceItem {
   unit        String  @default("pieces")
   unitPrice   Float
   totalAmount Float
+  priceType   String? // "wholesale" | "retail" – which price was used for this line
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 

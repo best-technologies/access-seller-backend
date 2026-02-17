@@ -25,7 +25,8 @@
     "prisma:use-env": "node prisma/use-env.js",
     "prisma:migrate": "npm run prisma:use-env && prisma migrate deploy",
     "prisma:studio": "npm run prisma:use-env && prisma studio",
-    "prisma:generate": "npm run prisma:use-env && prisma generate"
+    "prisma:generate": "npm run prisma:use-env && prisma generate",
+    "db:start": "bash scripts/start-postgres.sh"
   },
   "dependencies": {
     "2": "^3.0.0",

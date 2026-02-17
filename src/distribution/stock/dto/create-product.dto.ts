@@ -59,13 +59,13 @@ export class CreateProductDto {
   @IsNumber()
   @Min(0)
   @Transform(toNumber)
-  normalSellingPrice?: number;
+  wholesalePrice?: number;
 
   @IsOptional()
   @IsNumber()
   @Min(0)
   @Transform(toNumber)
-  discountedSellingPrice?: number;
+  retailPrice?: number;
 
   @IsOptional()
   @IsNumber()

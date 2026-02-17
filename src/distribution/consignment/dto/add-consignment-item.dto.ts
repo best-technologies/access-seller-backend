@@ -1,19 +1,19 @@
 import {
+  IsNotEmpty,
   IsNumber,
   IsOptional,
   IsString,
   Min,
-  ValidateIf,
 } from 'class-validator';
 
 export class AddConsignmentItemDto {
+  @IsNotEmpty()
+  @IsString()
+  productId: string; // Required: select from stock catalog (GET /distribution/stock/search?q=...)
+
   @IsOptional()
   @IsString()
-  productId?: string; // Select from stock catalog; if set, productName/sku copied from product
-
-  @ValidateIf((o) => !o.productId)
-  @IsString()
-  productName?: string; // Required when productId not set
+  productName?: string; // Filled from product; optional override
 
   @IsOptional()
   @IsString()
@@ -46,6 +46,16 @@ export class AddConsignmentItemDto {
   @IsNumber()
   @Min(0)
   unitPrice: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  wholesalePrice?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  retailPrice?: number;
 
   @IsOptional()
   @IsString()

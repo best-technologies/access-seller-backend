@@ -10,6 +10,7 @@ import { ListInvoicesQueryDto } from './dto/list-invoices-query.dto';
 import { MarkInvoicePaidDto } from './dto/mark-invoice-paid.dto';
 import { RecordPaymentDto } from './dto/record-payment.dto';
 import { UpdateInvoiceDto } from './dto/update-invoice.dto';
+import * as colors from 'colors';
 
 const DEFAULT_COMPANY_ADDRESS = '121/123, Obafemi Awolowo Way, Oke-Ado, Ibadan';
 const DEFAULT_COMPANY_PHONE = '08038086862, 08174615808';
@@ -226,6 +227,7 @@ export class InvoicingService {
             unit: i.unit ?? 'pieces',
             unitPrice: i.unitPrice,
             totalAmount: i.totalAmount ?? i.quantity * i.unitPrice,
+            priceType: i.priceType ?? null,
           })),
         },
       },
@@ -283,25 +285,31 @@ export class InvoicingService {
     receiptFile?: Express.Multer.File,
     recordedById?: string,
   ) {
+    this.logger.log(colors.yellow(`Recording new payment for invoiceId: ${invoiceId}`));
     const invoice = await this.prisma.invoice.findUnique({
       where: { id: invoiceId },
       include: { items: { include: { product: true } } },
     });
     if (!invoice) {
+      this.logger.error(colors.red(`Invoice not found for invoiceId: ${invoiceId}`));
       throw new NotFoundException('Invoice not found');
     }
     if (invoice.status === InvoiceStatus.paid) {
+      this.logger.error(colors.red(`Invoice is already fully paid for invoiceId: ${invoiceId}`));
       throw new BadRequestException('Invoice is already fully paid');
     }
     if (invoice.status === InvoiceStatus.cancelled) {
+      this.logger.error(colors.red(`Cannot record payment for cancelled invoice for invoiceId: ${invoiceId}`));
       throw new BadRequestException('Cannot record payment for cancelled invoice');
     }
 
     const paymentAmount = Math.round(dto.amount * 100) / 100;
     if (paymentAmount <= 0) {
+      this.logger.error(colors.red(`Payment amount must be greater than 0 for invoiceId: ${invoiceId}`));
       throw new BadRequestException('Payment amount must be greater than 0');
     }
     if (paymentAmount > invoice.balanceDue) {
+      this.logger.error(colors.red(`Payment amount exceeds balance due for invoiceId: ${invoiceId}`));
       throw new BadRequestException(
         `Payment amount (₦${paymentAmount.toLocaleString()}) exceeds balance due (₦${invoice.balanceDue.toLocaleString()})`,
       );
@@ -310,6 +318,7 @@ export class InvoicingService {
     let receiptUrl: string | null = null;
     let receiptPublicId: string | null = null;
     if (receiptFile) {
+      this.logger.log(colors.yellow(`Uploading receipt for invoiceId: ${invoiceId}`));
       const [upload] = await this.storage.upload(
         [receiptFile],
         STORAGE_RECEIPT_FOLDER,
@@ -318,25 +327,34 @@ export class InvoicingService {
       receiptPublicId = upload.public_id;
     }
 
+    
     const newAmountPaid = invoice.amountPaid + paymentAmount;
     const newBalanceDue = invoice.totalAmount - newAmountPaid;
     const becomesFullyPaid = newBalanceDue <= 0;
 
-    if (becomesFullyPaid) {
+    // Reduce stock only on first payment (amountPaid was 0). Subsequent partial payments do not reduce again.
+    if (invoice.amountPaid === 0) {
+      this.logger.log(colors.yellow(`First payment: reducing stock for items with productId for invoiceId: ${invoiceId}`));
       const itemsWithProduct = invoice.items.filter((i) => i.productId != null);
+      // Validate sufficient stock for all items before any update
       for (const item of itemsWithProduct) {
-        if (!item.productId || !item.product) continue;
+        if (!item.productId) continue;
         const product = await this.prisma.distributionProduct.findUnique({
           where: { id: item.productId },
         });
         if (!product) continue;
         const newStock = product.currentStock - item.quantity;
         if (newStock < 0) {
+          this.logger.error(
+            colors.red(`Insufficient stock for product ${product.sku} (${product.name}). Current: ${product.currentStock}, required: ${item.quantity} for invoiceId: ${invoiceId}`),
+          );
           throw new BadRequestException(
             `Insufficient stock for product ${product.sku} (${product.name}). Current: ${product.currentStock}, required: ${item.quantity}`,
           );
+          
         }
       }
+      // Decrement stock and record movement per item
       for (const item of itemsWithProduct) {
         if (!item.productId) continue;
         const product = await this.prisma.distributionProduct.findUnique({
@@ -361,6 +379,10 @@ export class InvoicingService {
         });
       }
     }
+
+    this.logger.log(colors.yellow(`New amount paid: ${newAmountPaid}`));
+    this.logger.log(colors.yellow(`New balance due: ${newBalanceDue}`));
+    this.logger.log(colors.yellow(`Becomes fully paid: ${becomesFullyPaid}`));
 
     const [payment, updated] = await this.prisma.$transaction([
       this.prisma.invoicePayment.create({

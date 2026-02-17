@@ -70,8 +70,8 @@ GET /distribution/stock
         "unit": "pieces",
         "currentStock": 100,
         "costPrice": 85.50,
-        "normalSellingPrice": 120.00,
-        "discountedSellingPrice": 110.00,
+        "wholesalePrice": 120.00,
+        "retailPrice": 110.00,
         "reorderLevel": 10,
         "warehouseLocation": "Lagos Main",
         "isActive": true,
@@ -122,8 +122,8 @@ GET /distribution/stock
 | unit | string | Unit (default: "pieces") |
 | currentStock | number | Current quantity |
 | costPrice | number \| null | Cost for valuation |
-| normalSellingPrice | number \| null | Suggested/default selling price |
-| discountedSellingPrice | number \| null | Discounted selling price |
+| wholesalePrice | number \| null | Wholesale selling price |
+| retailPrice | number \| null | Retail selling price |
 | reorderLevel | number \| null | Alert when stock below |
 | warehouseLocation | string \| null | Location |
 | images | array \| null | `[{ secure_url, public_id }]` from Cloudinary |
@@ -212,8 +212,8 @@ POST /distribution/stock
 | unit | string | no | Default: "pieces" |
 | initialStock | number | no | Default: 0 |
 | costPrice | number | no | Cost for valuation |
-| normalSellingPrice | number | no | Suggested/default selling price |
-| discountedSellingPrice | number | no | Discounted selling price |
+| wholesalePrice | number | no | Wholesale selling price |
+| retailPrice | number | no | Retail selling price |
 | reorderLevel | number | no | Alert when stock below |
 | warehouseLocation | string | no | Location |
 | isActive | boolean | no | Default: true |
@@ -235,8 +235,8 @@ POST /distribution/stock
     "unit": "pieces",
     "currentStock": 0,
     "costPrice": 85.50,
-    "normalSellingPrice": 120.00,
-    "discountedSellingPrice": 110.00,
+    "wholesalePrice": 120.00,
+    "retailPrice": 110.00,
     "reorderLevel": 10,
     "warehouseLocation": "Lagos Main",
     "images": [
@@ -274,8 +274,8 @@ GET /distribution/stock/:id
     "unit": "pieces",
     "currentStock": 100,
     "costPrice": 85.50,
-    "normalSellingPrice": 120.00,
-    "discountedSellingPrice": 110.00,
+    "wholesalePrice": 120.00,
+    "retailPrice": 110.00,
     "reorderLevel": 10,
     "warehouseLocation": "Lagos Main",
     "images": [
@@ -361,8 +361,8 @@ PATCH /distribution/stock/:id
     "unit": "pieces",
     "currentStock": 100,
     "costPrice": 90.00,
-    "normalSellingPrice": 125.00,
-    "discountedSellingPrice": 115.00,
+    "wholesalePrice": 125.00,
+    "retailPrice": 115.00,
     "reorderLevel": 15,
     "warehouseLocation": "Lagos Main",
     "isActive": true,
@@ -430,8 +430,8 @@ POST /distribution/stock/:id/adjust
     "unit": "pieces",
     "currentStock": 150,
     "costPrice": 85.50,
-    "normalSellingPrice": 120.00,
-    "discountedSellingPrice": 110.00,
+    "wholesalePrice": 120.00,
+    "retailPrice": 110.00,
     "reorderLevel": 10,
     "warehouseLocation": "Lagos Main",
     "isActive": true,

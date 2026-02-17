@@ -38,6 +38,11 @@ export class CreateInvoiceItemDto {
   @IsNumber()
   @Min(0)
   totalAmount?: number;
+
+  /** "wholesale" | "retail" – which price type was used for this line */
+  @IsOptional()
+  @IsString()
+  priceType?: string;
 }
 
 export class CreateInvoiceDto {
