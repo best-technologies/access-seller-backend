@@ -492,8 +492,24 @@ All endpoints may return:
 
 ---
 
+## Stock movement history (audit trail)
+
+Every change to product stock is recorded in `StockMovement` with **stockBefore** and **stockAfter** (like wallet balance before/after in fintech):
+
+| Event | movementType | When |
+|-------|--------------|------|
+| New consignment created / item added to consignment | `consignment_in` | Product stock is incremented; one row per product line with consignmentId (and consignmentItemId). |
+| Invoice marked fully paid / payment recorded (fully paid) | `invoice_out` | Product stock is decremented; one row per invoice line with invoiceId. |
+| Invoice unmarked as paid | `invoice_restore` | Stock is restored (incremented); one row per line with invoiceId. |
+| Manual stock adjust | `adjust` | One row with optional `reason`. |
+
+Each row has: `productId`, `quantityDelta` (+ or -), `stockBefore`, `stockAfter`, and optional `consignmentId`, `invoiceId`, `reason`. Use these records for tracking and reconciliation.
+
+---
+
 ## Consignment Integration
 
 - Use `productId` (from stock catalog) when creating consignments or adding items.
 - Stock is auto-incremented when consignment items with `productId` are added.
+- Each such change is recorded in `StockMovement` with stockBefore/stockAfter.
 - Use `GET /distribution/stock/search?q=...` for product search/autocomplete.

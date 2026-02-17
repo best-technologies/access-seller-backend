@@ -38,19 +38,21 @@ export class UserManagementService {
           select: USER_SELECT,
           where: { usertype: 'btech-distribution' },
         }),
-        this.prisma.user.count(),
-        this.prisma.user.count({ where: { status: 'active' } }),
-        this.prisma.user.count({ where: { status: 'suspended' } }),
-        this.prisma.user.count({ where: { status: 'inactive' } }),
+        this.prisma.user.count({ where: { usertype: 'btech-distribution' } }),
+        this.prisma.user.count({ where: { status: 'active', usertype: 'btech-distribution' } }),
+        this.prisma.user.count({ where: { status: 'suspended', usertype: 'btech-distribution' } }),
+        this.prisma.user.count({ where: { status: 'inactive', usertype: 'btech-distribution' } }),
         this.prisma.user.groupBy({
           by: ['role'],
           _count: { id: true },
+          where: { usertype: 'btech-distribution' },
         }),
       ]);
 
     const byLevel = await this.prisma.user.groupBy({
       by: ['level'],
       _count: { id: true },
+      where: { usertype: 'btech-distribution' },
     });
 
     const analysis = {

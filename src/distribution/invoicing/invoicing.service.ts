@@ -1,8 +1,8 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import { InvoiceStatus } from '@prisma/client';
+import { InvoiceStatus, StockMovementType } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { CloudinaryService } from 'src/shared/services/cloudinary.service';
+import { StorageService } from 'src/shared/services/storage.service';
 import { ResponseHelper } from 'src/shared/helper-functions/response.helpers';
 import { amountToWords } from 'src/shared/utils/amount-in-words';
 import { CreateInvoiceDto } from './dto/create-invoice.dto';
@@ -13,7 +13,7 @@ import { UpdateInvoiceDto } from './dto/update-invoice.dto';
 
 const DEFAULT_COMPANY_ADDRESS = '121/123, Obafemi Awolowo Way, Oke-Ado, Ibadan';
 const DEFAULT_COMPANY_PHONE = '08038086862, 08174615808';
-const CLOUDINARY_RECEIPT_FOLDER = 'acces-sellr/invoice-receipts';
+const STORAGE_RECEIPT_FOLDER = 'distribution/invoices';
 
 @Injectable()
 export class InvoicingService {
@@ -21,7 +21,7 @@ export class InvoicingService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly cloudinary: CloudinaryService,
+    private readonly storage: StorageService,
   ) {}
 
   private async generateInvoiceNumber(): Promise<string> {
@@ -310,9 +310,9 @@ export class InvoicingService {
     let receiptUrl: string | null = null;
     let receiptPublicId: string | null = null;
     if (receiptFile) {
-      const [upload] = await this.cloudinary.uploadToCloudinary(
+      const [upload] = await this.storage.upload(
         [receiptFile],
-        CLOUDINARY_RECEIPT_FOLDER,
+        STORAGE_RECEIPT_FOLDER,
       );
       receiptUrl = upload.secure_url;
       receiptPublicId = upload.public_id;
@@ -339,9 +339,25 @@ export class InvoicingService {
       }
       for (const item of itemsWithProduct) {
         if (!item.productId) continue;
+        const product = await this.prisma.distributionProduct.findUnique({
+          where: { id: item.productId },
+        });
+        if (!product) continue;
+        const stockBefore = product.currentStock;
+        const stockAfter = stockBefore - item.quantity;
         await this.prisma.distributionProduct.update({
           where: { id: item.productId },
           data: { currentStock: { decrement: item.quantity } },
+        });
+        await this.prisma.stockMovement.create({
+          data: {
+            productId: item.productId,
+            movementType: StockMovementType.invoice_out,
+            quantityDelta: -item.quantity,
+            stockBefore,
+            stockAfter,
+            invoiceId,
+          },
         });
       }
     }
@@ -428,7 +444,7 @@ export class InvoicingService {
     const becomesFullyPaid = newBalanceDue <= 0;
 
     if (becomesFullyPaid) {
-      // Reduce stock for items with productId before updating invoice
+      // Reduce stock for items with productId and record stock movement
       const itemsWithProduct = invoice.items.filter((i) => i.productId != null);
       for (const item of itemsWithProduct) {
         if (!item.productId || !item.product) continue;
@@ -445,9 +461,25 @@ export class InvoicingService {
       }
       for (const item of itemsWithProduct) {
         if (!item.productId) continue;
+        const product = await this.prisma.distributionProduct.findUnique({
+          where: { id: item.productId },
+        });
+        if (!product) continue;
+        const stockBefore = product.currentStock;
+        const stockAfter = stockBefore - item.quantity;
         await this.prisma.distributionProduct.update({
           where: { id: item.productId },
           data: { currentStock: { decrement: item.quantity } },
+        });
+        await this.prisma.stockMovement.create({
+          data: {
+            productId: item.productId,
+            movementType: StockMovementType.invoice_out,
+            quantityDelta: -item.quantity,
+            stockBefore,
+            stockAfter,
+            invoiceId: id,
+          },
         });
       }
     }
@@ -494,13 +526,29 @@ export class InvoicingService {
     const newBalanceDue = Math.round((invoice.totalAmount - newAmountPaid) * 100) / 100;
     const newStatus = newAmountPaid > 0 ? InvoiceStatus.partial : InvoiceStatus.issued;
 
-    // Restore stock (reverse the deduction from mark-as-paid)
+    // Restore stock and record movement (invoice_restore)
     const itemsWithProduct = invoice.items.filter((i) => i.productId != null);
     for (const item of itemsWithProduct) {
       if (!item.productId) continue;
+      const product = await this.prisma.distributionProduct.findUnique({
+        where: { id: item.productId },
+      });
+      if (!product) continue;
+      const stockBefore = product.currentStock;
+      const stockAfter = stockBefore + item.quantity;
       await this.prisma.distributionProduct.update({
         where: { id: item.productId },
         data: { currentStock: { increment: item.quantity } },
+      });
+      await this.prisma.stockMovement.create({
+        data: {
+          productId: item.productId,
+          movementType: StockMovementType.invoice_restore,
+          quantityDelta: item.quantity,
+          stockBefore,
+          stockAfter,
+          invoiceId: id,
+        },
       });
     }
 

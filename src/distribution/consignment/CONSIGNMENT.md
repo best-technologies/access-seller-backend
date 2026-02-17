@@ -358,7 +358,54 @@ Remove an item. **Backend recalculates consignment totals** after deletion.
 
 ---
 
-### 5. List Consignments (Paginated with Analysis)
+### 5. Update consignment status
+
+```
+PATCH /distribution/consignment/:id/status
+```
+
+Change consignment status. **Stock is updated automatically:**
+
+- **Status set to `received`:** Product stock is **increased** for every item that has a `productId` (and a `StockMovement` with type `consignment_in` is recorded). `receivedAt` is set to now if not already set.
+- **Status set to `pending`** (from `received`): Product stock is **reduced** for every item with a `productId` (and a `StockMovement` with type `consignment_revert` is recorded). Fails with 400 if any product would go below zero. `receivedAt` is set to `null`.
+- **Any other status** (`inspected`, `available`, `partial_out`, `closed`): Only the status (and optionally `receivedAt`) is updated; no stock change.
+
+**Payload:**
+
+| Field  | Type   | Required | Description                          |
+|--------|--------|----------|--------------------------------------|
+| status | string | yes      | One of: `pending`, `received`, `inspected`, `available`, `partial_out`, `closed` |
+
+**Example (mark as received):**
+```json
+{ "status": "received" }
+```
+
+**Example (revert to pending):**
+```json
+{ "status": "pending" }
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Consignment status updated",
+  "data": {
+    "id": "clabc...",
+    "referenceNumber": "CONS-2025-001",
+    "status": "received",
+    "receivedAt": "2025-02-17T12:00:00.000Z",
+    "items": [...],
+    "receivedBy": { "id": "...", "first_name": "...", "last_name": "...", "email": "..." }
+  },
+  "statusCode": 200
+}
+```
+
+---
+
+### 6. List Consignments (Paginated with Analysis)
 
 ```
 GET /distribution/consignment
@@ -464,7 +511,7 @@ GET /distribution/consignment?fromDate=2025-02-01&toDate=2025-02-28&sortBy=overa
 
 ---
 
-### 6. Get Consignment by ID
+### 7. Get Consignment by ID
 
 ```
 GET /distribution/consignment/:id

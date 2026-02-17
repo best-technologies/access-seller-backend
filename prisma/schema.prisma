@@ -897,6 +897,7 @@ model Consignment {
   receivedBy  User?                 @relation(fields: [receivedById], references: [id])
   items       ConsignmentItem[]
   documents   ConsignmentDocument[]
+  stockMovements StockMovement[]
 }
 
 model ConsignmentItem {
@@ -1015,11 +1016,44 @@ model DistributionProduct {
 
   consignmentItems ConsignmentItem[]
   invoiceItems     InvoiceItem[]
+  stockMovements   StockMovement[]
 
   @@index([sku])
   @@index([name])
   @@index([category])
   @@index([isActive])
+}
+
+// Audit trail for stock changes (like wallet balance before/after in fintech).
+enum StockMovementType {
+  consignment_in    // Stock in when consignment marked received
+  consignment_revert // Stock out when consignment status set back to pending
+  invoice_out       // Stock out when invoice marked paid / payment recorded
+  invoice_restore   // Stock restored when invoice unmarked as paid
+  adjust            // Manual adjustment
+}
+
+model StockMovement {
+  id              String            @id @default(cuid())
+  productId       String
+  movementType    StockMovementType
+  quantityDelta   Int               // + for in, - for out
+  stockBefore     Int
+  stockAfter      Int
+  consignmentId   String?
+  consignmentItemId String?
+  invoiceId       String?
+  reason          String?           // Optional, e.g. for manual adjust
+  createdAt       DateTime         @default(now())
+
+  product       DistributionProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+  consignment   Consignment?        @relation(fields: [consignmentId], references: [id], onDelete: SetNull)
+  invoice       Invoice?            @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+
+  @@index([productId])
+  @@index([consignmentId])
+  @@index([invoiceId])
+  @@index([createdAt])
 }
 
 
@@ -1066,6 +1100,7 @@ model Invoice {
   bulkOrder BulkOrder?  @relation(fields: [bulkOrderId], references: [id], onDelete: SetNull)
   items     InvoiceItem[]
   payments  InvoicePayment[]
+  stockMovements StockMovement[]
 
   @@index([invoiceNumber])
   @@index([status])

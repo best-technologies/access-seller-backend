@@ -9,18 +9,13 @@ import { formatDate } from 'src/shared/helper-functions/formatter';
 import { RegisterDto, RequestLoginOtpDTO, RequestPasswordResetDTO, ResetPasswordDTO, SignInDto, VerifyEmailOTPDto, VerifyOTPAndResetPasswordDTO } from 'src/shared/dto/auth.dto';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-import { CloudinaryService } from 'src/shared/services/cloudinary.service';
+import { StorageService } from 'src/shared/services/storage.service';
 import { sendPasswordResetOtp, sendLoginOtpByMail, sendOnboardingMailToStoreOwner, sendOnboardingMailToPlatformAdmin } from 'src/common/mailer/send-mail';
 import * as crypto from "crypto"
 import { Prisma, StoreStatus } from '@prisma/client';
 import { ApiResponse } from 'src/shared/helper-functions/response';
 import { OnboardStoreDTO } from 'src/shared/dto/store.dto';
 
-interface CloudinaryUploadResult {
-    secure_url: string;
-    public_id: string;
-    original_filename: string;
-}
 
 interface AuthRequestContext {
     ipAddress?: string;
@@ -34,7 +29,7 @@ export class AuthService {
         private prisma: PrismaService,
         private jwt: JwtService,
         private config: ConfigService,
-        private readonly cloudinaryService: CloudinaryService,
+        private readonly storageService: StorageService,
         private readonly auditService: AuditService,
     ) {}
 
@@ -750,12 +745,12 @@ export class AuthService {
             );
         }
 
-        let uploadedFiles: CloudinaryUploadResult[] = [];
+        let uploadedFiles: { secure_url: string; public_id: string }[] = [];
         try {
             // const defaultPassword = `${dto.name.slice(0, 3).toLowerCase().replace(/\s+/g, '')}/sm/${dto.phone.slice(-4)}`;
             const defaultPassword = "maximus123"
 
-            uploadedFiles = await this.cloudinaryService.uploadToCloudinary(files);
+            uploadedFiles = await this.storageService.upload(files, 'store-docs');
 
             // hash the password 
             const hashedPassword = await argon.hash(defaultPassword);
@@ -865,7 +860,7 @@ export class AuthService {
             // Not during email sending
             if (uploadedFiles.length > 0 && !error.message?.includes('No recipients defined')) {
                 this.logger.warn("Cleaning up uploaded files due to error...");
-                await this.cloudinaryService.cleanupUploadedFiles(uploadedFiles);
+                await this.storageService.cleanupUploadedFiles(uploadedFiles);
             }
             
             return ResponseHelper.error(

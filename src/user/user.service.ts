@@ -10,7 +10,7 @@ import { formatAmount, formatDate, formatDateWithoutTime } from 'src/shared/help
 import { AddBankDto, DeleteBankDto, UpdateBankStatusDto } from './dto/bank.dto';
 import { PayoutMethod, RequestWithdrawalNewDto } from './dto/withdrawal-request.dto';
 import { generatePayoutId } from '../shared/helper-functions/generator';
-import { CloudinaryService } from '../shared/services/cloudinary.service';
+import { StorageService } from '../shared/services/storage.service';
 // import { PayoutMethod } from './dto/withdrawal-request.dto';
 
 @Injectable()
@@ -18,7 +18,7 @@ export class UserService {
   private readonly logger = new Logger(UserService.name);
   constructor(
     private readonly prisma: PrismaService,
-    private readonly cloudinaryService: CloudinaryService
+    private readonly storageService: StorageService
   ) {}
 
   async getUserAllowedPartialpayment(payload) {
@@ -167,9 +167,9 @@ export class UserService {
 
       // Upload NIN image to Cloudinary
       this.logger.log(colors.cyan("Uploading NIN image to Cloudinary..."));
-      const uploadResults = await this.cloudinaryService.uploadToCloudinary(
-        [ninImage], 
-        'acces-sellr/affiliate-nin-docs'
+      const uploadResults = await this.storageService.upload(
+        [ninImage],
+        'affiliate/nin-docs',
       );
 
       if (!uploadResults || uploadResults.length === 0) {

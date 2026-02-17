@@ -1,13 +1,14 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { StockMovementType } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { CloudinaryService, CloudinaryUploadResult } from 'src/shared/services/cloudinary.service';
+import { StorageService, StorageUploadResult } from 'src/shared/services/storage.service';
 import { ResponseHelper } from 'src/shared/helper-functions/response.helpers';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { AdjustStockDto } from './dto/adjust-stock.dto';
 import { ListStockQueryDto } from './dto/list-stock-query.dto';
 
-const CLOUDINARY_FOLDER = 'acces-sellr/distribution-products';
+const STORAGE_FOLDER = 'distribution/stocks';
 
 type ProductImage = { secure_url: string; public_id: string };
 
@@ -17,7 +18,7 @@ export class StockService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly cloudinary: CloudinaryService,
+    private readonly storage: StorageService,
   ) {}
 
   private buildWhere(query: ListStockQueryDto) {
@@ -154,8 +155,8 @@ export class StockService {
 
       let images: ProductImage[] = [];
       if (files.length > 0) {
-        const uploads = await this.cloudinary.uploadToCloudinary(files, CLOUDINARY_FOLDER);
-        images = uploads.map((u: CloudinaryUploadResult) => ({
+        const uploads = await this.storage.upload(files, STORAGE_FOLDER);
+        images = uploads.map((u: StorageUploadResult) => ({
           secure_url: u.secure_url,
           public_id: u.public_id,
         }));
@@ -203,7 +204,7 @@ export class StockService {
         throw new BadRequestException('No images provided');
       }
 
-      const uploads = await this.cloudinary.uploadToCloudinary(files, CLOUDINARY_FOLDER);
+      const uploads = await this.storage.upload(files, STORAGE_FOLDER);
       const newImages: ProductImage[] = uploads.map((u) => ({
         secure_url: u.secure_url,
         public_id: u.public_id,
@@ -244,7 +245,7 @@ export class StockService {
         throw new BadRequestException('Image not found for this product');
       }
 
-      await this.cloudinary.deleteFromCloudinary([publicId]);
+      await this.storage.delete([publicId]);
 
       const updated = await this.prisma.distributionProduct.update({
         where: { id },
@@ -337,16 +338,29 @@ export class StockService {
         this.logger.warn(`adjustStock | error | not found: ${id}`);
         throw new NotFoundException('Product not found');
       }
-      const newStock = product.currentStock + dto.quantity;
+      const stockBefore = product.currentStock;
+      const newStock = stockBefore + dto.quantity;
       if (newStock < 0) {
         this.logger.warn(`adjustStock | error | would go negative: current=${product.currentStock}, delta=${dto.quantity}`);
         throw new BadRequestException(`Cannot reduce stock below 0. Current: ${product.currentStock}, requested adjustment: ${dto.quantity}`);
       }
 
-      const updated = await this.prisma.distributionProduct.update({
-        where: { id },
-        data: { currentStock: newStock },
-      });
+      const [updated] = await this.prisma.$transaction([
+        this.prisma.distributionProduct.update({
+          where: { id },
+          data: { currentStock: newStock },
+        }),
+        this.prisma.stockMovement.create({
+          data: {
+            productId: id,
+            movementType: StockMovementType.adjust,
+            quantityDelta: dto.quantity,
+            stockBefore,
+            stockAfter: newStock,
+            reason: dto.reason ?? null,
+          },
+        }),
+      ]);
 
       this.logger.log(`adjustStock | success | ${product.sku} ${dto.quantity >= 0 ? '+' : ''}${dto.quantity} = ${newStock}`);
       return ResponseHelper.success('Stock adjusted', updated);
@@ -371,7 +385,7 @@ export class StockService {
       const images = (product.images as ProductImage[] | null) ?? [];
       if (images.length > 0) {
         const publicIds = images.map((img) => img.public_id);
-        await this.cloudinary.deleteFromCloudinary(publicIds);
+        await this.storage.delete(publicIds);
       }
 
       await this.prisma.distributionProduct.delete({
@@ -408,7 +422,17 @@ export class StockService {
         ],
       },
         take: 20,
-        select: { id: true, sku: true, name: true, currentStock: true, unit: true, costPrice: true },
+        select: {
+          id: true,
+          sku: true,
+          name: true,
+          currentStock: true,
+          unit: true,
+          costPrice: true,
+          normalSellingPrice: true,
+          discountedSellingPrice: true,
+          images: true,
+        },
       });
       this.logger.log(`search | success | found: ${products.length}`);
       return ResponseHelper.success('Products', products);
