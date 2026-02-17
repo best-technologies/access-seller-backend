@@ -1,0 +1,123 @@
+// Product interface placeholder
+export interface Product {
+  id: string;
+  name: string;
+  slug: string;
+  description: string;
+  price: number;
+  images: string[];
+  category: string;
+  stock: number;
+  commissionRate: number;
+  referralCommission: number;
+  allowedMarketers?: string[]; // IDs of marketers allowed to promote this product
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface Category {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string;
+}
+
+// DTOs for /products/browse API response
+export interface BrowseProductsResponse {
+  success: boolean;
+  message: string;
+  data: BrowseProductsData;
+}
+
+export interface BrowseProductsData {
+  page: number;
+  pageSize: number;
+  total: number;
+  hasMore: boolean;
+  categories: BrowseCategory[];
+  formats: BrowseFormat[];
+  products: BrowseProduct[];
+  // New structure: products grouped by categories
+  productsByCategory?: CategoryProducts[];
+}
+
+export interface CategoryProducts {
+  categoryName: string;
+  products: BrowseProduct[];
+}
+
+export interface BrowseCategory {
+  id: string;
+  name: string;
+  total_books: number;
+  icon?: string;
+}
+
+export interface BrowseFormat {
+  id: string;
+  name: string;
+  total_books: number;
+}
+
+// Restore original BrowseProduct type (copy from previous version or backup)
+export interface BrowseProduct {
+  id: string;
+  product_name: string;
+  is_new: boolean;
+  stock_status: string;
+  display_picture: string | null;
+  author: string;
+  total_sold: number;
+  selling_price: number;
+  nomral_price: number;
+  format: string;
+  stock_count: number;
+  categories: { id: string; name: string }[];
+  formats: { id: string; name: string }[];
+  category?: { id: string; name: string }[];
+}
+
+// Add a new type for category filter response
+export interface CategoryProduct {
+  id: string;
+  book_name: string;
+  author: string;
+  description: string;
+  selling_price: number;
+  normal_price: number;
+  total_purchase: number;
+  category: { id: string; name: string }[];
+  display_image: string;
+}
+
+export interface ProductUI {
+  id: string;
+  title: string;
+  description: string;
+  price: number;
+  originalPrice?: number;
+  amountSaved?: number;
+  stock: number;
+  images: string[];
+  category: string;
+  categoryId?: string;
+  commission?: number;
+  isActive?: boolean;
+  status?: string;
+  isbn?: string;
+  publisher?: string;
+  format?: string[];
+  availableFormats?: string[];
+  language?: string[];
+  genre?: string[];
+  createdAt?: string;
+  updatedAt?: string;
+  features?: string[];
+  rating?: number;
+  reviews?: number;
+  specifications?: Record<string, string>;
+  isNew?: boolean;
+  author?: string;
+  discount?: number;
+}

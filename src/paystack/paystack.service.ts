@@ -5,8 +5,8 @@ import * as colors from "colors"
 import { affiliateInitiatePaystackPayment, PaymentDataDto, verifyPaystackPaymentDto } from '../shared/dto/payment.dto';
 import { ProductsService } from '../admin/products/products.service';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { CloudinaryService } from '../shared/services/cloudinary.service';
-import type { CloudinaryUploadResult } from '../shared/services/cloudinary.service';
+import type { StorageUploadResult } from '../shared/services/storage.service';
+import { StorageService } from '../shared/services/storage.service';
 import { ApiResponse } from 'src/shared/helper-functions/response';
 import { formatAmount, formatDate } from 'src/shared/helper-functions/formatter';
 import { calculateAffiliateCommissionPercentage } from 'src/shared/helper-functions/commission';
@@ -29,7 +29,7 @@ export class PaystackService {
   constructor(
     private readonly productsService: ProductsService,
     private readonly prisma: PrismaService,
-    private readonly cloudinaryService: CloudinaryService,
+    private readonly storageService: StorageService,
   ) {}
 
   async initiatePayment(paymentData: PaymentDataDto, req: any) {
@@ -1241,10 +1241,10 @@ export class PaystackService {
       }
     }
 
-    // Upload files to Cloudinary
-    let uploadedFiles: CloudinaryUploadResult[] = [];
+    // Upload files to storage (cloudinary or S3)
+    let uploadedFiles: StorageUploadResult[] = [];
     if (files && files.length > 0) {
-      uploadedFiles = await this.cloudinaryService.uploadToCloudinary(files, 'acces-sellr/bank-deposits');
+      uploadedFiles = await this.storageService.upload(files, 'distribution/bank-deposits');
     }
 
     // Prepare user info

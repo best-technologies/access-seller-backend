@@ -6,7 +6,7 @@ import { CreateBookDto, BookCategory, BookGenre, BookLanguage, BookFormat } from
 import { EditProductDTO } from './dto/edit-product.dto';
 import * as csv from 'csv-parse/sync';
 import * as XLSX from 'xlsx';
-import { CloudinaryService } from 'src/shared/services/cloudinary.service';
+import { StorageService } from 'src/shared/services/storage.service';
 import { PRODUCT_VALIDATION_LIMITS, VALIDATION_MESSAGES } from './constants/validation-limits';
 import { ProductResponseDto } from './dto/product-response.dto';
 import { formatDate } from 'src/shared/helper-functions/formatter';
@@ -17,7 +17,7 @@ export class ProductsService {
     
     constructor(
         private prisma: PrismaService,
-        private cloudinaryService: CloudinaryService
+        private storageService: StorageService
     ) {}
 
     async getProductDashboard(page: number = 1, limit: number = 10) {
@@ -576,9 +576,9 @@ export class ProductsService {
             
             // If coverImages are provided, upload them
             if (coverImages && coverImages.length > 0) {
-                const uploadResults = await this.cloudinaryService.uploadToCloudinary(
+                const uploadResults = await this.storageService.upload(
                     coverImages.filter(img => img), // Filter out undefined entries
-                    'acces-sellr/book-covers'
+                    'admin/book-covers',
                 );
                 displayImages = uploadResults.map(res => ({
                     secure_url: res.secure_url,
@@ -1507,8 +1507,8 @@ export class ProductsService {
         if (dto.imagesToDelete && dto.imagesToDelete.length > 0) {
           this.logger.log(colors.yellow(`Attempting to delete ${dto.imagesToDelete.length} images from Cloudinary by public_id`));
           try {
-            await this.cloudinaryService.deleteFromCloudinary(dto.imagesToDelete);
-            this.logger.log(colors.green(`✅ Successfully deleted images from Cloudinary: ${dto.imagesToDelete.join(', ')}`));
+            await this.storageService.delete(dto.imagesToDelete);
+            this.logger.log(colors.green(`✅ Successfully deleted images from storage: ${dto.imagesToDelete.join(', ')}`));
           } catch (error) {
             this.logger.error(colors.red(`❌ Failed to delete images from Cloudinary: ${dto.imagesToDelete.join(', ')}`), error);
           }
@@ -1537,8 +1537,8 @@ export class ProductsService {
               if (imageToDelete.public_id) {
                 this.logger.log(colors.cyan(`Image has public_id, attempting Cloudinary deletion: ${imageToDelete.public_id}`));
                 try {
-                  await this.cloudinaryService.deleteFromCloudinary([imageToDelete.public_id]);
-                  this.logger.log(colors.green(`✅ Successfully deleted image from Cloudinary by index ${index}: ${imageToDelete.public_id}`));
+                  await this.storageService.delete([imageToDelete.public_id]);
+                  this.logger.log(colors.green(`✅ Successfully deleted image from storage by index ${index}: ${imageToDelete.public_id}`));
                 } catch (error) {
                   this.logger.error(colors.red(`❌ Failed to delete image from Cloudinary at index ${index}: ${imageToDelete.public_id}`), error);
                 }
@@ -1564,12 +1564,12 @@ export class ProductsService {
           }
           
           try {
-            const uploadResults = await this.cloudinaryService.uploadToCloudinary(
+            const uploadResults = await this.storageService.upload(
               coverImages,
-              'acces-sellr/book-covers'
+              'admin/book-covers',
             );
             
-            this.logger.log(`✅ Successfully uploaded ${uploadResults.length} files to Cloudinary`);
+            this.logger.log(`✅ Successfully uploaded ${uploadResults.length} files to storage`);
             
             const uploadedImages = uploadResults.map(res => ({
               secure_url: res.secure_url,
