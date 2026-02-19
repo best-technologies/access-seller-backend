@@ -3,6 +3,8 @@ import { Prisma } from '@prisma/client';
 import { InvoiceStatus, StockMovementType } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { StorageService } from 'src/shared/services/storage.service';
+import { AuditService } from 'src/shared/audit/audit.service';
+import { AuditActionType } from 'src/shared/audit/audit.types';
 import { ResponseHelper } from 'src/shared/helper-functions/response.helpers';
 import { amountToWords } from 'src/shared/utils/amount-in-words';
 import { CreateInvoiceDto } from './dto/create-invoice.dto';
@@ -23,6 +25,7 @@ export class InvoicingService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
+    private readonly auditService: AuditService,
   ) {}
 
   private async generateInvoiceNumber(): Promise<string> {
@@ -442,6 +445,123 @@ export class InvoicingService {
     });
     this.logger.log(`Invoice updated | ${updated.invoiceNumber}`);
     return ResponseHelper.success('Invoice updated', updated);
+  }
+
+  /**
+   * Delete an invoice and revert all side effects:
+   * - If any payment was recorded (amountPaid > 0), restores stock for all items with productId
+   *   and creates invoice_restore StockMovement records.
+   * - Deletes the invoice (cascade deletes items and payments).
+   * - Deletes receipt files from storage (best-effort).
+   * - Writes an audit log entry.
+   */
+  async delete(
+    id: string,
+    deletedBy?: { id: string; email?: string; first_name?: string; last_name?: string },
+  ) {
+    this.logger.log(colors.yellow(`Deleting invoice | id: ${id}`));
+    const invoice = await this.prisma.invoice.findUnique({
+      where: { id },
+      include: { items: { include: { product: true } }, payments: true },
+    });
+    if (!invoice) {
+      this.logger.error(colors.red(`Invoice not found for id: ${id}`));
+      throw new NotFoundException('Invoice not found');
+    }
+
+    const receiptPublicIds = invoice.payments
+      .map((p) => p.receiptPublicId)
+      .filter((id): id is string => !!id);
+
+    const stockRestored = invoice.amountPaid > 0;
+    const auditPayload = {
+      actionType: AuditActionType.DELETE_INVOICE,
+      userId: deletedBy?.id,
+      userEmail: deletedBy?.email,
+      userName:
+        deletedBy?.first_name != null || deletedBy?.last_name != null
+          ? [deletedBy.first_name, deletedBy.last_name].filter(Boolean).join(' ')
+          : undefined,
+      entityType: 'invoice' as const,
+      entityId: id,
+      description: `Deleted invoice ${invoice.invoiceNumber}${stockRestored ? ' (stock restored)' : ''}`,
+      metadata: {
+        invoiceNumber: invoice.invoiceNumber,
+        amountPaid: invoice.amountPaid,
+        totalAmount: invoice.totalAmount,
+        stockRestored,
+        paymentCount: invoice.payments.length,
+      },
+    };
+
+    await this.prisma.$transaction(async (tx) => {
+      if (invoice.amountPaid > 0) {
+        const itemsWithProduct = invoice.items.filter((i) => i.productId != null);
+        for (const item of itemsWithProduct) {
+          if (!item.productId) continue;
+          const product = await tx.distributionProduct.findUnique({
+            where: { id: item.productId },
+          });
+          if (!product) continue;
+          const stockBefore = product.currentStock;
+          const stockAfter = stockBefore + item.quantity;
+          await tx.distributionProduct.update({
+            where: { id: item.productId },
+            data: { currentStock: { increment: item.quantity } },
+          });
+          await tx.stockMovement.create({
+            data: {
+              productId: item.productId,
+              movementType: StockMovementType.invoice_restore,
+              quantityDelta: item.quantity,
+              stockBefore,
+              stockAfter,
+              invoiceId: id,
+            },
+          });
+        }
+        this.logger.log(
+          colors.yellow(
+            `Delete invoice | restored stock for ${itemsWithProduct.length} item(s) | ${invoice.invoiceNumber}`,
+          ),
+        );
+      }
+      await tx.auditLog.create({
+        data: {
+          actionType: auditPayload.actionType,
+          userId: auditPayload.userId ?? null,
+          userEmail: auditPayload.userEmail ?? null,
+          userName: auditPayload.userName ?? null,
+          entityType: auditPayload.entityType,
+          entityId: auditPayload.entityId,
+          description: auditPayload.description ?? null,
+          metadata: auditPayload.metadata ?? undefined,
+        },
+      });
+      await tx.invoice.delete({ where: { id } });
+    });
+
+    if (receiptPublicIds.length > 0) {
+      try {
+        await this.storage.delete(receiptPublicIds);
+        this.logger.log(
+          colors.yellow(`Delete invoice | removed ${receiptPublicIds.length} receipt file(s) from storage`),
+        );
+      } catch (err) {
+        this.logger.warn(
+          `Delete invoice | failed to delete receipt files from storage: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    }
+
+    this.logger.log(colors.green(`Invoice deleted | ${invoice.invoiceNumber}`));
+
+    return ResponseHelper.success(
+      invoice.amountPaid > 0
+        ? 'Invoice deleted. Stock restored for all items that had been reduced by payments.'
+        : 'Invoice deleted.',
+      { deletedInvoiceNumber: invoice.invoiceNumber },
+    );
   }
 
   async markAsPaid(id: string, dto: MarkInvoicePaidDto) {

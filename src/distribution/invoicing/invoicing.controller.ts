@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -98,6 +99,12 @@ export class InvoicingController {
   @Patch(':id')
   update(@Param('id') id: string, @Body() dto: UpdateInvoiceDto) {
     return this.invoicingService.update(id, dto);
+  }
+
+  // Delete invoice (reverts stock if payments were recorded, removes receipt files)
+  @Delete(':id')
+  remove(@Param('id') id: string, @GetUser() user?: { id: string; email?: string; first_name?: string; last_name?: string }) {
+    return this.invoicingService.delete(id, user);
   }
 
   // Get invoice by ID

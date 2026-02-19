@@ -117,6 +117,7 @@ export class DistributionDashboardService {
       bulkOrderDocuments,
       allProducts,
       allInvoices,
+      recentInvoicesRaw,
     ] = await Promise.all([
       this.prisma.consignment.findMany({
         where: consignmentWhere,
@@ -170,6 +171,22 @@ export class DistributionDashboardService {
       }),
       this.prisma.invoice.findMany({
         select: {
+          status: true,
+          totalAmount: true,
+          amountPaid: true,
+          balanceDue: true,
+        },
+      }),
+      this.prisma.invoice.findMany({
+        orderBy: { createdAt: 'desc' },
+        take: 5,
+        select: {
+          id: true,
+          invoiceNumber: true,
+          customerName: true,
+          customerCompany: true,
+          issueDate: true,
+          dueDate: true,
           status: true,
           totalAmount: true,
           amountPaid: true,
@@ -236,10 +253,22 @@ export class DistributionDashboardService {
       },
       recentConsignmentDocuments: consignmentDocuments.slice(0, 20),
       recentBulkOrderDocuments: bulkOrderDocuments.slice(0, 20),
+      recentInvoices: recentInvoicesRaw.map((inv) => ({
+        id: inv.id,
+        invoiceNumber: inv.invoiceNumber,
+        customer: inv.customerName,
+        company: inv.customerCompany ?? null,
+        issueDate: inv.issueDate.toISOString(),
+        dueDate: inv.dueDate ? inv.dueDate.toISOString() : null,
+        status: inv.status,
+        total: inv.totalAmount,
+        paid: inv.amountPaid,
+        balanceDue: inv.balanceDue,
+      })),
     };
 
     this.logger.log(
-      `Dashboard | consignments: ${consignmentTotal}, bulkOrders: ${bulkOrderTotal}, products: ${allProducts.length}, invoices: ${allInvoices.length}`,
+      `Dashboard | consignments: ${consignmentTotal}, bulkOrders: ${bulkOrderTotal}, products: ${allProducts.length}, invoices: ${recentInvoicesRaw.length}`,
     );
 
     return ResponseHelper.success('Distribution dashboard retrieved', dashboard);

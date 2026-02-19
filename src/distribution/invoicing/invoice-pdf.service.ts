@@ -10,6 +10,12 @@ const DARK_GREY = '#333333';
 const MUTED_GREY = '#666666';
 const BALANCE_DUE_RED = '#E74C3C';
 const LOGO_PATH = path.join(process.cwd(), 'public', 'images', 'btech-logo.jpg');
+
+const COMPANY_BANK_DETAILS = {
+  accountName: 'Best Technologies LTD',
+  bankName: 'Zenith Bank',
+  accountNumber: '1312105308',
+};
 const PAGE_WIDTH = 595;
 const CONTENT_WIDTH = 500;
 const MARGIN = 50;
@@ -57,11 +63,24 @@ export class InvoicePdfService {
         width: logoW,
         height: logoH,
       });
-      y += logoH + 20;
+      y += logoH + 8;
     } catch {
       this.logger.warn('Logo not found, skipping');
       y += 10;
     }
+
+    // === Company address & phone (centered, under logo) ===
+    const companyAddress =
+      invoice.companyAddress ?? '121/123, Obafemi Awolowo Way, Oke-Ado, Ibadan';
+    const companyPhone = invoice.companyPhone ?? '08038086862, 08174615808';
+    doc
+      .fontSize(8)
+      .font('Helvetica')
+      .fillColor(MUTED_GREY)
+      .text(companyAddress, CONTENT_LEFT, y, { width: CONTENT_WIDTH, align: 'center' });
+    y += 12;
+    doc.text(companyPhone, CONTENT_LEFT, y, { width: CONTENT_WIDTH, align: 'center' });
+    y += 22;
 
     // === INVOICE title ===
     doc
@@ -204,34 +223,87 @@ export class InvoicePdfService {
     doc.text(this.formatMoney(invoice.totalAmount), totValueLeft, y, totValueOpts);
     y += 18;
 
+    if (invoice.amountPaid > 0) {
+      doc.font('Helvetica').fillColor(LEMON_GREEN);
+      doc.text('Amount paid', totLeft, y, { width: totLabelWidth });
+      doc.text(this.formatMoney(invoice.amountPaid), totValueLeft, y, totValueOpts);
+      y += 18;
+    }
+
     doc.font('Helvetica').fillColor(BALANCE_DUE_RED);
     doc.text('Balance due', totLeft, y, { width: totLabelWidth });
     doc.text(this.formatMoney(invoice.balanceDue), totValueLeft, y, totValueOpts);
     y += 28;
 
-    // === Amount in words ===
+    // === Amount in words (italic) ===
     if (invoice.amountInWords) {
-      doc.fontSize(10).fillColor(DARK_GREY);
+      doc.fontSize(10).font('Helvetica-Oblique').fillColor(LEMON_GREEN);
       doc.text(invoice.amountInWords, CONTENT_LEFT, y, { width: CONTENT_WIDTH });
       y += 40;
     }
 
-    // === Footer: company address & phone ===
-    const companyAddress =
-      invoice.companyAddress ?? '121/123, Obafemi Awolowo Way, Oke-Ado, Ibadan';
-    const companyPhone = invoice.companyPhone ?? '08038086862, 08174615808';
+    // New page if not enough room for divider + address + bank box
+    if (y > doc.page.height - 180) {
+      doc.addPage();
+      y = 80;
+    }
 
+    // === Divider line ===
+    doc
+      .strokeColor('#E0E0E0')
+      .lineWidth(0.5)
+      .moveTo(CONTENT_LEFT, y)
+      .lineTo(CONTENT_LEFT + CONTENT_WIDTH, y)
+      .stroke();
+    y += 16;
+
+    // === Company address & phone (repeated at bottom, centered) ===
     doc
       .fontSize(9)
+      .font('Helvetica')
       .fillColor(MUTED_GREY)
-      .text(companyAddress, CONTENT_LEFT, doc.page.height - 70, {
-        width: CONTENT_WIDTH,
-        align: 'center',
-      })
-      .text(companyPhone, CONTENT_LEFT, doc.page.height - 56, {
-        width: CONTENT_WIDTH,
-        align: 'center',
-      });
+      .text(companyAddress, CONTENT_LEFT, y, { width: CONTENT_WIDTH, align: 'center' });
+    y += 12;
+    doc.text(companyPhone, CONTENT_LEFT, y, { width: CONTENT_WIDTH, align: 'center' });
+    y += 28;
+
+    // === PAYMENT ACCOUNT DETAILS (bordered box, 3-column) ===
+    const bankBoxH = 60;
+    const bankPad = 12;
+    const bankColW = CONTENT_WIDTH / 3;
+
+    doc
+      .rect(CONTENT_LEFT, y, CONTENT_WIDTH, bankBoxH)
+      .strokeColor('#E0E0E0')
+      .lineWidth(1)
+      .stroke();
+
+    // Box heading
+    doc
+      .fontSize(9)
+      .font('Helvetica-Bold')
+      .fillColor(DARK_GREY)
+      .text('PAYMENT ACCOUNT DETAILS', CONTENT_LEFT + bankPad, y + bankPad);
+
+    const bankValY = y + bankPad + 18;
+
+    // Column 1: Bank
+    doc.fontSize(8).font('Helvetica').fillColor(MUTED_GREY);
+    doc.text('Bank', CONTENT_LEFT + bankPad, bankValY);
+    doc.fontSize(10).font('Helvetica-Bold').fillColor(DARK_GREY);
+    doc.text(COMPANY_BANK_DETAILS.bankName, CONTENT_LEFT + bankPad, bankValY + 12);
+
+    // Column 2: Account number
+    doc.fontSize(8).font('Helvetica').fillColor(MUTED_GREY);
+    doc.text('Account number', CONTENT_LEFT + bankColW + bankPad, bankValY);
+    doc.fontSize(10).font('Helvetica-Bold').fillColor(DARK_GREY);
+    doc.text(COMPANY_BANK_DETAILS.accountNumber, CONTENT_LEFT + bankColW + bankPad, bankValY + 12);
+
+    // Column 3: Account name
+    doc.fontSize(8).font('Helvetica').fillColor(MUTED_GREY);
+    doc.text('Account name', CONTENT_LEFT + bankColW * 2 + bankPad, bankValY);
+    doc.fontSize(10).font('Helvetica-Bold').fillColor(DARK_GREY);
+    doc.text(COMPANY_BANK_DETAILS.accountName, CONTENT_LEFT + bankColW * 2 + bankPad, bankValY + 12);
 
     doc.end();
     this.logger.log(`Invoice PDF generated | ${invoice.invoiceNumber}`);

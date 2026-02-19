@@ -22,6 +22,9 @@ export const AuditActionType = {
   UPDATE_BULK_ORDER: 'update_bulk_order',
   BULK_ORDER_PAYMENT: 'bulk_order_payment',
 
+  // Distribution - Invoice
+  DELETE_INVOICE: 'delete_invoice',
+
   // Warehouse / User
   ONBOARD_WAREHOUSE_ADMIN: 'onboard_warehouse_admin',
   EDIT_USER_PERMISSIONS: 'edit_user_permissions',

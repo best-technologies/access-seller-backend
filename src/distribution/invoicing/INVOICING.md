@@ -300,7 +300,33 @@ Use this to add or update company details and signatures after invoice creation.
 
 ---
 
-### 7. Download Invoice as PDF
+### 7. Delete Invoice
+
+```
+DELETE /distribution/invoicing/:id
+```
+
+Permanently deletes the invoice and **reverts all side effects**:
+
+1. **Stock:** If any payment was recorded (`amountPaid > 0`), restores stock for every line item that has a `productId`: increments `DistributionProduct.currentStock` by the item quantity and creates an `invoice_restore` `StockMovement` record. This undoes the reduction that was done when the first payment was recorded (or when the invoice was marked paid).
+2. **Invoice:** The invoice is deleted. All related `InvoiceItem` and `InvoicePayment` rows are removed (cascade). Existing `StockMovement` rows that referenced this invoice have `invoiceId` set to `null`.
+3. **Receipts:** Receipt files (e.g. Cloudinary/S3) for each payment are deleted from storage (best-effort; invoice delete still succeeds if storage delete fails).
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "message": "Invoice deleted. Stock restored for all items that had been reduced by payments.",
+  "data": { "deletedInvoiceNumber": "INV-2026-0001" },
+  "statusCode": 200
+}
+```
+
+If the invoice had no payments, `message` is `"Invoice deleted."` and no stock changes are made.
+
+---
+
+### 8. Download Invoice as PDF
 
 ```
 GET /distribution/invoicing/:id/pdf
@@ -318,7 +344,7 @@ Returns the invoice as a downloadable PDF with:
 
 ---
 
-### 8. Get Invoice by ID
+### 9. Get Invoice by ID
 
 ```
 GET /distribution/invoicing/:id
@@ -409,6 +435,7 @@ GET /distribution/invoicing/:id
 | Record payment (with receipt) | POST | `/distribution/invoicing/:id/payments` |
 | Get payment history | GET | `/distribution/invoicing/:id/payments` |
 | Update invoice (signatures, company) | PATCH | `/distribution/invoicing/:id` |
+| Delete invoice (reverts stock, removes receipts) | DELETE | `/distribution/invoicing/:id` |
 | Mark as paid (legacy) | PATCH | `/distribution/invoicing/:id/mark-paid` |
 | Unmark as paid | PATCH | `/distribution/invoicing/:id/unmark-paid` |
 | Download PDF | GET | `/distribution/invoicing/:id/pdf` |
