@@ -1,6 +1,6 @@
 import { Logger } from '@nestjs/common';
-import { PrismaService } from '../../../prisma/prisma.service';
-import { sendCronErrorMailToAdmins } from '../../../common/mailer/send-mail';
+import { PrismaService } from '../../prisma/prisma.service';
+import { sendCronErrorMailToAdmins } from '../../common/mailer/send-mail';
 
 const logger = new Logger('CronNotificationHelper');
 

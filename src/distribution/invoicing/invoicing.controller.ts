@@ -15,12 +15,15 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Response } from 'express';
 import { InvoicePdfService } from './invoice-pdf.service';
+import { DeliveryNotePdfService } from './delivery-note-pdf.service';
 import { InvoicingService } from './invoicing.service';
 import { CreateInvoiceDto } from './dto/create-invoice.dto';
 import { ListInvoicesQueryDto } from './dto/list-invoices-query.dto';
 import { MarkInvoicePaidDto } from './dto/mark-invoice-paid.dto';
 import { RecordPaymentDto } from './dto/record-payment.dto';
 import { UpdateInvoiceDto } from './dto/update-invoice.dto';
+import { CreateDeliveryNoteDto } from './dto/create-delivery-note.dto';
+import { UpdateDeliveryNoteDto } from './dto/update-delivery-note.dto';
 import { JwtGuard } from 'src/auth/guard';
 import { GetUser } from 'src/auth/decorator/get-user-decorator';
 
@@ -32,6 +35,7 @@ export class InvoicingController {
   constructor(
     private readonly invoicingService: InvoicingService,
     private readonly invoicePdfService: InvoicePdfService,
+    private readonly deliveryNotePdfService: DeliveryNotePdfService,
   ) {}
 
   @Get()
@@ -51,6 +55,42 @@ export class InvoicingController {
   @Get(':id/pdf')
   async downloadPdf(@Param('id') id: string, @Res() res: Response) {
     await this.invoicePdfService.generatePdf(id, res);
+  }
+
+  // ===================== DELIVERY NOTES =====================
+
+  @Post(':id/delivery-note')
+  createDeliveryNote(
+    @Param('id') invoiceId: string,
+    @Body() dto: CreateDeliveryNoteDto,
+  ) {
+    return this.invoicingService.createDeliveryNote(invoiceId, dto);
+  }
+
+  @Get(':id/delivery-note')
+  getDeliveryNote(@Param('id') invoiceId: string) {
+    return this.invoicingService.getDeliveryNoteByInvoiceId(invoiceId);
+  }
+
+  @Patch(':id/delivery-note')
+  updateDeliveryNote(
+    @Param('id') invoiceId: string,
+    @Body() dto: UpdateDeliveryNoteDto,
+  ) {
+    return this.invoicingService.updateDeliveryNote(invoiceId, dto);
+  }
+
+  @Delete(':id/delivery-note')
+  deleteDeliveryNote(@Param('id') invoiceId: string) {
+    return this.invoicingService.deleteDeliveryNote(invoiceId);
+  }
+
+  @Get(':id/delivery-note/pdf')
+  async downloadDeliveryNotePdf(
+    @Param('id') invoiceId: string,
+    @Res() res: Response,
+  ) {
+    await this.deliveryNotePdfService.generatePdf(invoiceId, res);
   }
 
   // Get payment history

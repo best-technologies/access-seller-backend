@@ -12,6 +12,8 @@ import { ListInvoicesQueryDto } from './dto/list-invoices-query.dto';
 import { MarkInvoicePaidDto } from './dto/mark-invoice-paid.dto';
 import { RecordPaymentDto } from './dto/record-payment.dto';
 import { UpdateInvoiceDto } from './dto/update-invoice.dto';
+import { CreateDeliveryNoteDto } from './dto/create-delivery-note.dto';
+import { UpdateDeliveryNoteDto } from './dto/update-delivery-note.dto';
 import * as colors from 'colors';
 
 const DEFAULT_COMPANY_ADDRESS = '121/123, Obafemi Awolowo Way, Oke-Ado, Ibadan';
@@ -247,6 +249,7 @@ export class InvoicingService {
       include: {
         items: { include: { product: true } },
         payments: true,
+        deliveryNote: true,
         bulkOrder: {
           select: {
             id: true,
@@ -265,6 +268,95 @@ export class InvoicingService {
     }
 
     return ResponseHelper.success('Invoice retrieved', invoice);
+  }
+
+  async getDeliveryNoteByInvoiceId(invoiceId: string) {
+    const deliveryNote = await this.prisma.deliveryNote.findUnique({
+      where: { invoiceId },
+    });
+    if (!deliveryNote) {
+      throw new NotFoundException('Delivery note not found for this invoice');
+    }
+    return ResponseHelper.success('Delivery note retrieved', deliveryNote);
+  }
+
+  async createDeliveryNote(invoiceId: string, dto: CreateDeliveryNoteDto) {
+    const invoice = await this.prisma.invoice.findUnique({
+      where: { id: invoiceId },
+      include: { items: true },
+    });
+    if (!invoice) {
+      throw new NotFoundException('Invoice not found');
+    }
+
+    const existing = await this.prisma.deliveryNote.findUnique({
+      where: { invoiceId },
+    });
+    if (existing) {
+      throw new BadRequestException('Delivery note already exists for this invoice');
+    }
+
+    const deliveryNote = await this.prisma.deliveryNote.create({
+      data: {
+        invoiceId,
+        driverName: dto.driverName,
+        driverPhone: dto.driverPhone,
+        vehicleNumber: dto.vehicleNumber,
+        authorisedBy: dto.authorisedBy,
+        note:
+          dto.note ??
+          'Goods delivered in good condition are not returnable',
+      },
+    });
+
+    return ResponseHelper.created('Delivery note created successfully', {
+      deliveryNote,
+      invoice,
+    });
+  }
+
+  async updateDeliveryNote(invoiceId: string, dto: UpdateDeliveryNoteDto) {
+    const deliveryNote = await this.prisma.deliveryNote.findUnique({
+      where: { invoiceId },
+    });
+    if (!deliveryNote) {
+      throw new NotFoundException('Delivery note not found for this invoice');
+    }
+
+    const updated = await this.prisma.deliveryNote.update({
+      where: { invoiceId },
+      data: {
+        ...(dto.driverName !== undefined && { driverName: dto.driverName }),
+        ...(dto.driverPhone !== undefined && { driverPhone: dto.driverPhone }),
+        ...(dto.vehicleNumber !== undefined && {
+          vehicleNumber: dto.vehicleNumber,
+        }),
+        ...(dto.authorisedBy !== undefined && {
+          authorisedBy: dto.authorisedBy,
+        }),
+        ...(dto.note !== undefined && { note: dto.note }),
+      },
+    });
+
+    return ResponseHelper.success('Delivery note updated', updated);
+  }
+
+  async deleteDeliveryNote(invoiceId: string) {
+    const deliveryNote = await this.prisma.deliveryNote.findUnique({
+      where: { invoiceId },
+    });
+    if (!deliveryNote) {
+      throw new NotFoundException('Delivery note not found for this invoice');
+    }
+
+    await this.prisma.deliveryNote.delete({
+      where: { invoiceId },
+    });
+
+    return ResponseHelper.success('Delivery note deleted', {
+      invoiceId,
+      deletedDeliveryNoteId: deliveryNote.id,
+    });
   }
 
   async getPayments(invoiceId: string) {

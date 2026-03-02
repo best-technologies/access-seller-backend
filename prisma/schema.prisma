@@ -1103,6 +1103,7 @@ model Invoice {
   items     InvoiceItem[]
   payments  InvoicePayment[]
   stockMovements StockMovement[]
+  deliveryNote   DeliveryNote?
 
   @@index([invoiceNumber])
   @@index([status])
@@ -1147,6 +1148,22 @@ model InvoiceItem {
 
   @@index([invoiceId])
   @@index([productId])
+}
+
+model DeliveryNote {
+  id            String   @id @default(cuid())
+  invoiceId     String   @unique
+  driverName    String
+  driverPhone   String
+  vehicleNumber String
+  authorisedBy  String
+  note          String   @default("Goods delivered in good condition are not returnable")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id])
+
+  @@index([invoiceId])
 }
 
 // ============ AUDIT LOG ============

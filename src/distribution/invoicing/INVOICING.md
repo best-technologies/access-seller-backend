@@ -405,6 +405,198 @@ GET /distribution/invoicing/:id
 
 ---
 
+## Delivery Notes (Per Invoice)
+
+Delivery notes are generated **for a specific invoice** and reuse its line items (goods, qty, unit, description) but **do not include any pricing or totals**.  
+They also capture delivery-specific metadata (driver, vehicle, authorised-by) and can be downloaded as a separate PDF.
+
+### 10. Create Delivery Note for an Invoice
+
+```
+POST /distribution/invoicing/:id/delivery-note
+```
+
+`id` is the **invoice ID** (not the invoice number).
+
+**Payload:**
+
+```json
+{
+  "driverName": "John Doe",
+  "driverPhone": "+2348012345678",
+  "vehicleNumber": "ABC-123-XY",
+  "authorisedBy": "Warehouse Manager",
+  "note": "Goods delivered in good condition are not returnable"
+}
+```
+
+| Field         | Type   | Required | Description                                                                 |
+|--------------|--------|----------|-----------------------------------------------------------------------------|
+| driverName   | string | yes      | Driver's full name                                                          |
+| driverPhone  | string | yes      | Driver's phone number                                                       |
+| vehicleNumber| string | yes      | Vehicle registration number                                                 |
+| authorisedBy | string | yes      | Name of the staff that authorised the delivery                              |
+| note         | string | no       | Custom note; defaults to `"Goods delivered in good condition are not returnable"` |
+
+**Behavior:**
+
+- Fails with `404` if the invoice does not exist.
+- Fails with `400` if a delivery note already exists for this invoice.
+- Creates a `DeliveryNote` row linked 1:1 to the invoice.
+- Response includes both the delivery note and a lightweight view of the invoice and its items.
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "message": "Delivery note created successfully",
+  "data": {
+    "deliveryNote": {
+      "id": "string",
+      "invoiceId": "string",
+      "driverName": "string",
+      "driverPhone": "string",
+      "vehicleNumber": "string",
+      "authorisedBy": "string",
+      "note": "Goods delivered in good condition are not returnable",
+      "createdAt": "2026-03-02T10:00:00.000Z",
+      "updatedAt": "2026-03-02T10:00:00.000Z"
+    },
+    "invoice": {
+      "id": "string",
+      "invoiceNumber": "INV-2026-0001",
+      "customerName": "Acme Corp",
+      "customerCompany": "Acme Corporation",
+      "issueDate": "2026-03-01T00:00:00.000Z",
+      "items": [
+        {
+          "id": "string",
+          "description": "Product A",
+          "quantity": 10,
+          "unit": "pieces"
+        }
+      ]
+    }
+  },
+  "statusCode": 201
+}
+```
+
+### 11. Get Delivery Note by Invoice ID
+
+```
+GET /distribution/invoicing/:id/delivery-note
+```
+
+Returns the delivery note linked to the given invoice.
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "message": "Delivery note retrieved",
+  "data": {
+    "id": "string",
+    "invoiceId": "string",
+    "driverName": "string",
+    "driverPhone": "string",
+    "vehicleNumber": "string",
+    "authorisedBy": "string",
+    "note": "Goods delivered in good condition are not returnable",
+    "createdAt": "2026-03-02T10:00:00.000Z",
+    "updatedAt": "2026-03-02T10:00:00.000Z"
+  },
+  "statusCode": 200
+}
+```
+
+### 12. Update Delivery Note
+
+```
+PATCH /distribution/invoicing/:id/delivery-note
+```
+
+**Payload (all optional):**
+
+```json
+{
+  "driverName": "New Driver Name",
+  "driverPhone": "New Phone",
+  "vehicleNumber": "New Plate",
+  "authorisedBy": "New Authoriser",
+  "note": "Custom note here"
+}
+```
+
+Updates the delivery note fields for the given invoice.
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "message": "Delivery note updated",
+  "data": {
+    "id": "string",
+    "invoiceId": "string",
+    "driverName": "New Driver Name",
+    "driverPhone": "New Phone",
+    "vehicleNumber": "New Plate",
+    "authorisedBy": "New Authoriser",
+    "note": "Custom note here",
+    "createdAt": "2026-03-02T10:00:00.000Z",
+    "updatedAt": "2026-03-02T11:00:00.000Z"
+  },
+  "statusCode": 200
+}
+```
+
+### 13. Delete Delivery Note
+
+```
+DELETE /distribution/invoicing/:id/delivery-note
+```
+
+Deletes the delivery note for the given invoice.  
+Does **not** affect invoices, payments, or stock – it only removes the delivery note record.
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "message": "Delivery note deleted",
+  "data": {
+    "invoiceId": "string",
+    "deletedDeliveryNoteId": "string"
+  },
+  "statusCode": 200
+}
+```
+
+### 14. Download Delivery Note as PDF
+
+```
+GET /distribution/invoicing/:id/delivery-note/pdf
+```
+
+Returns a **delivery note PDF** for the invoice with:
+
+- Btech logo and company address/phone (same branding as invoice)
+- Customer details (name, company, contact)
+- Delivery details (driver name, driver phone, vehicle number, authorised by)
+- Items table: **S/N, description, quantity, unit** (no prices, no totals)
+- Total quantity
+- Standard note: `"Goods delivered in good condition are not returnable"` (or the custom note if set)
+- Signature lines for **Delivered by (Driver)** and **Received by (Customer)**
+
+**Response:** Binary PDF file  
+`Content-Disposition: attachment; filename="delivery-note-INV-2026-0001.pdf"`
+
+---
+
 ## Invoice Status Flow
 
 | Status | Description |
@@ -440,3 +632,8 @@ GET /distribution/invoicing/:id
 | Unmark as paid | PATCH | `/distribution/invoicing/:id/unmark-paid` |
 | Download PDF | GET | `/distribution/invoicing/:id/pdf` |
 | Get invoice | GET | `/distribution/invoicing/:id` |
+| Create delivery note for invoice | POST | `/distribution/invoicing/:id/delivery-note` |
+| Get delivery note for invoice | GET | `/distribution/invoicing/:id/delivery-note` |
+| Update delivery note | PATCH | `/distribution/invoicing/:id/delivery-note` |
+| Delete delivery note | DELETE | `/distribution/invoicing/:id/delivery-note` |
+| Download delivery note PDF | GET | `/distribution/invoicing/:id/delivery-note/pdf` |
