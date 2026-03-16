@@ -265,42 +265,42 @@ export class AuthService {
             }
 
             // Check user role, for now, no need to send OTP again for admin users
-            // if (existing_user.role !== 'user') {
-            //     // Generate OTP
-            //     const otp = crypto.randomInt(1000, 9999).toString();
-            //     const otpExpiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 mins expiry
+            if (existing_user.role !== 'user') {
+                // Generate OTP
+                const otp = crypto.randomInt(1000, 9999).toString();
+                const otpExpiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 mins expiry
 
-            //     // Update OTP for the user
-            //     await this.prisma.user.update({
-            //         where: { email: payload.email },
-            //         data: {
-            //             otp,
-            //             otp_expires_at: otpExpiresAt,
-            //         },
-            //     });
+                // Update OTP for the user
+                await this.prisma.user.update({
+                    where: { email: payload.email },
+                    data: {
+                        otp,
+                        otp_expires_at: otpExpiresAt,
+                    },
+                });
 
-            //     // Send OTP to email
-            //     await sendLoginOtpByMail({ email: payload.email, otp });
+                // Send OTP to email
+                await sendLoginOtpByMail({ email: payload.email, otp });
 
-            //     await this.auditService.log({
-            //         actionType: AuditActionType.ADMIN_LOGIN_OTP_REQUEST,
-            //         userId: existing_user.id,
-            //         userEmail: existing_user.email,
-            //         userName: `${existing_user.first_name} ${existing_user.last_name}`,
-            //         entityType: 'user',
-            //         entityId: existing_user.id,
-            //         description: `Admin login OTP sent to ${existing_user.email}`,
-            //         metadata: { role: existing_user.role },
-            //         ipAddress: ctx?.ipAddress,
-            //         userAgent: ctx?.userAgent,
-            //     });
+                await this.auditService.log({
+                    actionType: AuditActionType.ADMIN_LOGIN_OTP_REQUEST,
+                    userId: existing_user.id,
+                    userEmail: existing_user.email,
+                    userName: `${existing_user.first_name} ${existing_user.last_name}`,
+                    entityType: 'user',
+                    entityId: existing_user.id,
+                    description: `Admin login OTP sent to ${existing_user.email}`,
+                    metadata: { role: existing_user.role },
+                    ipAddress: ctx?.ipAddress,
+                    userAgent: ctx?.userAgent,
+                });
 
-            //     // Return role to frontend (no token)
-            //     return ResponseHelper.success(
-            //         "OTP sent to email. Please verify to continue.",
-            //         { role: existing_user.role }
-            //     );
-            // }
+                // Return role to frontend (no token)
+                return ResponseHelper.success(
+                    "OTP sent to email. Please verify to continue.",
+                    { role: existing_user.role }
+                );
+            }
 
             await this.auditService.log({
                 actionType: AuditActionType.LOGIN,
