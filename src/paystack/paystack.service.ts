@@ -14,6 +14,7 @@ import { sendOrderConfirmationToBuyer, sendOrderNotificationToAdmin, sendReferra
 import { CheckoutFromCartDto, VerifyAccountNumberDto } from './dto/paystack.dto';
 import * as argon2 from 'argon2';
 import { generateOrderId, generateTrackingId } from '../shared/helper-functions/generator';
+import { CommissionReferralConfigService } from 'src/admin/config/commission.referral.service';
 
 let paystackSecretKey: string;
 if(process.env.NODE_ENV === "production") {
@@ -30,6 +31,7 @@ export class PaystackService {
     private readonly productsService: ProductsService,
     private readonly prisma: PrismaService,
     private readonly storageService: StorageService,
+    private readonly commissionConfigService: CommissionReferralConfigService,
   ) {}
 
   async initiatePayment(paymentData: PaymentDataDto, req: any) {
@@ -402,7 +404,10 @@ export class PaystackService {
               const orderItem = updatedOrder.items[0]; // Since affiliate orders have single items
               const productCommission = orderItem.product.commission;
               // New rule: commission percent is based on total purchase amount schedule
-              const commissionPercentage = calculateAffiliateCommissionPercentage(updatedOrder.total_amount);
+              const commissionPercentage =
+                (await this.commissionConfigService.calculatePercentageForAmount(
+                  updatedOrder.total_amount,
+                )) || calculateAffiliateCommissionPercentage(updatedOrder.total_amount);
               commissionAmount = (updatedOrder.total_amount * commissionPercentage) / 100;
               this.logger.log(`order total value: ${existingOrder.total_amount}`);
               this.logger.log(`commission amount: ${commissionAmount}`);
@@ -1030,8 +1035,13 @@ export class PaystackService {
         // Check for referral code (referral code owner)
         if (updatedOrder.referralCode) {
           this.logger.log(`Referral code exists: ${updatedOrder.referralCode}`);
-          const commissionPercentage = calculateAffiliateCommissionPercentage(updatedOrder.total_amount);
-          this.logger.log(`Set commission percentage by schedule: ${commissionPercentage}`);
+          const commissionPercentage =
+            (await this.commissionConfigService.calculatePercentageForAmount(
+              updatedOrder.total_amount,
+            )) || calculateAffiliateCommissionPercentage(updatedOrder.total_amount);
+          this.logger.log(
+            `Set commission percentage by schedule (config-aware): ${commissionPercentage}`,
+          );
           commissionAmount = (updatedOrder.total_amount * commissionPercentage) / 100;
 
           try {
@@ -1429,8 +1439,12 @@ export class PaystackService {
 
       if (order.referralCode) {
         this.logger.log(`Referral code exists: ${order.referralCode}`);
-        const commissionPercentage = calculateAffiliateCommissionPercentage(order.total_amount);
-        this.logger.log(`Set commission percentage by schedule: ${commissionPercentage}`);
+        const commissionPercentage =
+          (await this.commissionConfigService.calculatePercentageForAmount(order.total_amount)) ||
+          calculateAffiliateCommissionPercentage(order.total_amount);
+        this.logger.log(
+          `Set commission percentage by schedule (config-aware): ${commissionPercentage}`,
+        );
         commissionAmount = (order.total_amount * commissionPercentage) / 100;
 
         try {

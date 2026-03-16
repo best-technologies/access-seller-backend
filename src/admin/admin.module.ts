@@ -11,6 +11,7 @@ import { Reflector } from '@nestjs/core';
 import { CategoryModule } from './metadata/category.module';
 import { DepotModule } from './metadata/depot/depot.module';
 import { CronModule } from './cron/cron.module';
+import { ConfigModule } from './config/config.module';
 
 @Module({
     imports: [
@@ -21,7 +22,8 @@ import { CronModule } from './cron/cron.module';
         ReferralsModule,
         CategoryModule,
         DepotModule,
-        CronModule
+        CronModule,
+        ConfigModule
     ],
     controllers: [AdminController],
     providers: [AdminService, RolesGuard, Reflector],
