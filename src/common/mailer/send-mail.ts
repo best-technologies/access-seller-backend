@@ -12,8 +12,113 @@ import { commissionApprovedTemplate, CommissionApprovedTemplateProps } from '../
 import { referralUsedTemplate, ReferralUsedTemplateProps } from '../email-templates/referral-used-template';
 import { commissionApprovalReportTemplate, CommissionApprovalReportProps } from '../email-templates/commission-approval-report-template';
 import { cronErrorTemplate, CronErrorTemplateProps } from '../email-templates/cron-error-template';
+import axios from 'axios';
 
 const logger = new Logger('SendMail');
+
+type EmailProvider = 'gmail' | 'resend';
+
+interface CoreEmailPayload {
+  to: string | string[];
+  subject: string;
+  html: string;
+  fromName?: string;
+}
+
+let gmailTransporter: nodemailer.Transporter | null = null;
+
+function getEmailProvider(): EmailProvider {
+  const raw = (process.env.EMAIL_PROVIDER || 'gmail').toLowerCase();
+  if (raw === 'resend') return 'resend';
+  return 'gmail';
+}
+
+async function getGmailTransporter(): Promise<nodemailer.Transporter> {
+  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
+    throw new Error('SMTP credentials missing in environment variables');
+  }
+
+  if (gmailTransporter) {
+    return gmailTransporter;
+  }
+
+  gmailTransporter = nodemailer.createTransport({
+    service: 'gmail',
+    host: process.env.GOOGLE_SMTP_HOST,
+    port: process.env.GOOGLE_SMTP_PORT ? parseInt(process.env.GOOGLE_SMTP_PORT, 10) : 587,
+    secure: false,
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASSWORD,
+    },
+  });
+
+  return gmailTransporter;
+}
+
+async function sendEmailCore(payload: CoreEmailPayload): Promise<void> {
+  const provider = getEmailProvider();
+  const fromAddress = process.env.EMAIL_USER as string;
+  const fromName = payload.fromName || 'Acces-Sellr';
+
+  if (!fromAddress) {
+    throw new Error('EMAIL_USER is required as from address');
+  }
+
+  switch (provider) {
+    case 'gmail': {
+      const transporter = await getGmailTransporter();
+      await transporter.sendMail({
+        from: {
+          name: fromName,
+          address: fromAddress,
+        },
+        to: payload.to,
+        subject: payload.subject,
+        html: payload.html,
+      });
+      return;
+    }
+    case 'resend': {
+      const apiKey = process.env.RESEND_API_KEY;
+      if (!apiKey) {
+        logger.warn('RESEND_API_KEY not set; falling back to Gmail provider');
+        const transporter = await getGmailTransporter();
+        await transporter.sendMail({
+          from: {
+            name: fromName,
+            address: fromAddress,
+          },
+          to: payload.to,
+          subject: payload.subject,
+          html: payload.html,
+        });
+        return;
+      }
+
+      const toArray = Array.isArray(payload.to) ? payload.to : [payload.to];
+
+      await axios.post(
+        'https://api.resend.com/emails',
+        {
+          from: `${fromName} <${fromAddress}>`,
+          to: toArray,
+          subject: payload.subject,
+          html: payload.html,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+          },
+        },
+      );
+      return;
+    }
+    default:
+      throw new Error(`Unsupported email provider: ${provider}`);
+  }
+}
 
 // add the interface for the mail to send 
 export interface OnboardingMailPayload {
@@ -96,30 +201,13 @@ export const sendOnboardingMailToSchoolOwner = async (
             throw new Error("SMTP credentials missing in environment variables");
         }
 
-        const transporter = nodemailer.createTransport({
-            service: 'gmail',
-            host: process.env.GOOGLE_SMTP_HOST,
-            port: process.env.GOOGLE_SMTP_PORT ? parseInt(process.env.GOOGLE_SMTP_PORT) : 587,
-            secure: false,
-            auth: {
-                user: process.env.EMAIL_USER,
-                pass: process.env.EMAIL_PASSWORD,
-            },
-        });
-
         const htmlContent = onboardingMailTemplate({ ...payload});
-
-        const mailOptions = {
-            from: {
-              name: "Access-sellr",
-              address: process.env.EMAIL_USER as string,
-            },
-            to: payload.school_email,
-            subject: `Welcome to Access-sellr`,
-            html: htmlContent,
-          };
-
-        await transporter.sendMail(mailOptions);
+        await sendEmailCore({
+          to: payload.school_email,
+          subject: 'Welcome to Access-sellr',
+          html: htmlContent,
+          fromName: 'Access-sellr',
+        });
 
         logger.log(`Onboarding email sent to ${payload.school_email}`);
         
@@ -145,32 +233,16 @@ export const sendOnboardingMailToBTechAdmin = async (
             throw new Error("SMTP credentials missing in environment variables");
         }
 
-        const transporter = nodemailer.createTransport({
-            service: 'gmail',
-            host: process.env.GOOGLE_SMTP_HOST,
-            port: process.env.GOOGLE_SMTP_PORT ? parseInt(process.env.GOOGLE_SMTP_PORT) : 587,
-            secure: false,
-            auth: {
-                user: process.env.EMAIL_USER,
-                pass: process.env.EMAIL_PASSWORD,
-            },
-        });
-
         const htmlContent = onboardingSchoolAdminNotificationTemplate({ ...payload});
 
         const adminEmail = process.env.BTECH_ADMIN_EMAIL || "besttechnologies25@gmail.com"
 
-        const mailOptions = {
-            from: {
-              name: "Smart Edu Hub",
-              address: process.env.EMAIL_USER as string,
-            },
-            to: adminEmail,
-            subject: `New Registration on Smart Edu Hub`,
-            html: htmlContent,
-          };
-
-        await transporter.sendMail(mailOptions);
+        await sendEmailCore({
+          to: adminEmail,
+          subject: 'New Registration on Smart Edu Hub',
+          html: htmlContent,
+          fromName: 'Smart Edu Hub',
+        });
 
         logger.log(`New school Onboarding email sent to ${adminEmail}`);
         
@@ -185,67 +257,27 @@ export const sendOnboardingMailToBTechAdmin = async (
   
   ////////////////////////////////////////////////////////////             Send password reset email
   export const sendPasswordResetOtp = async ({ email, otp }: SendResetOtpProps): Promise<void> => {
-    const transporter = nodemailer.createTransport({
-      service: 'gmail',
-      host: process.env.GOOGLE_SMTP_HOST,
-      port: process.env.GOOGLE_SMTP_PORT ? parseInt(process.env.GOOGLE_SMTP_PORT) : 587,
-      secure: false,
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASSWORD,
-      },
-    });
-  
     const htmlContent = passwordResetTemplate(otp);
-  
-    const mailOptions = {
-      from: {
-        name: 'Access Seller',
-        address: process.env.EMAIL_USER as string,
-      },
+    await sendEmailCore({
       to: email,
-      subject: `🔐 Your Password Reset Code`,
+      subject: '🔐 Your Password Reset Code',
       html: htmlContent,
-    };
-  
-    await transporter.sendMail(mailOptions);
+      fromName: 'Access Seller',
+    });
   };
 
 export const sendLoginOtpByMail = async ({ email, otp}: SendResetOtpProps): Promise<void> => {
   logger.log(`Sending login otp ${otp} to admin email: ${email}`);
 
   try {
-    
-    // Check if env vars exist (optional but recommended)
-    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
-      throw new Error("SMTP credentials missing in environment variables");
-  }
-
-  const transporter = nodemailer.createTransport({
-      service: 'gmail',
-      host: process.env.GOOGLE_SMTP_HOST,
-      port: process.env.GOOGLE_SMTP_PORT ? parseInt(process.env.GOOGLE_SMTP_PORT) : 587,
-      secure: false,
-      auth: {
-          user: process.env.EMAIL_USER,
-          pass: process.env.EMAIL_PASSWORD,
-      },
-  });
-
   const otpExpiresAt = new Date(Date.now() + 5 * 60 * 1000);
   const htmlContent = loginOtpTemplate(email, otp, otpExpiresAt);
-
-  const mailOptions = {
-      from: {
-          name: "Access Sellr",
-          address: process.env.EMAIL_USER as string,
-      },
-      to: email,
-      subject: `Login OTP Confirmation Code: ${otp}`,
-      html: htmlContent
-  };
-
-  await transporter.sendMail(mailOptions);
+  await sendEmailCore({
+    to: email,
+    subject: `Login OTP Confirmation Code: ${otp}`,
+    html: htmlContent,
+    fromName: 'Access Sellr',
+  });
 
   } catch (error) {
     logger.error(`Error sending otp email: ${error}`);
@@ -261,17 +293,6 @@ export async function sendOnboardingMailToStoreOwner(data: StoreOnboardingMailDa
         if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
             throw new Error("SMTP credentials missing in environment variables");
         }
-
-        const transporter = nodemailer.createTransport({
-            service: 'gmail',
-            host: process.env.GOOGLE_SMTP_HOST,
-            port: process.env.GOOGLE_SMTP_PORT ? parseInt(process.env.GOOGLE_SMTP_PORT) : 587,
-            secure: false,
-            auth: {
-                user: process.env.EMAIL_USER,
-                pass: process.env.EMAIL_PASSWORD,
-            },
-        });
 
         const mailOptions = {
             from: {
@@ -302,7 +323,12 @@ export async function sendOnboardingMailToStoreOwner(data: StoreOnboardingMailDa
             `
         };
 
-        await transporter.sendMail(mailOptions);
+        await sendEmailCore({
+          to: store_email,
+          subject: 'Welcome to Acces-Sellr Platform',
+          html: mailOptions.html as string,
+          fromName: 'Acces-Sellr',
+        });
         logger.log(`Onboarding email sent to store owner: ${store_email}`);
     } catch (error) {
         logger.error(`Error sending onboarding email to store owner: ${error}`);
@@ -322,27 +348,9 @@ export async function sendOnboardingMailToPlatformAdmin(data: StoreOnboardingMai
             throw new Error("SMTP credentials missing in environment variables");
         }
 
-        const transporter = nodemailer.createTransport({
-            service: 'gmail',
-            host: process.env.GOOGLE_SMTP_HOST,
-            port: process.env.GOOGLE_SMTP_PORT ? parseInt(process.env.GOOGLE_SMTP_PORT) : 587,
-            secure: false,
-            auth: {
-                user: process.env.EMAIL_USER,
-                pass: process.env.EMAIL_PASSWORD,
-            },
-        });
-
         const adminEmail = process.env.ADMIN_EMAIL || "admin@acces-sellr.com";
 
-        const mailOptions = {
-            from: {
-                name: "Acces-Sellr",
-                address: process.env.EMAIL_USER as string,
-            },
-            to: adminEmail,
-            subject: 'New Store Registration - Acces-Sellr',
-            html: `
+        const html = `
                 <h1>New Store Registration</h1>
                 <p>A new store has registered on the Acces-Sellr platform.</p>
                 <p>Store Details:</p>
@@ -361,10 +369,14 @@ export async function sendOnboardingMailToPlatformAdmin(data: StoreOnboardingMai
                 <p>Store Manager Default Password: ${defaultPassword}</p>
                 <p>Please review the store's application and documents.</p>
                 <p>Best regards,<br>Acces-Sellr System</p>
-            `
-        };
+            `;
 
-        await transporter.sendMail(mailOptions);
+        await sendEmailCore({
+          to: adminEmail,
+          subject: 'New Store Registration - Acces-Sellr',
+          html,
+          fromName: 'Acces-Sellr',
+        });
         logger.log(`Onboarding email sent to platform admin: ${adminEmail}`);
     } catch (error) {
         logger.error(`Error sending onboarding email to platform admin: ${error}`);
@@ -387,30 +399,13 @@ export async function sendOrderConfirmationToBuyer(data: OrderConfirmationMailDa
             throw new Error("SMTP credentials missing in environment variables");
         }
 
-        const transporter = nodemailer.createTransport({
-            service: 'gmail',
-            host: process.env.GOOGLE_SMTP_HOST,
-            port: process.env.GOOGLE_SMTP_PORT ? parseInt(process.env.GOOGLE_SMTP_PORT) : 587,
-            secure: false,
-            auth: {
-                user: process.env.EMAIL_USER,
-                pass: process.env.EMAIL_PASSWORD,
-            },
-        });
-
         const htmlContent = orderConfirmationBuyerTemplate(data);
-
-        const mailOptions = {
-            from: {
-                name: "Acces-Sellr",
-                address: process.env.EMAIL_USER as string,
-            },
-            to: email,
-            subject: `🎉 Order Confirmed - ${orderId}`,
-            html: htmlContent,
-        };
-
-        await transporter.sendMail(mailOptions);
+        await sendEmailCore({
+          to: email,
+          subject: `🎉 Order Confirmed - ${orderId}`,
+          html: htmlContent,
+          fromName: 'Acces-Sellr',
+        });
         logger.log(`Order confirmation email sent to buyer: ${email}`);
     } catch (error) {
         logger.error(`Error sending order confirmation email to buyer: ${error}`);
@@ -433,31 +428,14 @@ export async function sendOrderNotificationToAdmin(data: OrderConfirmationMailDa
             throw new Error("SMTP credentials missing in environment variables");
         }
 
-        const transporter = nodemailer.createTransport({
-            service: 'gmail',
-            host: process.env.GOOGLE_SMTP_HOST,
-            port: process.env.GOOGLE_SMTP_PORT ? parseInt(process.env.GOOGLE_SMTP_PORT) : 587,
-            secure: false,
-            auth: {
-                user: process.env.EMAIL_USER,
-                pass: process.env.EMAIL_PASSWORD,
-            },
-        });
-
         const htmlContent = orderConfirmationAdminTemplate(data);
         const adminEmail = process.env.ADMIN_EMAIL || "admin@acces-sellr.com";
-
-        const mailOptions = {
-            from: {
-                name: "Acces-Sellr",
-                address: process.env.EMAIL_USER as string,
-            },
-            to: adminEmail,
-            subject: `🛒 New Order Received - ${orderId}`,
-            html: htmlContent,
-        };
-
-        await transporter.sendMail(mailOptions);
+        await sendEmailCore({
+          to: adminEmail,
+          subject: `🛒 New Order Received - ${orderId}`,
+          html: htmlContent,
+          fromName: 'Acces-Sellr',
+        });
         logger.log(`Order notification email sent to admin: ${adminEmail}`);
     } catch (error) {
         logger.error(`Error sending order notification email to admin: ${error}`);
@@ -469,51 +447,23 @@ export async function sendOrderNotificationToAdmin(data: OrderConfirmationMailDa
 }
 
 export async function sendCommissionApprovedMail(props: CommissionApprovedTemplateProps, to: string) {
-    const transporter = nodemailer.createTransport({
-        service: 'gmail',
-        host: process.env.GOOGLE_SMTP_HOST,
-        port: process.env.GOOGLE_SMTP_PORT ? parseInt(process.env.GOOGLE_SMTP_PORT) : 587,
-        secure: false,
-        auth: {
-            user: process.env.EMAIL_USER,
-            pass: process.env.EMAIL_PASSWORD,
-        },
-    });
     const htmlContent = commissionApprovedTemplate(props);
-    const mailOptions = {
-        from: {
-            name: 'Acces-Sellr',
-            address: process.env.EMAIL_USER as string,
-        },
-        to,
-        subject: `🎉 Commission Approved`,
-        html: htmlContent,
-    };
-    await transporter.sendMail(mailOptions);
+    await sendEmailCore({
+      to,
+      subject: '🎉 Commission Approved',
+      html: htmlContent,
+      fromName: 'Acces-Sellr',
+    });
 }
 
 export async function sendReferralUsedMail(props: ReferralUsedTemplateProps, to: string) {
-    const transporter = nodemailer.createTransport({
-        service: 'gmail',
-        host: process.env.GOOGLE_SMTP_HOST,
-        port: process.env.GOOGLE_SMTP_PORT ? parseInt(process.env.GOOGLE_SMTP_PORT) : 587,
-        secure: false,
-        auth: {
-            user: process.env.EMAIL_USER,
-            pass: process.env.EMAIL_PASSWORD,
-        },
-    });
     const htmlContent = referralUsedTemplate(props);
-    const mailOptions = {
-        from: {
-            name: 'Acces-Sellr',
-            address: process.env.EMAIL_USER as string,
-        },
-        to,
-        subject: `🎉 Your ${props.channel} was used for a purchase!`,
-        html: htmlContent,
-    };
-    await transporter.sendMail(mailOptions);
+    await sendEmailCore({
+      to,
+      subject: `🎉 Your ${props.channel} was used for a purchase!`,
+      html: htmlContent,
+      fromName: 'Acces-Sellr',
+    });
 }
 
 export async function sendCommissionApprovalReportMail(props: CommissionApprovalReportProps, adminEmails: string[]) {
@@ -524,30 +474,13 @@ export async function sendCommissionApprovalReportMail(props: CommissionApproval
             throw new Error("SMTP credentials missing in environment variables");
         }
 
-        const transporter = nodemailer.createTransport({
-            service: 'gmail',
-            host: process.env.GOOGLE_SMTP_HOST,
-            port: process.env.GOOGLE_SMTP_PORT ? parseInt(process.env.GOOGLE_SMTP_PORT) : 587,
-            secure: false,
-            auth: {
-                user: process.env.EMAIL_USER,
-                pass: process.env.EMAIL_PASSWORD,
-            },
-        });
-
         const htmlContent = commissionApprovalReportTemplate(props);
-
-        const mailOptions = {
-            from: {
-                name: 'Acces-Sellr Commission System',
-                address: process.env.EMAIL_USER as string,
-            },
-            to: adminEmails.join(', '),
-            subject: `📊 Commission Approval Report - ${props.reportDate}`,
-            html: htmlContent,
-        };
-
-        await transporter.sendMail(mailOptions);
+        await sendEmailCore({
+          to: adminEmails,
+          subject: `📊 Commission Approval Report - ${props.reportDate}`,
+          html: htmlContent,
+          fromName: 'Acces-Sellr Commission System',
+        });
         logger.log(`Commission approval report sent successfully to ${adminEmails.length} admin(s)`);
     } catch (error) {
         logger.error(`Error sending commission approval report: ${error}`);
@@ -563,30 +496,13 @@ export async function sendCronErrorMailToAdmins(props: CronErrorTemplateProps, a
             throw new Error("SMTP credentials missing in environment variables");
         }
 
-        const transporter = nodemailer.createTransport({
-            service: 'gmail',
-            host: process.env.GOOGLE_SMTP_HOST,
-            port: process.env.GOOGLE_SMTP_PORT ? parseInt(process.env.GOOGLE_SMTP_PORT) : 587,
-            secure: false,
-            auth: {
-                user: process.env.EMAIL_USER,
-                pass: process.env.EMAIL_PASSWORD,
-            },
-        });
-
         const htmlContent = cronErrorTemplate(props);
-
-        const mailOptions = {
-            from: {
-                name: 'Acces-Sellr System Monitor',
-                address: process.env.EMAIL_USER as string,
-            },
-            to: adminEmails.join(', '),
-            subject: `🚨 Cron Service Error Alert - ${props.timestamp}`,
-            html: htmlContent,
-        };
-
-        await transporter.sendMail(mailOptions);
+        await sendEmailCore({
+          to: adminEmails,
+          subject: `🚨 Cron Service Error Alert - ${props.timestamp}`,
+          html: htmlContent,
+          fromName: 'Acces-Sellr System Monitor',
+        });
         logger.log(`Cron error alert sent successfully to ${adminEmails.length} admin(s)`);
     } catch (error) {
         logger.error(`Error sending cron error alert: ${error}`);
