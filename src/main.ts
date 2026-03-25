@@ -1,6 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe, Logger } from '@nestjs/common';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import * as morgan from 'morgan';
 import * as cron from 'node-cron';
 import axios from 'axios';
@@ -32,7 +33,22 @@ async function bootstrap() {
   });
 
   app.setGlobalPrefix('api/v1');
-  
+
+  const swaggerConfig = new DocumentBuilder()
+    .setTitle('Access Sellr API')
+    .setDescription('REST API documentation')
+    .setVersion('1.0')
+    .addBearerAuth()
+    .build();
+  const document = SwaggerModule.createDocument(app, swaggerConfig);
+  // Mount outside global prefix so UI is at /api/docs (not /api/v1/docs)
+  SwaggerModule.setup('api/docs', app, document, {
+    useGlobalPrefix: false,
+    swaggerOptions: {
+      persistAuthorization: true,
+    },
+  });
+
   // Setup Morgan logging middleware with custom format
   const morganFormat = ':method :url :status :res[content-length] - :response-time ms';
   app.use(morgan(morganFormat, {
