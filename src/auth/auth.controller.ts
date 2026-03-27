@@ -1,4 +1,4 @@
-import { Body, Controller, Post, UseInterceptors, UploadedFiles, Get, HttpCode, UseGuards, Request } from '@nestjs/common';
+import { Body, Controller, Post, UseInterceptors, UploadedFiles, Get, HttpCode, UseGuards, Request, UsePipes, ValidationPipe } from '@nestjs/common';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { AuthService } from './auth.service';
 import { RequestPasswordResetDTO, ResetPasswordDTO, SignInDto, RequestLoginOtpDTO, VerifyEmailOTPDto, RegisterDto, VerifyOTPAndResetPasswordDTO } from 'src/shared/dto/auth.dto';
@@ -79,6 +79,7 @@ export class AuthController {
 
     @Post("register")
     @HttpCode(201)
+    @UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
     register(@Body() dto: RegisterDto) {
         return this.authService.register(dto)
     }

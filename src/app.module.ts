@@ -8,6 +8,7 @@ import appConfig from './config/app.config';
 import databaseConfig from './config/database.config';
 import { MulterModule } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
+import { MAX_UPLOAD_FILE_BYTES } from './shared/constants/upload-limits.constants';
 import { AuthModule } from './auth/auth.module';
 import { SharedModule } from './shared/shared.module';
 import { AdminModule } from './admin/admin.module';
@@ -30,6 +31,7 @@ import { AuditModule } from './shared/audit/audit.module';
     }),
     MulterModule.register({
       storage: memoryStorage(),
+      limits: { fileSize: MAX_UPLOAD_FILE_BYTES },
     }),
     PrismaModule,
     AuditModule,

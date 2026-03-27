@@ -15,6 +15,11 @@ import * as crypto from "crypto"
 import { Prisma, StoreStatus } from '@prisma/client';
 import { ApiResponse } from 'src/shared/helper-functions/response';
 import { OnboardStoreDTO } from 'src/shared/dto/store.dto';
+import {
+    ensureUsernameAvailable,
+    normalizeUsernameInput,
+    USERNAME_REGEX,
+} from 'src/shared/utils/username.util';
 
 
 interface AuthRequestContext {
@@ -366,6 +371,14 @@ export class AuthService {
                 );
             }
 
+            const username = normalizeUsernameInput(payload.username);
+            if (username !== undefined && !USERNAME_REGEX.test(username)) {
+                throw new BadRequestException(
+                    'Username must be 3–30 characters: lowercase letters, numbers, underscore only',
+                );
+            }
+            await ensureUsernameAvailable(this.prisma, username);
+
             // Hash the password
             const hashedPassword = await argon.hash(payload.password);
 
@@ -376,6 +389,7 @@ export class AuthService {
                     last_name: payload.last_name,
                     email: payload.email,
                     password: hashedPassword,
+                    ...(username !== undefined ? { username } : {}),
                 }
             });
 
@@ -408,6 +422,7 @@ export class AuthService {
             const userResponse = {
                 id: newUser.id,
                 email: newUser.email,
+                username: newUser.username,
                 first_name: newUser.first_name,
                 last_name: newUser.last_name,
                 createdAt: newUser.createdAt,
@@ -420,6 +435,9 @@ export class AuthService {
                 userResponse
             );
         } catch (error) {
+            if (error instanceof HttpException) {
+                throw error;
+            }
             this.logger.error("Error registering user", error);
             return new ApiResponse(
                 false,
@@ -537,6 +555,7 @@ export class AuthService {
             const formatted_user_response = {
                 id: existing_user.id,
                 email: existing_user.email,
+                username: existing_user.username,
                 first_name: existing_user.first_name,
                 last_name: existing_user.last_name,
                 // is_affiliate: existing_user.isAffiliate,

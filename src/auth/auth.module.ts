@@ -7,10 +7,12 @@ import { JwtStrategy } from './strategy/jwt.strategy';
 import { SharedModule } from '../shared/shared.module';
 import { WarehouseController } from './warehouse/warehouse.controller';
 import { WarehouseService } from './warehouse/warehouse.service';
+import { VendorModule } from './vendor/vendor.module';
 
 @Module({
   imports: [
     SharedModule,
+    VendorModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({

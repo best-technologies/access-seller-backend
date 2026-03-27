@@ -43,9 +43,10 @@ model Document {
 }
 
 model User {
-  id                          String                @id @default(cuid())
+  id                          String                        @id @default(cuid())
   store_id                    String?
-  email                       String                @unique
+  email                       String                        @unique
+  username                    String?                       @unique
   password                    String
   guest_password              String?
   first_name                  String
@@ -53,39 +54,40 @@ model User {
   phone_number                String?
   display_picture             String?
   address                     String?
-  gender                      Gender                @default(other)
-  role                        UserRole              @default(user)
-  status                      UserStatus            @default(active)
-  is_active                   Boolean               @default(true)
-  level                       UserLevel             @default(bronze)
-  otp                         String?               @default("")
+  gender                      Gender                        @default(other)
+  role                        UserRole                      @default(user)
+  status                      UserStatus                    @default(active)
+  is_active                   Boolean                       @default(true)
+  level                       UserLevel                     @default(bronze)
+  otp                         String?                       @default("")
   otp_expires_at              DateTime?
-  is_email_verified           Boolean?              @default(false)
-  is_otp_verified             Boolean?              @default(false)
-  allowedPartialPayment       Float?                @default(0)
+  is_email_verified           Boolean?                      @default(false)
+  is_otp_verified             Boolean?                      @default(false)
+  allowedPartialPayment       Float?                        @default(0)
   referralPercentage          Float?
   referralPaymentCount        Int?
-  isAffiliate                 Boolean               @default(false)
-  affiliateStatus             AffiliateStatus       @default(not_affiliate)
+  isAffiliate                 Boolean                       @default(false)
+  affiliateStatus             AffiliateStatus               @default(not_affiliate)
   usertype                    String? // e.g. warehouse-admin (set on onboard)
-  createdAt                   DateTime              @default(now())
-  updatedAt                   DateTime              @updatedAt
-  permissions                 String[]              @default([])
+  allowedPlatformsForAdmin    AllowedPlatformTypeForAdmin[] @default([])
+  createdAt                   DateTime                      @default(now())
+  updatedAt                   DateTime                      @updatedAt
+  permissions                 String[]                      @default([])
   Affiliate                   Affiliate?
   AffiliateLink               AffiliateLink[]
   banks                       Bank[]
   cart                        Cart?
   commissions                 Commission[]
   CommissionPayout            CommissionPayout[]
-  commissionReferralsReceived CommissionReferral[]  @relation("CommissionReferralReferred")
-  commissionReferralsMade     CommissionReferral[]  @relation("CommissionReferralReferrer")
+  commissionReferralsReceived CommissionReferral[]          @relation("CommissionReferralReferred")
+  commissionReferralsMade     CommissionReferral[]          @relation("CommissionReferralReferrer")
   CommissionReferral          CommissionReferral[]
   orders                      Order[]
-  referredBy                  Referral[]            @relation("Referred")
-  referrals_made              Referral[]            @relation("Referrer")
+  referredBy                  Referral[]                    @relation("Referred")
+  referrals_made              Referral[]                    @relation("Referrer")
   referralCode                ReferralCode?
   shippingAddresses           ShippingAddress[]
-  store                       Store?                @relation(fields: [store_id], references: [id])
+  store                       Store?                        @relation(fields: [store_id], references: [id])
   wallet                      Wallet?
   withdrawalRequests          WithdrawalRequest[]
   userPermissions             UserPermission[]
@@ -626,6 +628,13 @@ enum UserRole {
   shipment_manager
   marketer
   user
+}
+
+/// Which product surfaces an admin user may access (Access Seller, Btech electronics, A-Vendor).
+enum AllowedPlatformTypeForAdmin {
+  access_seller
+  btech_electronics
+  avendor
 }
 
 enum UserLevel {

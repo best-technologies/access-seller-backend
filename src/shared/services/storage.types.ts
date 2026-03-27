@@ -7,3 +7,8 @@ export interface StorageUploadResult {
   public_id: string;
   original_filename?: string;
 }
+
+/** Optional naming for uploaded objects (e.g. display-pic-abc12 under folder). */
+export interface StorageUploadOptions {
+  basenamePrefix?: string;
+}

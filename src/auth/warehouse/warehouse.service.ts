@@ -8,6 +8,11 @@ import * as crypto from 'crypto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { ResponseHelper } from 'src/shared/helper-functions/response.helpers';
 import { OnboardWarehouseAdminDTO } from 'src/shared/dto/warehouse.dto';
+import {
+  ensureUsernameAvailable,
+  normalizeUsernameInput,
+  USERNAME_REGEX,
+} from 'src/shared/utils/username.util';
 
 @Injectable()
 export class WarehouseService {
@@ -18,20 +23,32 @@ export class WarehouseService {
   async onboardWarehouseAdmin(dto: OnboardWarehouseAdminDTO) {
     this.logger.log('Onboarding new warehouse admin...');
 
+    const username = this.parseWarehouseUsername(dto);
+
     const existingUser = await this.prisma.user.findUnique({
       where: { email: dto.email.toLowerCase() },
     });
 
     if (existingUser) {
+      await ensureUsernameAvailable(this.prisma, username, existingUser.id);
+
       if (existingUser.usertype === 'btech-distribution') {
         this.logger.log(`User ${existingUser.email} already onboarded as Btech Distribution`);
+        const updated =
+          username !== undefined
+            ? await this.prisma.user.update({
+                where: { id: existingUser.id },
+                data: { username },
+              })
+            : existingUser;
         return ResponseHelper.success('User is already onboarded as Best Technologies Electronics Admin', {
-          id: existingUser.id,
-          email: existingUser.email,
-          first_name: existingUser.first_name,
-          last_name: existingUser.last_name,
-          role: existingUser.role,
-          usertype: existingUser.usertype,
+          id: updated.id,
+          email: updated.email,
+          username: updated.username,
+          first_name: updated.first_name,
+          last_name: updated.last_name,
+          role: updated.role,
+          usertype: updated.usertype,
           message: 'User is already onboarded as Best Technologies Electronics Admin',
         });
       }
@@ -45,6 +62,7 @@ export class WarehouseService {
           ...(dto.first_name && { first_name: dto.first_name }),
           ...(dto.last_name && { last_name: dto.last_name }),
           ...(dto.phone_number !== undefined && { phone_number: dto.phone_number ?? null }),
+          ...(username !== undefined && { username }),
         },
       });
 
@@ -52,6 +70,7 @@ export class WarehouseService {
       return ResponseHelper.success('User onboarded as Best Technologies Electronics Admin', {
         id: updated.id,
         email: updated.email,
+        username: updated.username,
         first_name: updated.first_name,
         last_name: updated.last_name,
         role: updated.role,
@@ -59,6 +78,8 @@ export class WarehouseService {
         message: 'Existing user onboarded as Best Technologies Electronics Admin',
       });
     }
+
+    await ensureUsernameAvailable(this.prisma, username);
 
     const password =
       dto.password ??
@@ -75,6 +96,7 @@ export class WarehouseService {
         role: 'admin',
         store_id: null,
         usertype: 'btech-distribution', // Hardcoded – not expected from frontend
+        ...(username !== undefined ? { username } : {}),
       },
     });
 
@@ -83,6 +105,7 @@ export class WarehouseService {
     return ResponseHelper.created('Warehouse admin onboarded successfully', {
       id: user.id,
       email: user.email,
+      username: user.username,
       first_name: user.first_name,
       last_name: user.last_name,
       role: user.role,
@@ -94,5 +117,15 @@ export class WarehouseService {
           'Please share the temporary password with the warehouse admin securely. They should change it on first login.',
       }),
     });
+  }
+
+  private parseWarehouseUsername(dto: OnboardWarehouseAdminDTO): string | undefined {
+    const u = normalizeUsernameInput(dto.username);
+    if (u !== undefined && !USERNAME_REGEX.test(u)) {
+      throw new BadRequestException(
+        'Username must be 3–30 characters: lowercase letters, numbers, underscore only',
+      );
+    }
+    return u;
   }
 }

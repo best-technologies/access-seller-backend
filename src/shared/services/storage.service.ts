@@ -2,9 +2,9 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { CloudinaryService } from './cloudinary.service';
 import { S3Service } from './s3.service';
-import type { StorageUploadResult } from './storage.types';
+import type { StorageUploadResult, StorageUploadOptions } from './storage.types';
 
-export type { StorageUploadResult };
+export type { StorageUploadResult, StorageUploadOptions };
 
 const PROVIDER_CLOUDINARY = 'cloudinary';
 const PROVIDER_AWS_S3 = 'aws-s3';
@@ -27,19 +27,21 @@ export class StorageService {
   /**
    * Upload files to the configured storage (cloudinary or aws-s3).
    * @param files - Files to upload
-   * @param folder - Folder/path (e.g. "distribution/stocks", "distribution/invoices")
+   * @param folder - Folder/path (e.g. "distribution/stocks", "a-vendor/user")
+   * @param options - Optional basename prefix (e.g. display-pic → display-pic-x7k2m)
    */
   async upload(
     files: Array<Express.Multer.File>,
     folder: string = 'store-docs',
+    options?: StorageUploadOptions,
   ): Promise<StorageUploadResult[]> {
     const provider = this.getProvider();
     this.logger.log(`Storage: uploading ${files.length} file(s) to ${provider} folder "${folder}"`);
 
     if (provider === PROVIDER_AWS_S3) {
-      return this.s3.upload(files, folder);
+      return this.s3.upload(files, folder, options);
     }
-    const results = await this.cloudinary.uploadToCloudinary(files, folder);
+    const results = await this.cloudinary.uploadToCloudinary(files, folder, options);
     return results.map((r) => ({
       secure_url: r.secure_url,
       public_id: r.public_id,

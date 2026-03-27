@@ -1,4 +1,4 @@
-import { Body, Controller, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Post, UseGuards, UsePipes, ValidationPipe } from '@nestjs/common';
 import { WarehouseService } from './warehouse.service';
 import { OnboardWarehouseAdminDTO } from 'src/shared/dto/warehouse.dto';
 import { JwtGuard } from '../guard';
@@ -11,6 +11,7 @@ export class WarehouseController {
 
   @Post('onboard-warehouse-admin')
   @UseGuards(JwtGuard)
+  @UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
   @ApiOperation({ summary: 'Onboard a new warehouse admin' })
   @ApiResponse({ status: 201, description: 'Warehouse admin onboarded successfully' })
   @ApiResponse({ status: 400, description: 'User with this email already exists' })

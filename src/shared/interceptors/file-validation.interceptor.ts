@@ -1,7 +1,10 @@
 import { Injectable, NestInterceptor, ExecutionContext, CallHandler, BadRequestException } from '@nestjs/common';
 import { Observable } from 'rxjs';
+import {
+  MAX_UPLOAD_FILE_BYTES,
+  MAX_UPLOAD_FILE_MB,
+} from 'src/shared/constants/upload-limits.constants';
 
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ALLOWED_FILE_TYPES = ['image/jpeg', 'image/png', 'application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
 
 @Injectable()
@@ -21,8 +24,10 @@ export class FileValidationInterceptor implements NestInterceptor {
 
             fileArray.forEach(file => {
                 // Check file size
-                if (file.size > MAX_FILE_SIZE) {
-                    throw new BadRequestException(`File ${file.originalname} is too large. Maximum size is 5MB`);
+                if (file.size > MAX_UPLOAD_FILE_BYTES) {
+                    throw new BadRequestException(
+                        `File ${file.originalname} is too large. Maximum size is ${MAX_UPLOAD_FILE_MB}MB`,
+                    );
                 }
 
                 // Check file type

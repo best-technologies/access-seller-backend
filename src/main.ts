@@ -7,6 +7,7 @@ import * as cron from 'node-cron';
 import axios from 'axios';
 import { PrismaService } from './prisma/prisma.service';
 import { sendCronErrorNotification } from './shared/helper-functions/cron-notification.helper';
+import { printStartupSummary } from './bootstrap/print-startup-summary';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
@@ -50,14 +51,14 @@ async function bootstrap() {
   });
 
   // Setup Morgan logging middleware with custom format
-  const morganFormat = ':method :url :status :res[content-length] - :response-time ms';
-  app.use(morgan(morganFormat, {
-    stream: {
-      write: (message: string) => {
-        logger.log(`[HTTP Request] ${message.trim()}`);
-      },
-    },
-  }));
+  // const morganFormat = ':method :url :status :res[content-length] - :response-time ms';
+  // app.use(morgan(morganFormat, {
+  //   stream: {
+  //     write: (message: string) => {
+  //       logger.log(`[HTTP Request] ${message.trim()}`);
+  //     },
+  //   },
+  // }));
 
   // Custom request logging middleware for better endpoint tracking
   app.use((req, res, next) => {
@@ -88,10 +89,35 @@ async function bootstrap() {
     transform: false, // Disable if not needed
     forbidNonWhitelisted: false, // Changed to false to allow unknown properties (like files)
   }));
-  await app.listen(process.env.PORT || 3000);
 
-  // Get PrismaService instance from Nest application context
+  const port = parseInt(process.env.PORT ?? '3000', 10);
+  await app.listen(port);
+
   const prismaService = app.get(PrismaService);
+
+  let databaseStatus: 'connected' | 'failed' = 'connected';
+  try {
+    await prismaService.$queryRaw`SELECT 1`;
+  } catch {
+    databaseStatus = 'failed';
+    logger.error('Database health check failed after listen');
+  }
+
+  const baseUrl = (process.env.BASE_URL ?? `http://localhost:${port}`).replace(
+    /\/$/,
+    '',
+  );
+  const swaggerUrl = `${baseUrl}/api/docs`;
+
+  printStartupSummary({
+    nodeEnv: process.env.NODE_ENV ?? 'development',
+    port,
+    baseUrl,
+    swaggerUrl,
+    database: databaseStatus,
+  });
+
+  // PrismaService instance for cron (reuse)
 
   /**
    * Cron job setup for health check monitoring
@@ -177,7 +203,5 @@ async function bootstrap() {
       }
     });
   }
-
-  logger.log(`Server is running on port ${process.env.PORT ?? 2000}`);
 }
 bootstrap();

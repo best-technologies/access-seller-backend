@@ -4,6 +4,8 @@ import { v2 as cloudinary } from 'cloudinary';
 import * as colors from "colors"
 import { ResponseHelper } from '../helper-functions/response.helpers';
 import { Logger } from '@nestjs/common';
+import * as crypto from 'crypto';
+import type { StorageUploadOptions } from './storage.types';
 
 export interface CloudinaryUploadResult {
     secure_url: string;
@@ -46,7 +48,21 @@ export class CloudinaryService {
         return errors;
     }
 
-    async uploadToCloudinary(files: Array<Express.Multer.File>, folder: string = 'acces-sellr/store-docs'): Promise<CloudinaryUploadResult[]> {
+    private randomBasenameSegment(length = 5): string {
+        const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+        const bytes = crypto.randomBytes(length);
+        let out = '';
+        for (let i = 0; i < length; i++) {
+            out += chars[bytes[i] % chars.length];
+        }
+        return out;
+    }
+
+    async uploadToCloudinary(
+        files: Array<Express.Multer.File>,
+        folder: string = 'acces-sellr/store-docs',
+        options?: StorageUploadOptions,
+    ): Promise<CloudinaryUploadResult[]> {
         this.logger.log("Validating files before upload...");
         
         // Validate all files first
@@ -69,11 +85,17 @@ export class CloudinaryService {
             const uploadPromises = files.map(file => {
                 return new Promise<CloudinaryUploadResult>((resolve, reject) => {
                     this.logger.log(`Uploading file: ${file.originalname}`);
-                    
+
+                    const publicId =
+                        options?.basenamePrefix != null
+                            ? `${options.basenamePrefix}-${this.randomBasenameSegment()}`
+                            : undefined;
+
                     const upload = cloudinary.uploader.upload_stream(
                         {
                             resource_type: 'auto',
-                            folder: folder
+                            folder: folder,
+                            ...(publicId != null ? { public_id: publicId } : {}),
                         },
                         (error, result) => {
                             if (error) {

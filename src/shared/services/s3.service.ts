@@ -5,8 +5,9 @@ import {
   PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
+import * as crypto from 'crypto';
 import { ResponseHelper } from '../helper-functions/response.helpers';
-import type { StorageUploadResult } from './storage.types';
+import type { StorageUploadResult, StorageUploadOptions } from './storage.types';
 
 const ALLOWED_FORMATS = ['jpg', 'jpeg', 'png', 'pdf'];
 
@@ -50,9 +51,20 @@ export class S3Service {
    * Upload files to S3 under the given folder (key prefix).
    * Folder should not have leading/trailing slashes (e.g. "distribution/stocks").
    */
+  private randomBasenameSegment(length = 5): string {
+    const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+    const bytes = crypto.randomBytes(length);
+    let out = '';
+    for (let i = 0; i < length; i++) {
+      out += chars[bytes[i] % chars.length];
+    }
+    return out;
+  }
+
   async upload(
     files: Array<Express.Multer.File>,
     folder: string,
+    options?: StorageUploadOptions,
   ): Promise<StorageUploadResult[]> {
     this.logger.log(`Validating ${files.length} file(s) before S3 upload...`);
     const validationErrors = this.validateFiles(files);
@@ -66,7 +78,10 @@ export class S3Service {
 
     for (const file of files) {
       const ext = file.originalname.split('.').pop() ?? 'bin';
-      const key = `${prefix}/${Date.now()}-${Math.random().toString(36).slice(2, 10)}.${ext}`;
+      const basename = options?.basenamePrefix
+        ? `${options.basenamePrefix}-${this.randomBasenameSegment()}`
+        : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+      const key = `${prefix}/${basename}.${ext}`;
       this.logger.log(`Uploading to S3: ${key}`);
 
       await this.s3.send(
