@@ -53,6 +53,7 @@ model User {
   last_name                   String
   phone_number                String?
   company_position            String? // Job title / role at company (e.g. Ops Manager); optional for A-Vendor admins
+  is_a_vendor                 Boolean                       @default(false)
   display_picture             String?
   address                     String?
   gender                      Gender                        @default(other)
