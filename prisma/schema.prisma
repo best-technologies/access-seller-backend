@@ -91,9 +91,36 @@ model User {
   wallet                      Wallet?
   withdrawalRequests          WithdrawalRequest[]
   userPermissions             UserPermission[]
+  avendorPermission           AvendorPermission?
   shippingInformation         ShippingInformation[]
   consignmentsReceived        Consignment[]
   auditLogs                   AuditLog[]
+}
+
+// ============ A-VENDOR (AVENDOR) — platform-scoped admin module access ============
+// Separate from global Permission / UserPermission (Access Seller, etc.).
+
+enum AvendorModuleAccessLevel {
+  full_access
+  view_only
+  no_access
+}
+
+model AvendorPermission {
+  id                 String                   @id @default(cuid())
+  userId             String                   @unique
+  user               User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vendors_management AvendorModuleAccessLevel @default(view_only)
+  inventory          AvendorModuleAccessLevel @default(view_only)
+  rfqs               AvendorModuleAccessLevel @default(view_only)
+  order_management   AvendorModuleAccessLevel @default(view_only)
+  invoice            AvendorModuleAccessLevel @default(view_only)
+  payment            AvendorModuleAccessLevel @default(view_only)
+  onboarding         AvendorModuleAccessLevel @default(view_only)
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime                 @updatedAt
+
+  @@index([userId])
 }
 
 model Product {

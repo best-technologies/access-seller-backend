@@ -94,6 +94,8 @@ export class VendorService {
         },
       });
 
+      await this.ensureAvendorPermissionForUser(user.id);
+
       this.logger.log(
         `Vendor admin created: email=${user.email}: username=${username}: platforms=${platformSet.join(',')}`,
       );
@@ -210,6 +212,13 @@ export class VendorService {
       displayPictureUrl = uploadOutcome?.url;
       uploaded = uploadOutcome?.results ?? [];
 
+      const mergedPreview = hasAll
+        ? current
+        : [...new Set([...current, ...platformsToEnsure])];
+      if (mergedPreview.includes(AllowedPlatformTypeForAdmin.avendor)) {
+        await this.ensureAvendorPermissionForUser(existingUser.id);
+      }
+
       if (hasAll) {
         const profilePatch = {
           ...(displayPictureUrl && { display_picture: displayPictureUrl }),
@@ -319,5 +328,15 @@ export class VendorService {
       );
       throw err;
     }
+  }
+
+  /** Default matrix: all modules `view_only` (DB defaults). */
+  private async ensureAvendorPermissionForUser(userId: string) {
+    await this.prisma.avendorPermission.upsert({
+      where: { userId },
+      create: { userId },
+      update: {},
+    });
+    this.logger.log(`Ensured AvendorPermission row for userId=${userId}`);
   }
 }
