@@ -33,6 +33,21 @@ import { ListCategoriesQueryDto } from './dto/list-categories-query.dto';
 import { CreateMaterialDto } from './dto/create-material.dto';
 import { UpdateMaterialDto } from './dto/update-material.dto';
 import { ListMaterialsQueryDto } from './dto/list-materials-query.dto';
+import {
+  CategoryCreatedResponse,
+  CategoryListResponse,
+  CategoryDetailResponse,
+  CategoryUpdatedResponse,
+  CategoryDeletedResponse,
+  MaterialCreatedResponse,
+  MaterialListResponse,
+  MaterialDetailResponse,
+  MaterialUpdatedResponse,
+  MaterialDeletedResponse,
+  CreateMaterialBody,
+  UpdateMaterialBody,
+  ErrorResponse,
+} from './avendor-inventory.swagger';
 
 @ApiTags('A-Vendor — Inventory')
 @ApiBearerAuth()
@@ -53,13 +68,12 @@ export class AvendorInventoryController {
   @Post('categories')
   @ApiOperation({
     summary: 'Create a material category',
-    description:
-      'Requires super_admin or full_access on A-Vendor inventory permission.',
+    description: 'Requires super_admin or full_access on A-Vendor inventory permission.',
   })
-  @ApiResponse({ status: 201, description: 'Category created' })
-  @ApiResponse({ status: 400, description: 'Validation error' })
-  @ApiResponse({ status: 403, description: 'Forbidden' })
-  @ApiResponse({ status: 409, description: 'Duplicate category name' })
+  @ApiResponse({ status: 201, description: 'Category created', schema: CategoryCreatedResponse })
+  @ApiResponse({ status: 400, description: 'Validation error', schema: ErrorResponse })
+  @ApiResponse({ status: 403, description: 'Forbidden', schema: ErrorResponse })
+  @ApiResponse({ status: 409, description: 'Duplicate category name', schema: ErrorResponse })
   createCategory(
     @Body() dto: CreateCategoryDto,
     @GetUser() user: { id: string; role: string },
@@ -70,11 +84,10 @@ export class AvendorInventoryController {
   @Get('categories')
   @ApiOperation({
     summary: 'List material categories',
-    description:
-      'Paginated list with optional search. Requires at least view access on A-Vendor inventory.',
+    description: 'Paginated list with optional search. Requires at least view access on A-Vendor inventory.',
   })
-  @ApiResponse({ status: 200, description: 'Paginated category list' })
-  @ApiResponse({ status: 403, description: 'Forbidden' })
+  @ApiResponse({ status: 200, description: 'Paginated category list', schema: CategoryListResponse })
+  @ApiResponse({ status: 403, description: 'Forbidden', schema: ErrorResponse })
   listCategories(
     @Query() query: ListCategoriesQueryDto,
     @GetUser() user: { id: string; role: string },
@@ -87,9 +100,9 @@ export class AvendorInventoryController {
     summary: 'Get a single category',
     description: 'Requires at least view access on A-Vendor inventory.',
   })
-  @ApiResponse({ status: 200, description: 'Category payload' })
-  @ApiResponse({ status: 403, description: 'Forbidden' })
-  @ApiResponse({ status: 404, description: 'Not found' })
+  @ApiResponse({ status: 200, description: 'Category payload', schema: CategoryDetailResponse })
+  @ApiResponse({ status: 403, description: 'Forbidden', schema: ErrorResponse })
+  @ApiResponse({ status: 404, description: 'Not found', schema: ErrorResponse })
   getCategory(
     @Param('id') id: string,
     @GetUser() user: { id: string; role: string },
@@ -100,14 +113,13 @@ export class AvendorInventoryController {
   @Patch('categories/:id')
   @ApiOperation({
     summary: 'Update a category',
-    description:
-      'Requires super_admin or full_access on A-Vendor inventory permission.',
+    description: 'Requires super_admin or full_access on A-Vendor inventory permission.',
   })
-  @ApiResponse({ status: 200, description: 'Updated category' })
-  @ApiResponse({ status: 400, description: 'Validation error' })
-  @ApiResponse({ status: 403, description: 'Forbidden' })
-  @ApiResponse({ status: 404, description: 'Not found' })
-  @ApiResponse({ status: 409, description: 'Duplicate category name' })
+  @ApiResponse({ status: 200, description: 'Updated category', schema: CategoryUpdatedResponse })
+  @ApiResponse({ status: 400, description: 'Validation error', schema: ErrorResponse })
+  @ApiResponse({ status: 403, description: 'Forbidden', schema: ErrorResponse })
+  @ApiResponse({ status: 404, description: 'Not found', schema: ErrorResponse })
+  @ApiResponse({ status: 409, description: 'Duplicate category name', schema: ErrorResponse })
   updateCategory(
     @Param('id') id: string,
     @Body() dto: UpdateCategoryDto,
@@ -119,13 +131,12 @@ export class AvendorInventoryController {
   @Delete('categories/:id')
   @ApiOperation({
     summary: 'Delete a category',
-    description:
-      'Fails if materials still reference this category. Requires super_admin or full_access on A-Vendor inventory.',
+    description: 'Fails if materials still reference this category. Requires super_admin or full_access on A-Vendor inventory.',
   })
-  @ApiResponse({ status: 200, description: 'Category deleted' })
-  @ApiResponse({ status: 400, description: 'Category still has materials' })
-  @ApiResponse({ status: 403, description: 'Forbidden' })
-  @ApiResponse({ status: 404, description: 'Not found' })
+  @ApiResponse({ status: 200, description: 'Category deleted', schema: CategoryDeletedResponse })
+  @ApiResponse({ status: 400, description: 'Category still has materials', schema: ErrorResponse })
+  @ApiResponse({ status: 403, description: 'Forbidden', schema: ErrorResponse })
+  @ApiResponse({ status: 404, description: 'Not found', schema: ErrorResponse })
   deleteCategory(
     @Param('id') id: string,
     @GetUser() user: { id: string; role: string },
@@ -141,31 +152,14 @@ export class AvendorInventoryController {
     FileValidationInterceptor,
   )
   @ApiConsumes('multipart/form-data')
-  @ApiBody({
-    description: 'Create a new inventory material. Image is optional.',
-    schema: {
-      type: 'object',
-      properties: {
-        name: { type: 'string', example: 'A4 paper' },
-        categoryId: { type: 'string' },
-        unit: { type: 'string', example: 'reams' },
-        description: { type: 'string' },
-        stock: { type: 'number', example: 200 },
-        reorderLevel: { type: 'number', example: 50 },
-        pricePerUnit: { type: 'number', example: 4200 },
-        image: { type: 'string', format: 'binary' },
-      },
-      required: ['name', 'categoryId'],
-    },
-  })
+  @ApiBody({ description: 'Create a new inventory material. Image is optional.', schema: CreateMaterialBody })
   @ApiOperation({
     summary: 'Create an inventory material',
-    description:
-      'Multipart form-data. Optional image upload (PNG, JPEG, WebP up to 10MB). Requires super_admin or full_access on A-Vendor inventory.',
+    description: 'Multipart form-data. Optional image upload (PNG, JPEG, WebP up to 10MB). Requires super_admin or full_access on A-Vendor inventory.',
   })
-  @ApiResponse({ status: 201, description: 'Material created' })
-  @ApiResponse({ status: 400, description: 'Validation error / bad category' })
-  @ApiResponse({ status: 403, description: 'Forbidden' })
+  @ApiResponse({ status: 201, description: 'Material created', schema: MaterialCreatedResponse })
+  @ApiResponse({ status: 400, description: 'Validation error / bad category', schema: ErrorResponse })
+  @ApiResponse({ status: 403, description: 'Forbidden', schema: ErrorResponse })
   createMaterial(
     @Body() dto: CreateMaterialDto,
     @UploadedFiles() files: { image?: Express.Multer.File[] },
@@ -178,11 +172,10 @@ export class AvendorInventoryController {
   @Get('materials')
   @ApiOperation({
     summary: 'List inventory materials',
-    description:
-      'Paginated list with analysis summary (total materials, inventory value, low stock, out of stock). Requires at least view access on A-Vendor inventory.',
+    description: 'Paginated list with analysis summary (total materials, inventory value, low stock, out of stock). Requires at least view access on A-Vendor inventory.',
   })
-  @ApiResponse({ status: 200, description: 'Paginated material list with analysis' })
-  @ApiResponse({ status: 403, description: 'Forbidden' })
+  @ApiResponse({ status: 200, description: 'Paginated material list with analysis', schema: MaterialListResponse })
+  @ApiResponse({ status: 403, description: 'Forbidden', schema: ErrorResponse })
   listMaterials(
     @Query() query: ListMaterialsQueryDto,
     @GetUser() user: { id: string; role: string },
@@ -195,9 +188,9 @@ export class AvendorInventoryController {
     summary: 'Get a single material',
     description: 'Includes category details. Requires at least view access on A-Vendor inventory.',
   })
-  @ApiResponse({ status: 200, description: 'Material payload' })
-  @ApiResponse({ status: 403, description: 'Forbidden' })
-  @ApiResponse({ status: 404, description: 'Not found' })
+  @ApiResponse({ status: 200, description: 'Material payload', schema: MaterialDetailResponse })
+  @ApiResponse({ status: 403, description: 'Forbidden', schema: ErrorResponse })
+  @ApiResponse({ status: 404, description: 'Not found', schema: ErrorResponse })
   getMaterial(
     @Param('id') id: string,
     @GetUser() user: { id: string; role: string },
@@ -211,32 +204,15 @@ export class AvendorInventoryController {
     FileValidationInterceptor,
   )
   @ApiConsumes('multipart/form-data')
-  @ApiBody({
-    description:
-      'Update an inventory material. Send only fields to change. New image replaces the old one.',
-    schema: {
-      type: 'object',
-      properties: {
-        name: { type: 'string' },
-        categoryId: { type: 'string' },
-        unit: { type: 'string' },
-        description: { type: 'string' },
-        stock: { type: 'number' },
-        reorderLevel: { type: 'number' },
-        pricePerUnit: { type: 'number' },
-        image: { type: 'string', format: 'binary' },
-      },
-    },
-  })
+  @ApiBody({ description: 'Update an inventory material. Send only fields to change. New image replaces the old one.', schema: UpdateMaterialBody })
   @ApiOperation({
     summary: 'Update an inventory material',
-    description:
-      'Multipart form-data. New image replaces old (old deleted from storage). Requires super_admin or full_access on A-Vendor inventory.',
+    description: 'Multipart form-data. New image replaces old (old deleted from storage). Requires super_admin or full_access on A-Vendor inventory.',
   })
-  @ApiResponse({ status: 200, description: 'Updated material' })
-  @ApiResponse({ status: 400, description: 'Validation error' })
-  @ApiResponse({ status: 403, description: 'Forbidden' })
-  @ApiResponse({ status: 404, description: 'Not found' })
+  @ApiResponse({ status: 200, description: 'Updated material', schema: MaterialUpdatedResponse })
+  @ApiResponse({ status: 400, description: 'Validation error', schema: ErrorResponse })
+  @ApiResponse({ status: 403, description: 'Forbidden', schema: ErrorResponse })
+  @ApiResponse({ status: 404, description: 'Not found', schema: ErrorResponse })
   updateMaterial(
     @Param('id') id: string,
     @Body() dto: UpdateMaterialDto,
@@ -250,12 +226,11 @@ export class AvendorInventoryController {
   @Delete('materials/:id')
   @ApiOperation({
     summary: 'Delete an inventory material',
-    description:
-      'Removes the material and cleans up its image from storage. Requires super_admin or full_access on A-Vendor inventory.',
+    description: 'Removes the material and cleans up its image from storage. Requires super_admin or full_access on A-Vendor inventory.',
   })
-  @ApiResponse({ status: 200, description: 'Material deleted' })
-  @ApiResponse({ status: 403, description: 'Forbidden' })
-  @ApiResponse({ status: 404, description: 'Not found' })
+  @ApiResponse({ status: 200, description: 'Material deleted', schema: MaterialDeletedResponse })
+  @ApiResponse({ status: 403, description: 'Forbidden', schema: ErrorResponse })
+  @ApiResponse({ status: 404, description: 'Not found', schema: ErrorResponse })
   deleteMaterial(
     @Param('id') id: string,
     @GetUser() user: { id: string; role: string },
