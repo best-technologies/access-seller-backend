@@ -129,6 +129,38 @@ model AvendorPermission {
   @@index([userId])
 }
 
+// ============ A-VENDOR INVENTORY ============
+
+model AvendorMaterialCategory {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  materials AvendorMaterial[]
+}
+
+model AvendorMaterial {
+  id            String   @id @default(cuid())
+  name          String
+  categoryId    String
+  unit          String   @default("pieces")
+  description   String?
+  stock         Int      @default(0)
+  reorderLevel  Int      @default(10)
+  pricePerUnit  Float    @default(0)
+  imageUrl      String?
+  imagePublicId String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  category AvendorMaterialCategory @relation(fields: [categoryId], references: [id])
+
+  @@index([categoryId])
+  @@index([name])
+}
+
 model Product {
   id                  String               @id @default(cuid())
   name                String
