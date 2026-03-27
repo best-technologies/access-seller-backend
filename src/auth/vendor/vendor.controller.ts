@@ -53,6 +53,10 @@ export class VendorController {
         last_name: { type: 'string' },
         email: { type: 'string', format: 'email' },
         phone_number: { type: 'string' },
+        company_position: {
+          type: 'string',
+          description: 'Optional job title / company position',
+        },
         username: {
           type: 'string',
           description: 'Optional unique handle (3–30 chars: a-z, 0-9, _)',

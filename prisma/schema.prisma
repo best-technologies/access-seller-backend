@@ -52,6 +52,7 @@ model User {
   first_name                  String
   last_name                   String
   phone_number                String?
+  company_position            String? // Job title / role at company (e.g. Ops Manager); optional for A-Vendor admins
   display_picture             String?
   address                     String?
   gender                      Gender                        @default(other)
@@ -70,6 +71,10 @@ model User {
   affiliateStatus             AffiliateStatus               @default(not_affiliate)
   usertype                    String? // e.g. warehouse-admin (set on onboard)
   allowedPlatformsForAdmin    AllowedPlatformTypeForAdmin[] @default([])
+  /**
+   * Same enum as admin platforms; used to tag/segment users by seller vertical (query with `has`). Optional in practice — defaults to [].
+   */
+  allowedPlatformsForUser     AllowedPlatformTypeForAdmin[] @default([])
   createdAt                   DateTime                      @default(now())
   updatedAt                   DateTime                      @updatedAt
   permissions                 String[]                      @default([])

@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   Logger,
 } from '@nestjs/common';
@@ -85,10 +86,14 @@ export class VendorService {
           email,
           password: hashedPassword,
           phone_number: dto.phone_number ?? null,
+          company_position: dto.company_position?.trim()
+            ? dto.company_position.trim()
+            : null,
           role: 'admin',
           store_id: null,
           usertype: USERTYPE_AVENDOR_ADMIN,
           allowedPlatformsForAdmin: platformSet,
+          allowedPlatformsForUser: platformSet,
           display_picture: displayPictureUrl ?? null,
           ...(username !== undefined ? { username } : {}),
         },
@@ -108,8 +113,12 @@ export class VendorService {
         role: user.role,
         usertype: user.usertype,
         allowed_platforms: mapPrismaPlatformsToApi(user.allowedPlatformsForAdmin),
+        allowed_platforms_for_user: mapPrismaPlatformsToApi(
+          user.allowedPlatformsForUser,
+        ),
         display_picture: user.display_picture,
         username: user.username,
+        company_position: user.company_position,
         createdAt: user.createdAt,
         defaultPassword: DEFAULT_AVENDOR_ADMIN_PASSWORD,
         message:
@@ -171,6 +180,18 @@ export class VendorService {
   }
 
   /** Normalizes and validates optional username from DTO (multipart-safe). */
+  /** True when every requested platform is already on both admin and user arrays. */
+  private isVendorOnboardAlreadyComplete(
+    adminPlatforms: AllowedPlatformTypeForAdmin[],
+    userPlatforms: AllowedPlatformTypeForAdmin[],
+    requested: AllowedPlatformTypeForAdmin[],
+  ): boolean {
+    return (
+      requested.every((p) => adminPlatforms.includes(p)) &&
+      requested.every((p) => userPlatforms.includes(p))
+    );
+  }
+
   private parseUsername(dto: OnboardVendorAdminDto): string | undefined {
     const u = normalizeUsernameInput(dto.username);
     if (u !== undefined && !USERNAME_REGEX.test(u)) {
@@ -191,15 +212,39 @@ export class VendorService {
       role: string;
       usertype: string | null;
       allowedPlatformsForAdmin: AllowedPlatformTypeForAdmin[];
+      allowedPlatformsForUser: AllowedPlatformTypeForAdmin[];
       username: string | null;
+      company_position: string | null;
     },
     dto: OnboardVendorAdminDto,
     platformsToEnsure: AllowedPlatformTypeForAdmin[],
     displayPicture: Express.Multer.File | undefined,
     username: string | undefined,
   ) {
-    const current = existingUser.allowedPlatformsForAdmin ?? [];
-    const hasAll = platformsToEnsure.every((p) => current.includes(p));
+    const currentAdmin = existingUser.allowedPlatformsForAdmin ?? [];
+    const currentUserPlats = existingUser.allowedPlatformsForUser ?? [];
+
+    if (
+      this.isVendorOnboardAlreadyComplete(
+        currentAdmin,
+        currentUserPlats,
+        platformsToEnsure,
+      )
+    ) {
+      this.logger.warn(
+        `Vendor onboard rejected: ${existingUser.email} already has requested platforms on both admin and user arrays`,
+      );
+      throw new ConflictException(
+        'This user already exists',
+      );
+    }
+
+    const mergedAdmin = [
+      ...new Set([...currentAdmin, ...platformsToEnsure]),
+    ];
+    const mergedUserPlats = [
+      ...new Set([...currentUserPlats, ...platformsToEnsure]),
+    ];
 
     let uploaded: StorageUploadResult[] = [];
     let displayPictureUrl: string | undefined;
@@ -212,80 +257,16 @@ export class VendorService {
       displayPictureUrl = uploadOutcome?.url;
       uploaded = uploadOutcome?.results ?? [];
 
-      const mergedPreview = hasAll
-        ? current
-        : [...new Set([...current, ...platformsToEnsure])];
-      if (mergedPreview.includes(AllowedPlatformTypeForAdmin.avendor)) {
+      if (mergedAdmin.includes(AllowedPlatformTypeForAdmin.avendor)) {
         await this.ensureAvendorPermissionForUser(existingUser.id);
       }
-
-      if (hasAll) {
-        const profilePatch = {
-          ...(displayPictureUrl && { display_picture: displayPictureUrl }),
-          ...(dto.first_name && { first_name: dto.first_name }),
-          ...(dto.last_name && { last_name: dto.last_name }),
-          ...(dto.phone_number !== undefined && {
-            phone_number: dto.phone_number ?? null,
-          }),
-          ...(username !== undefined && { username }),
-        };
-        const hasProfilePatch = Object.keys(profilePatch).length > 0;
-
-        if (hasProfilePatch) {
-          const updated = await this.prisma.user.update({
-            where: { id: existingUser.id },
-            data: profilePatch,
-          });
-          this.logger.log(
-            `User ${existingUser.email} already had platform access; profile updated`,
-          );
-          return ResponseHelper.success(
-            'User already has the requested A-Vendor platform access',
-            {
-              id: updated.id,
-              email: updated.email,
-              username: updated.username,
-              first_name: updated.first_name,
-              last_name: updated.last_name,
-              role: updated.role,
-              usertype: updated.usertype,
-              allowed_platforms: mapPrismaPlatformsToApi(
-                updated.allowedPlatformsForAdmin,
-              ),
-              display_picture: updated.display_picture,
-              message:
-                'Platform access unchanged; profile fields updated where provided',
-            },
-          );
-        }
-
-        this.logger.log(
-          `User ${existingUser.email} already has requested vendor platform access (idempotent)`,
-        );
-        return ResponseHelper.success(
-          'User already has the requested A-Vendor platform access',
-          {
-            id: existingUser.id,
-            email: existingUser.email,
-            username: existingUser.username,
-            first_name: existingUser.first_name,
-            last_name: existingUser.last_name,
-            role: existingUser.role,
-            usertype: existingUser.usertype,
-            allowed_platforms: mapPrismaPlatformsToApi(current),
-            message:
-              'User already has the requested platform permissions; no changes applied',
-          },
-        );
-      }
-
-      const merged = [...new Set([...current, ...platformsToEnsure])];
 
       const updated = await this.prisma.user.update({
         where: { id: existingUser.id },
         data: {
           role: 'admin',
-          allowedPlatformsForAdmin: merged,
+          allowedPlatformsForAdmin: mergedAdmin,
+          allowedPlatformsForUser: mergedUserPlats,
           ...(existingUser.usertype == null && {
             usertype: USERTYPE_AVENDOR_ADMIN,
           }),
@@ -294,13 +275,18 @@ export class VendorService {
           ...(dto.phone_number !== undefined && {
             phone_number: dto.phone_number ?? null,
           }),
+          ...(dto.company_position !== undefined && {
+            company_position: dto.company_position?.trim()
+              ? dto.company_position.trim()
+              : null,
+          }),
           ...(displayPictureUrl && { display_picture: displayPictureUrl }),
           ...(username !== undefined && { username }),
         },
       });
 
       this.logger.log(
-        `Existing user granted vendor platform access: id=${updated.id} email=${updated.email} platforms=${merged.join(',')} usertype=${updated.usertype}`,
+        `Existing user granted vendor platform access: id=${updated.id} email=${updated.email} adminPlatforms=${mergedAdmin.join(',')} userPlatforms=${mergedUserPlats.join(',')} usertype=${updated.usertype}`,
       );
 
       return ResponseHelper.success(
@@ -315,10 +301,14 @@ export class VendorService {
           allowed_platforms: mapPrismaPlatformsToApi(
             updated.allowedPlatformsForAdmin,
           ),
+          allowed_platforms_for_user: mapPrismaPlatformsToApi(
+            updated.allowedPlatformsForUser,
+          ),
           display_picture: updated.display_picture,
           username: updated.username,
+          company_position: updated.company_position,
           message:
-            'Existing user granted A-Vendor admin access and merged platform permissions',
+            'Existing user granted A-Vendor admin access; merged platforms on both admin and user lists',
         },
       );
     } catch (err) {

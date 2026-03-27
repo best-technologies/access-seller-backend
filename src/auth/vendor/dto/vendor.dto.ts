@@ -53,6 +53,19 @@ export class OnboardVendorAdminDto {
   @IsString()
   phone_number?: string;
 
+  @ApiPropertyOptional({
+    description: 'Job title or position at the company (optional).',
+    example: 'Operations Manager',
+  })
+  @Transform(({ value }) =>
+    value === '' || value === undefined || value === null
+      ? undefined
+      : String(value).trim(),
+  )
+  @IsOptional()
+  @IsString()
+  company_position?: string;
+
   /**
    * Which platforms this admin may use. Defaults to ['avendor'] when omitted.
    * For multipart/form-data send a JSON string, e.g. `["avendor"]`.
