@@ -161,6 +161,92 @@ model AvendorMaterial {
   @@index([name])
 }
 
+// ============ A-VENDOR VENDORS ============
+
+enum AvendorVendorStatus {
+  active
+  inactive
+}
+
+enum AvendorComplianceStatus {
+  compliant
+  non_compliant
+  warning
+}
+
+enum AvendorDocumentStatus {
+  valid
+  expired
+  pending
+}
+
+model AvendorVendor {
+  id                 String                  @id @default(cuid())
+  name               String
+  email              String
+  phone              String?
+  city               String?
+  country            String?                 @default("Nigeria")
+  status             AvendorVendorStatus     @default(active)
+  complianceStatus   AvendorComplianceStatus @default(non_compliant)
+  complianceOverride Boolean                 @default(false)
+  rating             Float?                  @default(0)
+  totalOrders        Int                     @default(0)
+  totalSpend         Float                   @default(0)
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @updatedAt
+
+  bankDetail AvendorVendorBank?
+  documents  AvendorVendorDocument[]
+  notes      AvendorVendorNote[]
+
+  @@index([status])
+  @@index([complianceStatus])
+  @@index([name])
+}
+
+model AvendorVendorBank {
+  id            String   @id @default(cuid())
+  vendorId      String   @unique
+  bankName      String
+  accountNumber String
+  accountName   String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  vendor AvendorVendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+}
+
+model AvendorVendorDocument {
+  id            String                @id @default(cuid())
+  vendorId      String
+  documentType  String
+  label         String
+  imageUrl      String?
+  imagePublicId String?
+  status        AvendorDocumentStatus @default(pending)
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+
+  vendor AvendorVendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@index([vendorId])
+}
+
+model AvendorVendorNote {
+  id         String   @id @default(cuid())
+  vendorId   String
+  content    String
+  authorId   String?
+  authorName String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  vendor AvendorVendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@index([vendorId])
+}
+
 model Product {
   id                  String               @id @default(cuid())
   name                String
