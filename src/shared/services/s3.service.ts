@@ -9,7 +9,11 @@ import * as crypto from 'crypto';
 import { ResponseHelper } from '../helper-functions/response.helpers';
 import type { StorageUploadResult, StorageUploadOptions } from './storage.types';
 
-const ALLOWED_FORMATS = ['jpg', 'jpeg', 'png', 'pdf'];
+const ALLOWED_FORMATS = [
+  'jpg', 'jpeg', 'png', 'gif', 'webp', 'svg',
+  'pdf', 'doc', 'docx',
+  'mp4', 'mov', 'avi', 'webm', 'mkv',
+];
 
 @Injectable()
 export class S3Service {
@@ -22,6 +26,7 @@ export class S3Service {
     this.region = this.config.get<string>('AWS_REGION') ?? 'us-east-1';
     this.bucket =
       this.config.get<string>('AWS_S3_BUCKET') ||
+      this.config.get<string>('AWS_S3_BUCKET_DEV') ||
       this.config.get<string>('AWS_S3_BUCKET_NAME_DEVELOPMENT') ||
       '';
     this.s3 = new S3Client({

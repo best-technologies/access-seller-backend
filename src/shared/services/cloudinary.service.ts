@@ -21,7 +21,11 @@ interface UploadError {
 @Injectable()
 export class CloudinaryService {
     private readonly logger = new Logger(CloudinaryService.name);
-    private readonly ALLOWED_FORMATS = ['jpg', 'jpeg', 'png', 'pdf'];
+    private readonly ALLOWED_FORMATS = [
+        'jpg', 'jpeg', 'png', 'gif', 'webp', 'svg',
+        'pdf', 'doc', 'docx',
+        'mp4', 'mov', 'avi', 'webm', 'mkv',
+    ];
 
     constructor(private config: ConfigService) {
         cloudinary.config({
