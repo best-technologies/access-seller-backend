@@ -156,6 +156,7 @@ model AvendorMaterial {
   updatedAt     DateTime @updatedAt
 
   category AvendorMaterialCategory @relation(fields: [categoryId], references: [id])
+  rfqItems AvendorRfqItem[]
 
   @@index([categoryId])
   @@index([name])
@@ -199,6 +200,7 @@ model AvendorVendor {
   bankDetail AvendorVendorBank?
   documents  AvendorVendorDocument[]
   notes      AvendorVendorNote[]
+  rfqVendors AvendorRfqVendor[]
 
   @@index([status])
   @@index([complianceStatus])
@@ -244,6 +246,100 @@ model AvendorVendorNote {
 
   vendor AvendorVendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
 
+  @@index([vendorId])
+}
+
+// ============ A-VENDOR RFQs ============
+
+enum AvendorRfqStatus {
+  draft
+  sent
+  awaiting_selection
+  awarded
+  cancelled
+}
+
+model AvendorRfq {
+  id            String           @id @default(cuid())
+  rfqNumber     String           @unique
+  title         String
+  description   String?
+  dueDate       DateTime
+  status        AvendorRfqStatus @default(draft)
+  totalBudget   Float            @default(0)
+  sentAt        DateTime?
+  createdById   String
+  createdByName String?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  items       AvendorRfqItem[]
+  vendors     AvendorRfqVendor[]
+  attachments AvendorRfqAttachment[]
+
+  @@index([status])
+  @@index([rfqNumber])
+  @@index([createdById])
+}
+
+model AvendorRfqItem {
+  id           String   @id @default(cuid())
+  rfqId        String
+  materialId   String?
+  materialName String
+  quantity     Float
+  unit         String
+  budget       Float    @default(0)
+  description  String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  rfq         AvendorRfq                 @relation(fields: [rfqId], references: [id], onDelete: Cascade)
+  material    AvendorMaterial?           @relation(fields: [materialId], references: [id], onDelete: SetNull)
+  attachments AvendorRfqItemAttachment[]
+
+  @@index([rfqId])
+  @@index([materialId])
+}
+
+model AvendorRfqItemAttachment {
+  id               String   @id @default(cuid())
+  rfqItemId        String
+  imageUrl         String
+  imagePublicId    String
+  originalFilename String?
+  createdAt        DateTime @default(now())
+
+  rfqItem AvendorRfqItem @relation(fields: [rfqItemId], references: [id], onDelete: Cascade)
+
+  @@index([rfqItemId])
+}
+
+model AvendorRfqAttachment {
+  id               String   @id @default(cuid())
+  rfqId            String
+  imageUrl         String
+  imagePublicId    String
+  originalFilename String?
+  createdAt        DateTime @default(now())
+
+  rfq AvendorRfq @relation(fields: [rfqId], references: [id], onDelete: Cascade)
+
+  @@index([rfqId])
+}
+
+model AvendorRfqVendor {
+  id        String    @id @default(cuid())
+  rfqId     String
+  vendorId  String
+  sentAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  rfq    AvendorRfq    @relation(fields: [rfqId], references: [id], onDelete: Cascade)
+  vendor AvendorVendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@unique([rfqId, vendorId])
+  @@index([rfqId])
   @@index([vendorId])
 }
 
