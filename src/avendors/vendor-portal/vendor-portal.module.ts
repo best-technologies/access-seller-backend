@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { VendorDashboardModule } from './dashboard/vendor-dashboard.module';
+import { VendorInventoryModule } from './inventory/vendor-inventory.module';
 import { VendorProfileModule } from './profile/vendor-profile.module';
 
 /**
@@ -7,6 +8,6 @@ import { VendorProfileModule } from './profile/vendor-profile.module';
  * Shares Prisma models; uses {@link VendorPortalGuard} for supplier access.
  */
 @Module({
-  imports: [VendorDashboardModule, VendorProfileModule],
+  imports: [VendorDashboardModule, VendorInventoryModule, VendorProfileModule],
 })
 export class VendorPortalModule {}

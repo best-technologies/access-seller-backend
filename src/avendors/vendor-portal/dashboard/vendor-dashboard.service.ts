@@ -54,7 +54,7 @@ export class VendorDashboardService {
           status: AvendorRfqStatus.awarded,
         },
       }),
-      this.prisma.avendorVendorInventoryItem.count({ where: { vendorId } }),
+      this.prisma.avendorVendorInventoryMaterial.count({ where: { vendorId } }),
       this.prisma.avendorVendorApprovedPayment.aggregate({
         where: {
           vendorId,
