@@ -15,14 +15,7 @@ import {
   ValidationPipe,
 } from '@nestjs/common';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
-import {
-  ApiBearerAuth,
-  ApiBody,
-  ApiConsumes,
-  ApiOperation,
-  ApiResponse,
-  ApiTags,
-} from '@nestjs/swagger';
+import { ApiBearerAuth, ApiConsumes, ApiTags } from '@nestjs/swagger';
 import { GetUser } from 'src/auth/decorator';
 import { JwtGuard } from 'src/auth/guard';
 import { FileValidationInterceptor } from 'src/shared/interceptors/file-validation.interceptor';
@@ -37,23 +30,21 @@ import { UploadVendorDocumentDto } from './dto/upload-vendor-document.dto';
 import { UpdateDocumentStatusDto } from './dto/update-document-status.dto';
 import { UpdateComplianceDto } from './dto/update-compliance.dto';
 import {
-  ErrorResponse,
-  VendorCreatedResponse,
-  VendorListResponse,
-  VendorDetailResponse,
-  VendorUpdatedResponse,
-  VendorDeletedResponse,
-  BankSavedResponse,
-  BankRemovedResponse,
-  NoteCreatedResponse,
-  NoteListResponse,
-  NoteDeletedResponse,
-  DocumentUploadedResponse,
-  DocumentStatusUpdatedResponse,
-  DocumentDeletedResponse,
-  ComplianceUpdatedResponse,
-  UploadDocumentBody,
-} from './avendor-vendors.swagger';
+  ApiDocAddNote,
+  ApiDocCreateVendor,
+  ApiDocDeleteBank,
+  ApiDocDeleteDocument,
+  ApiDocDeleteNote,
+  ApiDocDeleteVendor,
+  ApiDocGetVendor,
+  ApiDocListNotes,
+  ApiDocListVendors,
+  ApiDocUpdateCompliance,
+  ApiDocUpdateDocumentStatus,
+  ApiDocUpdateVendor,
+  ApiDocUploadDocument,
+  ApiDocUpsertBank,
+} from './doc';
 
 @ApiTags('A-Vendor — Vendors')
 @ApiBearerAuth()
@@ -72,13 +63,7 @@ export class AvendorVendorsController {
   // ─── VENDOR CRUD ──────────────────────────────────────────
 
   @Post()
-  @ApiOperation({
-    summary: 'Create a vendor',
-    description: 'Requires super_admin or full_access on A-Vendor vendors_management.',
-  })
-  @ApiResponse({ status: 201, description: 'Vendor created', schema: VendorCreatedResponse })
-  @ApiResponse({ status: 400, description: 'Validation error', schema: ErrorResponse })
-  @ApiResponse({ status: 403, description: 'Forbidden', schema: ErrorResponse })
+  @ApiDocCreateVendor()
   createVendor(
     @Body() dto: CreateVendorDto,
     @GetUser() user: { id: string; role: string },
@@ -87,12 +72,7 @@ export class AvendorVendorsController {
   }
 
   @Get()
-  @ApiOperation({
-    summary: 'List vendors',
-    description: 'Paginated list with analysis cards (total, active, inactive, compliance risk). Requires at least view access.',
-  })
-  @ApiResponse({ status: 200, description: 'Paginated vendor list', schema: VendorListResponse })
-  @ApiResponse({ status: 403, description: 'Forbidden', schema: ErrorResponse })
+  @ApiDocListVendors()
   listVendors(
     @Query() query: ListVendorsQueryDto,
     @GetUser() user: { id: string; role: string },
@@ -101,13 +81,7 @@ export class AvendorVendorsController {
   }
 
   @Get(':id')
-  @ApiOperation({
-    summary: 'Get full vendor detail',
-    description: 'Includes bank details, compliance documents, and notes. Requires at least view access.',
-  })
-  @ApiResponse({ status: 200, description: 'Vendor detail', schema: VendorDetailResponse })
-  @ApiResponse({ status: 403, description: 'Forbidden', schema: ErrorResponse })
-  @ApiResponse({ status: 404, description: 'Not found', schema: ErrorResponse })
+  @ApiDocGetVendor()
   getVendor(
     @Param('id') id: string,
     @GetUser() user: { id: string; role: string },
@@ -116,14 +90,7 @@ export class AvendorVendorsController {
   }
 
   @Patch(':id')
-  @ApiOperation({
-    summary: 'Update a vendor',
-    description: 'Update contact info, status, or performance fields. Requires full_access.',
-  })
-  @ApiResponse({ status: 200, description: 'Vendor updated', schema: VendorUpdatedResponse })
-  @ApiResponse({ status: 400, description: 'Validation error', schema: ErrorResponse })
-  @ApiResponse({ status: 403, description: 'Forbidden', schema: ErrorResponse })
-  @ApiResponse({ status: 404, description: 'Not found', schema: ErrorResponse })
+  @ApiDocUpdateVendor()
   updateVendor(
     @Param('id') id: string,
     @Body() dto: UpdateVendorDto,
@@ -133,13 +100,7 @@ export class AvendorVendorsController {
   }
 
   @Delete(':id')
-  @ApiOperation({
-    summary: 'Delete a vendor',
-    description: 'Cascades bank, documents, notes. Cleans up document images from storage. Requires full_access.',
-  })
-  @ApiResponse({ status: 200, description: 'Vendor deleted', schema: VendorDeletedResponse })
-  @ApiResponse({ status: 403, description: 'Forbidden', schema: ErrorResponse })
-  @ApiResponse({ status: 404, description: 'Not found', schema: ErrorResponse })
+  @ApiDocDeleteVendor()
   deleteVendor(
     @Param('id') id: string,
     @GetUser() user: { id: string; role: string },
@@ -150,14 +111,7 @@ export class AvendorVendorsController {
   // ─── BANK DETAILS ────────────────────────────────────────
 
   @Put(':id/bank')
-  @ApiOperation({
-    summary: 'Create or update vendor bank details',
-    description: 'Upsert (creates if none, updates if exists). Requires full_access.',
-  })
-  @ApiResponse({ status: 200, description: 'Bank details saved', schema: BankSavedResponse })
-  @ApiResponse({ status: 400, description: 'Validation error', schema: ErrorResponse })
-  @ApiResponse({ status: 403, description: 'Forbidden', schema: ErrorResponse })
-  @ApiResponse({ status: 404, description: 'Vendor not found', schema: ErrorResponse })
+  @ApiDocUpsertBank()
   upsertBank(
     @Param('id') id: string,
     @Body() dto: UpsertVendorBankDto,
@@ -167,13 +121,7 @@ export class AvendorVendorsController {
   }
 
   @Delete(':id/bank')
-  @ApiOperation({
-    summary: 'Remove vendor bank details',
-    description: 'Requires full_access.',
-  })
-  @ApiResponse({ status: 200, description: 'Bank details removed', schema: BankRemovedResponse })
-  @ApiResponse({ status: 403, description: 'Forbidden', schema: ErrorResponse })
-  @ApiResponse({ status: 404, description: 'No bank details found', schema: ErrorResponse })
+  @ApiDocDeleteBank()
   deleteBank(
     @Param('id') id: string,
     @GetUser() user: { id: string; role: string },
@@ -184,14 +132,7 @@ export class AvendorVendorsController {
   // ─── NOTES ────────────────────────────────────────────────
 
   @Post(':id/notes')
-  @ApiOperation({
-    summary: 'Add a note to a vendor',
-    description: 'Captures caller as author. Requires full_access.',
-  })
-  @ApiResponse({ status: 201, description: 'Note added', schema: NoteCreatedResponse })
-  @ApiResponse({ status: 400, description: 'Validation error', schema: ErrorResponse })
-  @ApiResponse({ status: 403, description: 'Forbidden', schema: ErrorResponse })
-  @ApiResponse({ status: 404, description: 'Vendor not found', schema: ErrorResponse })
+  @ApiDocAddNote()
   addNote(
     @Param('id') id: string,
     @Body() dto: CreateVendorNoteDto,
@@ -201,13 +142,7 @@ export class AvendorVendorsController {
   }
 
   @Get(':id/notes')
-  @ApiOperation({
-    summary: 'List notes for a vendor',
-    description: 'Requires at least view access.',
-  })
-  @ApiResponse({ status: 200, description: 'Notes list', schema: NoteListResponse })
-  @ApiResponse({ status: 403, description: 'Forbidden', schema: ErrorResponse })
-  @ApiResponse({ status: 404, description: 'Vendor not found', schema: ErrorResponse })
+  @ApiDocListNotes()
   listNotes(
     @Param('id') id: string,
     @GetUser() user: { id: string; role: string },
@@ -216,13 +151,7 @@ export class AvendorVendorsController {
   }
 
   @Delete(':id/notes/:noteId')
-  @ApiOperation({
-    summary: 'Delete a note',
-    description: 'Requires full_access.',
-  })
-  @ApiResponse({ status: 200, description: 'Note deleted', schema: NoteDeletedResponse })
-  @ApiResponse({ status: 403, description: 'Forbidden', schema: ErrorResponse })
-  @ApiResponse({ status: 404, description: 'Note not found', schema: ErrorResponse })
+  @ApiDocDeleteNote()
   deleteNote(
     @Param('id') id: string,
     @Param('noteId') noteId: string,
@@ -239,15 +168,7 @@ export class AvendorVendorsController {
     FileValidationInterceptor,
   )
   @ApiConsumes('multipart/form-data')
-  @ApiBody({ description: 'Upload a compliance document with optional image.', schema: UploadDocumentBody })
-  @ApiOperation({
-    summary: 'Upload a compliance document',
-    description: 'Multipart form-data. Auto-recomputes vendor compliance status. Requires full_access.',
-  })
-  @ApiResponse({ status: 201, description: 'Document uploaded', schema: DocumentUploadedResponse })
-  @ApiResponse({ status: 400, description: 'Validation error / bad file type', schema: ErrorResponse })
-  @ApiResponse({ status: 403, description: 'Forbidden', schema: ErrorResponse })
-  @ApiResponse({ status: 404, description: 'Vendor not found', schema: ErrorResponse })
+  @ApiDocUploadDocument()
   uploadDocument(
     @Param('id') id: string,
     @Body() dto: UploadVendorDocumentDto,
@@ -259,13 +180,7 @@ export class AvendorVendorsController {
   }
 
   @Patch(':id/documents/:docId')
-  @ApiOperation({
-    summary: 'Update document status',
-    description: 'Set to valid, expired, or pending. Auto-recomputes vendor compliance. Requires full_access.',
-  })
-  @ApiResponse({ status: 200, description: 'Document status updated', schema: DocumentStatusUpdatedResponse })
-  @ApiResponse({ status: 403, description: 'Forbidden', schema: ErrorResponse })
-  @ApiResponse({ status: 404, description: 'Document not found', schema: ErrorResponse })
+  @ApiDocUpdateDocumentStatus()
   updateDocumentStatus(
     @Param('id') id: string,
     @Param('docId') docId: string,
@@ -276,13 +191,7 @@ export class AvendorVendorsController {
   }
 
   @Delete(':id/documents/:docId')
-  @ApiOperation({
-    summary: 'Delete a compliance document',
-    description: 'Removes document and cleans up image from storage. Auto-recomputes compliance. Requires full_access.',
-  })
-  @ApiResponse({ status: 200, description: 'Document deleted', schema: DocumentDeletedResponse })
-  @ApiResponse({ status: 403, description: 'Forbidden', schema: ErrorResponse })
-  @ApiResponse({ status: 404, description: 'Document not found', schema: ErrorResponse })
+  @ApiDocDeleteDocument()
   deleteDocument(
     @Param('id') id: string,
     @Param('docId') docId: string,
@@ -294,13 +203,7 @@ export class AvendorVendorsController {
   // ─── COMPLIANCE OVERRIDE ──────────────────────────────────
 
   @Patch(':id/compliance')
-  @ApiOperation({
-    summary: 'Manually override compliance status',
-    description: 'Sets complianceOverride=true so auto-recompute is skipped. Requires full_access.',
-  })
-  @ApiResponse({ status: 200, description: 'Compliance status updated', schema: ComplianceUpdatedResponse })
-  @ApiResponse({ status: 403, description: 'Forbidden', schema: ErrorResponse })
-  @ApiResponse({ status: 404, description: 'Vendor not found', schema: ErrorResponse })
+  @ApiDocUpdateCompliance()
   updateCompliance(
     @Param('id') id: string,
     @Body() dto: UpdateComplianceDto,

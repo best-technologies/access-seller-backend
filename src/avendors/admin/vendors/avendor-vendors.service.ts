@@ -1,16 +1,20 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import * as argon from 'argon2';
 import {
+  AllowedPlatformTypeForAdmin,
   AvendorComplianceStatus,
   AvendorDocumentStatus,
   AvendorModuleAccessLevel,
   Prisma,
 } from '@prisma/client';
+import { DEFAULT_AVENDOR_ADMIN_PASSWORD } from 'src/auth/vendor/constants/a-vendor-auth.constants';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { StorageService } from 'src/shared/services/storage.service';
 import type { StorageUploadResult } from 'src/shared/services/storage.types';
@@ -23,6 +27,15 @@ import { CreateVendorNoteDto } from './dto/create-vendor-note.dto';
 import { UploadVendorDocumentDto } from './dto/upload-vendor-document.dto';
 import { UpdateDocumentStatusDto } from './dto/update-document-status.dto';
 import { UpdateComplianceDto } from './dto/update-compliance.dto';
+import {
+  generateUniqueAvendorVendorCode,
+  resolveAvendorVendorDbId,
+} from '../../shared/utils/avendor-vendor-id.util';
+import {
+  ensureUsernameAvailable,
+  normalizeUsernameInput,
+  USERNAME_REGEX,
+} from 'src/shared/utils/username.util';
 import * as colors from 'colors';
 
 export type AvendorVendorCaller = { id: string; role: string; first_name?: string; last_name?: string };
@@ -51,20 +64,145 @@ export class AvendorVendorsService {
     this.logger.log(colors.blue(`Creating vendor name="${dto.name}"`));
     await this.assertCanEditVendors(caller);
 
-    const vendor = await this.prisma.avendorVendor.create({
-      data: {
-        name: dto.name.trim(),
-        email: dto.email.trim().toLowerCase(),
-        phone: dto.phone?.trim() || null,
-        city: dto.city?.trim() || null,
-        country: dto.country?.trim() || 'Nigeria',
-        status: dto.status ?? 'active',
-      },
-      include: VENDOR_INCLUDE,
-    });
+    const email = dto.email.trim().toLowerCase();
+    const username = this.parseCreateVendorUsername(dto.user);
 
-    this.logger.log(colors.green(`Vendor created: id=${vendor.id} name="${vendor.name}" by=${caller.id}`));
-    return ResponseHelper.created('Vendor created', vendor);
+    const existingBefore = await this.prisma.user.findUnique({ where: { email } });
+    await ensureUsernameAvailable(this.prisma, username, existingBefore?.id);
+
+    const vendorCode = await generateUniqueAvendorVendorCode(this.prisma);
+    const hashedPassword = await argon.hash(DEFAULT_AVENDOR_ADMIN_PASSWORD);
+
+    const { vendor, user, linkedExistingUser } = await this.prisma.$transaction(
+      async (tx) => {
+        const existing = await tx.user.findUnique({ where: { email } });
+        if (existing?.avendorVendorId) {
+          const stillLinked = await tx.avendorVendor.findUnique({
+            where: { id: existing.avendorVendorId },
+            select: { id: true },
+          });
+          if (stillLinked) {
+            throw new ConflictException(
+              'This user is already linked to a supplier account.',
+            );
+          }
+        }
+
+        const createdVendor = await tx.avendorVendor.create({
+          data: {
+            vendorCode,
+            name: dto.name.trim(),
+            email,
+            phone: dto.phone?.trim() || null,
+            industry: dto.industry?.trim() || null,
+            address: dto.address?.trim() || null,
+            city: dto.city?.trim() || null,
+            country: dto.country?.trim() || 'Nigeria',
+            status: dto.status ?? 'active',
+          },
+          include: VENDOR_INCLUDE,
+        });
+
+        if (existing) {
+          const merged = new Set([
+            ...(existing.allowedPlatformsForUser ?? []),
+            AllowedPlatformTypeForAdmin.avendor,
+          ]);
+          const updated = await tx.user.update({
+            where: { id: existing.id },
+            data: {
+              first_name: dto.user.first_name.trim(),
+              last_name: dto.user.last_name.trim(),
+              is_a_vendor: true,
+              avendorVendorId: createdVendor.id,
+              allowedPlatformsForUser: Array.from(merged),
+              phone_number:
+                dto.phone !== undefined
+                  ? dto.phone?.trim() || null
+                  : existing.phone_number,
+              ...(username !== undefined ? { username } : {}),
+            },
+            select: {
+              id: true,
+              email: true,
+              first_name: true,
+              last_name: true,
+              username: true,
+            },
+          });
+          return {
+            vendor: createdVendor,
+            user: updated,
+            linkedExistingUser: true,
+          };
+        }
+
+        const createdUser = await tx.user.create({
+          data: {
+            first_name: dto.user.first_name.trim(),
+            last_name: dto.user.last_name.trim(),
+            email,
+            password: hashedPassword,
+            phone_number: dto.phone?.trim() || null,
+            role: 'user',
+            store_id: null,
+            is_a_vendor: true,
+            avendorVendorId: createdVendor.id,
+            allowedPlatformsForUser: [AllowedPlatformTypeForAdmin.avendor],
+            ...(username !== undefined ? { username } : {}),
+          },
+          select: {
+            id: true,
+            email: true,
+            first_name: true,
+            last_name: true,
+            username: true,
+          },
+        });
+
+        return {
+          vendor: createdVendor,
+          user: createdUser,
+          linkedExistingUser: false,
+        };
+      },
+    );
+
+    this.logger.log(
+      colors.green(
+        linkedExistingUser
+          ? `Vendor created and linked: vendorId=${vendor.id} vendorCode=${vendor.vendorCode ?? 'n/a'} userId=${user.id} by=${caller.id}`
+          : `Vendor + portal user created: vendorId=${vendor.id} vendorCode=${vendor.vendorCode ?? 'n/a'} userId=${user.id} by=${caller.id}`,
+      ),
+    );
+    return ResponseHelper.created('Vendor created', {
+      ...vendor,
+      portalUser: user,
+      linkedExistingUser,
+      ...(linkedExistingUser
+        ? {
+            message:
+              'Existing user linked to the new supplier. They use their current password to sign in.',
+          }
+        : {
+            defaultPassword: DEFAULT_AVENDOR_ADMIN_PASSWORD,
+            message:
+              'Default password is set server-side. Share it securely and ask the contact to change it after first login.',
+          }),
+    });
+  }
+
+  private parseCreateVendorUsername(
+    user: CreateVendorDto['user'],
+  ): string | undefined {
+    const u = normalizeUsernameInput(user.username);
+    if (u === undefined) return undefined;
+    if (!USERNAME_REGEX.test(u)) {
+      throw new BadRequestException(
+        'Username must be 3–30 characters: lowercase letters, numbers, underscore only',
+      );
+    }
+    return u;
   }
 
   async listVendors(query: ListVendorsQueryDto, caller: AvendorVendorCaller) {
@@ -87,6 +225,7 @@ export class AvendorVendorsService {
         OR: [
           { name: { contains: search, mode: 'insensitive' } },
           { email: { contains: search, mode: 'insensitive' } },
+          { vendorCode: { contains: search, mode: 'insensitive' } },
         ],
       });
     }
@@ -132,8 +271,8 @@ export class AvendorVendorsService {
     this.logger.log(colors.blue(`Fetching vendor id=${id}`));
     await this.assertCanViewVendors(caller);
 
-    const vendor = await this.prisma.avendorVendor.findUnique({
-      where: { id },
+    const vendor = await this.prisma.avendorVendor.findFirst({
+      where: { OR: [{ id }, { vendorCode: id }] },
       include: VENDOR_INCLUDE,
     });
     if (!vendor) throw new NotFoundException('Vendor not found');
@@ -146,13 +285,14 @@ export class AvendorVendorsService {
     this.logger.log(colors.blue(`Updating vendor id=${id}`));
     await this.assertCanEditVendors(caller);
 
-    const vendor = await this.prisma.avendorVendor.findUnique({ where: { id } });
-    if (!vendor) throw new NotFoundException('Vendor not found');
+    const dbId = await this.requireVendorDbId(id);
 
     const data: Prisma.AvendorVendorUpdateInput = {};
     if (dto.name !== undefined) data.name = dto.name.trim();
     if (dto.email !== undefined) data.email = dto.email.trim().toLowerCase();
     if (dto.phone !== undefined) data.phone = dto.phone.trim() || null;
+    if (dto.industry !== undefined) data.industry = dto.industry.trim() || null;
+    if (dto.address !== undefined) data.address = dto.address.trim() || null;
     if (dto.city !== undefined) data.city = dto.city.trim() || null;
     if (dto.country !== undefined) data.country = dto.country.trim() || null;
     if (dto.status !== undefined) data.status = dto.status;
@@ -161,12 +301,12 @@ export class AvendorVendorsService {
     if (dto.totalSpend !== undefined) data.totalSpend = dto.totalSpend;
 
     const updated = await this.prisma.avendorVendor.update({
-      where: { id },
+      where: { id: dbId },
       data,
       include: VENDOR_INCLUDE,
     });
 
-    this.logger.log(colors.green(`Vendor updated: id=${id} name="${updated.name}" by=${caller.id}`));
+    this.logger.log(colors.green(`Vendor updated: id=${dbId} name="${updated.name}" by=${caller.id}`));
     return ResponseHelper.success('Vendor updated', updated);
   }
 
@@ -174,8 +314,10 @@ export class AvendorVendorsService {
     this.logger.log(colors.blue(`Deleting vendor id=${id}`));
     await this.assertCanEditVendors(caller);
 
+    const dbId = await this.requireVendorDbId(id);
+
     const vendor = await this.prisma.avendorVendor.findUnique({
-      where: { id },
+      where: { id: dbId },
       include: { documents: { select: { imagePublicId: true } } },
     });
     if (!vendor) throw new NotFoundException('Vendor not found');
@@ -193,10 +335,14 @@ export class AvendorVendorsService {
       }
     }
 
-    await this.prisma.avendorVendor.delete({ where: { id } });
+    await this.prisma.avendorVendor.delete({ where: { id: dbId } });
 
-    this.logger.log(colors.yellow(`Vendor deleted: id=${id} name="${vendor.name}" by=${caller.id}`));
-    return ResponseHelper.success('Vendor deleted', { id: vendor.id, name: vendor.name });
+    this.logger.log(colors.yellow(`Vendor deleted: id=${dbId} name="${vendor.name}" by=${caller.id}`));
+    return ResponseHelper.success('Vendor deleted', {
+      id: vendor.id,
+      vendorCode: vendor.vendorCode,
+      name: vendor.name,
+    });
   }
 
   // ─── BANK DETAILS ────────────────────────────────────────
@@ -204,12 +350,12 @@ export class AvendorVendorsService {
   async upsertBank(vendorId: string, dto: UpsertVendorBankDto, caller: AvendorVendorCaller) {
     this.logger.log(colors.blue(`Upserting bank for vendor=${vendorId}`));
     await this.assertCanEditVendors(caller);
-    await this.assertVendorExists(vendorId);
+    const dbId = await this.requireVendorDbId(vendorId);
 
     const bank = await this.prisma.avendorVendorBank.upsert({
-      where: { vendorId },
+      where: { vendorId: dbId },
       create: {
-        vendorId,
+        vendorId: dbId,
         bankName: dto.bankName.trim(),
         accountNumber: dto.accountNumber.trim(),
         accountName: dto.accountName.trim(),
@@ -221,21 +367,22 @@ export class AvendorVendorsService {
       },
     });
 
-    this.logger.log(colors.green(`Bank details saved for vendor=${vendorId} by=${caller.id}`));
+    this.logger.log(colors.green(`Bank details saved for vendor=${dbId} by=${caller.id}`));
     return ResponseHelper.success('Bank details saved', bank);
   }
 
   async deleteBank(vendorId: string, caller: AvendorVendorCaller) {
     this.logger.log(colors.blue(`Deleting bank for vendor=${vendorId}`));
     await this.assertCanEditVendors(caller);
+    const dbId = await this.requireVendorDbId(vendorId);
 
-    const bank = await this.prisma.avendorVendorBank.findUnique({ where: { vendorId } });
+    const bank = await this.prisma.avendorVendorBank.findUnique({ where: { vendorId: dbId } });
     if (!bank) throw new NotFoundException('No bank details found for this vendor');
 
-    await this.prisma.avendorVendorBank.delete({ where: { vendorId } });
+    await this.prisma.avendorVendorBank.delete({ where: { vendorId: dbId } });
 
-    this.logger.log(colors.yellow(`Bank details removed for vendor=${vendorId} by=${caller.id}`));
-    return ResponseHelper.success('Bank details removed', { vendorId });
+    this.logger.log(colors.yellow(`Bank details removed for vendor=${dbId} by=${caller.id}`));
+    return ResponseHelper.success('Bank details removed', { vendorId: dbId });
   }
 
   // ─── NOTES ────────────────────────────────────────────────
@@ -243,49 +390,50 @@ export class AvendorVendorsService {
   async addNote(vendorId: string, dto: CreateVendorNoteDto, caller: AvendorVendorCaller) {
     this.logger.log(colors.blue(`Adding note to vendor=${vendorId}`));
     await this.assertCanEditVendors(caller);
-    await this.assertVendorExists(vendorId);
+    const dbId = await this.requireVendorDbId(vendorId);
 
     const authorName = [caller.first_name, caller.last_name].filter(Boolean).join(' ') || null;
 
     const note = await this.prisma.avendorVendorNote.create({
       data: {
-        vendorId,
+        vendorId: dbId,
         content: dto.content.trim(),
         authorId: caller.id,
         authorName,
       },
     });
 
-    this.logger.log(colors.green(`Note added to vendor=${vendorId} noteId=${note.id} by=${caller.id}`));
+    this.logger.log(colors.green(`Note added to vendor=${dbId} noteId=${note.id} by=${caller.id}`));
     return ResponseHelper.created('Note added', note);
   }
 
   async listNotes(vendorId: string, caller: AvendorVendorCaller) {
     this.logger.log(colors.blue(`Listing notes for vendor=${vendorId}`));
     await this.assertCanViewVendors(caller);
-    await this.assertVendorExists(vendorId);
+    const dbId = await this.requireVendorDbId(vendorId);
 
     const notes = await this.prisma.avendorVendorNote.findMany({
-      where: { vendorId },
+      where: { vendorId: dbId },
       orderBy: { createdAt: 'desc' },
     });
 
-    this.logger.log(colors.magenta(`Notes retrieved: ${notes.length} for vendor=${vendorId}`));
+    this.logger.log(colors.magenta(`Notes retrieved: ${notes.length} for vendor=${dbId}`));
     return ResponseHelper.success('Notes retrieved', notes);
   }
 
   async deleteNote(vendorId: string, noteId: string, caller: AvendorVendorCaller) {
     this.logger.log(colors.blue(`Deleting note=${noteId} from vendor=${vendorId}`));
     await this.assertCanEditVendors(caller);
+    const dbId = await this.requireVendorDbId(vendorId);
 
     const note = await this.prisma.avendorVendorNote.findFirst({
-      where: { id: noteId, vendorId },
+      where: { id: noteId, vendorId: dbId },
     });
     if (!note) throw new NotFoundException('Note not found');
 
     await this.prisma.avendorVendorNote.delete({ where: { id: noteId } });
 
-    this.logger.log(colors.yellow(`Note deleted: noteId=${noteId} vendor=${vendorId} by=${caller.id}`));
+    this.logger.log(colors.yellow(`Note deleted: noteId=${noteId} vendor=${dbId} by=${caller.id}`));
     return ResponseHelper.success('Note deleted', { id: noteId });
   }
 
@@ -299,7 +447,7 @@ export class AvendorVendorsService {
   ) {
     this.logger.log(colors.blue(`Uploading document type="${dto.documentType}" for vendor=${vendorId}`));
     await this.assertCanEditVendors(caller);
-    await this.assertVendorExists(vendorId);
+    const dbId = await this.requireVendorDbId(vendorId);
 
     let imageUrl: string | null = null;
     let imagePublicId: string | null = null;
@@ -317,7 +465,7 @@ export class AvendorVendorsService {
 
       const doc = await this.prisma.avendorVendorDocument.create({
         data: {
-          vendorId,
+          vendorId: dbId,
           documentType: dto.documentType.trim().toUpperCase(),
           label: dto.label.trim(),
           imageUrl,
@@ -325,9 +473,9 @@ export class AvendorVendorsService {
         },
       });
 
-      await this.recomputeCompliance(vendorId);
+      await this.recomputeCompliance(dbId);
 
-      this.logger.log(colors.green(`Document uploaded: docId=${doc.id} type="${doc.documentType}" vendor=${vendorId} by=${caller.id}`));
+      this.logger.log(colors.green(`Document uploaded: docId=${doc.id} type="${doc.documentType}" vendor=${dbId} by=${caller.id}`));
       return ResponseHelper.created('Document uploaded', doc);
     } catch (err) {
       await this.storage.cleanupUploadedFiles(uploaded);
@@ -343,9 +491,10 @@ export class AvendorVendorsService {
   ) {
     this.logger.log(colors.blue(`Updating document status docId=${docId} -> ${dto.status}`));
     await this.assertCanEditVendors(caller);
+    const dbId = await this.requireVendorDbId(vendorId);
 
     const doc = await this.prisma.avendorVendorDocument.findFirst({
-      where: { id: docId, vendorId },
+      where: { id: docId, vendorId: dbId },
     });
     if (!doc) throw new NotFoundException('Document not found');
 
@@ -354,7 +503,7 @@ export class AvendorVendorsService {
       data: { status: dto.status },
     });
 
-    await this.recomputeCompliance(vendorId);
+    await this.recomputeCompliance(dbId);
 
     this.logger.log(colors.green(`Document status updated: docId=${docId} status=${dto.status} by=${caller.id}`));
     return ResponseHelper.success('Document status updated', updated);
@@ -363,9 +512,10 @@ export class AvendorVendorsService {
   async deleteDocument(vendorId: string, docId: string, caller: AvendorVendorCaller) {
     this.logger.log(colors.blue(`Deleting document docId=${docId} from vendor=${vendorId}`));
     await this.assertCanEditVendors(caller);
+    const dbId = await this.requireVendorDbId(vendorId);
 
     const doc = await this.prisma.avendorVendorDocument.findFirst({
-      where: { id: docId, vendorId },
+      where: { id: docId, vendorId: dbId },
     });
     if (!doc) throw new NotFoundException('Document not found');
 
@@ -379,9 +529,9 @@ export class AvendorVendorsService {
     }
 
     await this.prisma.avendorVendorDocument.delete({ where: { id: docId } });
-    await this.recomputeCompliance(vendorId);
+    await this.recomputeCompliance(dbId);
 
-    this.logger.log(colors.yellow(`Document deleted: docId=${docId} vendor=${vendorId} by=${caller.id}`));
+    this.logger.log(colors.yellow(`Document deleted: docId=${docId} vendor=${dbId} by=${caller.id}`));
     return ResponseHelper.success('Document deleted', { id: docId });
   }
 
@@ -390,10 +540,10 @@ export class AvendorVendorsService {
   async updateCompliance(vendorId: string, dto: UpdateComplianceDto, caller: AvendorVendorCaller) {
     this.logger.log(colors.blue(`Manual compliance override vendor=${vendorId} -> ${dto.complianceStatus}`));
     await this.assertCanEditVendors(caller);
-    await this.assertVendorExists(vendorId);
+    const dbId = await this.requireVendorDbId(vendorId);
 
     const updated = await this.prisma.avendorVendor.update({
-      where: { id: vendorId },
+      where: { id: dbId },
       data: {
         complianceStatus: dto.complianceStatus,
         complianceOverride: true,
@@ -401,7 +551,7 @@ export class AvendorVendorsService {
       include: VENDOR_INCLUDE,
     });
 
-    this.logger.log(colors.green(`Compliance overridden: vendor=${vendorId} status=${dto.complianceStatus} by=${caller.id}`));
+    this.logger.log(colors.green(`Compliance overridden: vendor=${dbId} status=${dto.complianceStatus} by=${caller.id}`));
     return ResponseHelper.success('Compliance status updated', updated);
   }
 
@@ -464,12 +614,11 @@ export class AvendorVendorsService {
 
   // ─── HELPERS ──────────────────────────────────────────────
 
-  private async assertVendorExists(id: string): Promise<void> {
-    const vendor = await this.prisma.avendorVendor.findUnique({
-      where: { id },
-      select: { id: true },
-    });
-    if (!vendor) throw new NotFoundException('Vendor not found');
+  /** Resolves cuid or public `av-` code to the internal `AvendorVendor.id`. */
+  private async requireVendorDbId(lookup: string): Promise<string> {
+    const id = await resolveAvendorVendorDbId(this.prisma, lookup);
+    if (!id) throw new NotFoundException('Vendor not found');
+    return id;
   }
 
   // ─── AUTHORIZATION ────────────────────────────────────────

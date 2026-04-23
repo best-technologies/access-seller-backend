@@ -27,6 +27,7 @@ import {
   A_VENDOR_DISPLAY_PIC_BASENAME_PREFIX,
   A_VENDOR_USER_STORAGE_FOLDER,
 } from 'src/auth/vendor/constants/a-vendor-storage.constants';
+import { resolveAvendorVendorDbId } from '../../shared/utils/avendor-vendor-id.util';
 import { ListAvendorUsersQueryDto } from './dto/list-avendor-users-query.dto';
 import { UpdateAvendorUserByAdminDto } from './dto/update-avendor-user-by-admin.dto';
 import * as colors from 'colors';
@@ -104,6 +105,7 @@ export class AvendorUserManagementService {
           is_a_vendor: true,
           allowedPlatformsForAdmin: true,
           allowedPlatformsForUser: true,
+          avendorVendorId: true,
           createdAt: true,
           updatedAt: true,
         },
@@ -187,6 +189,7 @@ export class AvendorUserManagementService {
           usertype: true,
           allowedPlatformsForAdmin: true,
           allowedPlatformsForUser: true,
+          avendorVendorId: true,
           createdAt: true,
           updatedAt: true,
         },
@@ -227,7 +230,8 @@ export class AvendorUserManagementService {
       dto.role !== undefined ||
       dto.status !== undefined ||
       dto.allowed_platforms !== undefined ||
-      dto.allowed_platforms_for_user !== undefined;
+      dto.allowed_platforms_for_user !== undefined ||
+      dto.avendor_vendor_id !== undefined;
 
     if (!hasBodyUpdate && !displayPicture?.buffer?.length) {
       throw new BadRequestException('Provide at least one field or a display_picture file to update');
@@ -258,6 +262,7 @@ export class AvendorUserManagementService {
         usertype: true,
         allowedPlatformsForAdmin: true,
         allowedPlatformsForUser: true,
+        avendorVendorId: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -265,6 +270,29 @@ export class AvendorUserManagementService {
 
     if (!target) {
       throw new NotFoundException('User not found');
+    }
+
+    let resolvedAvendorVendorId: string | undefined;
+    if (dto.avendor_vendor_id !== undefined && dto.avendor_vendor_id !== '') {
+      const internalId = await resolveAvendorVendorDbId(
+        this.prisma,
+        dto.avendor_vendor_id,
+      );
+      if (!internalId) {
+        throw new NotFoundException(
+          `AvendorVendor ${dto.avendor_vendor_id} not found; cannot link this user to a non-existent supplier row`,
+        );
+      }
+      resolvedAvendorVendorId = internalId;
+      const alreadyLinked = await this.prisma.user.findUnique({
+        where: { avendorVendorId: internalId },
+        select: { id: true },
+      });
+      if (alreadyLinked && alreadyLinked.id !== targetUserId) {
+        throw new ConflictException(
+          'This supplier row is already linked to another portal login',
+        );
+      }
     }
 
     if (!this.userIsOnAvendorPlatform(target)) {
@@ -331,6 +359,36 @@ export class AvendorUserManagementService {
       if (newDisplayUrl !== undefined) {
         data.display_picture = newDisplayUrl;
       }
+      if (dto.avendor_vendor_id !== undefined) {
+        if (dto.avendor_vendor_id === '') {
+          data.avendorVendor = { disconnect: true };
+          this.logger.log(
+            colors.yellow(
+              `Unlinking user ${targetUserId} from AvendorVendor (admin ${caller.id})`,
+            ),
+          );
+        } else {
+          const internalVendorId = resolvedAvendorVendorId;
+          if (!internalVendorId) {
+            throw new BadRequestException('Could not resolve supplier id to link user');
+          }
+          data.avendorVendor = { connect: { id: internalVendorId } };
+          data.is_a_vendor = true;
+          const nextUserPlatforms = new Set<AllowedPlatformTypeForAdmin>([
+            ...(target.allowedPlatformsForUser ?? []),
+            ...(dto.allowed_platforms_for_user
+              ? mapApiPlatformsToPrisma(dto.allowed_platforms_for_user)
+              : []),
+            AllowedPlatformTypeForAdmin.avendor,
+          ]);
+          data.allowedPlatformsForUser = Array.from(nextUserPlatforms);
+          this.logger.log(
+            colors.green(
+              `Linking user ${targetUserId} → AvendorVendor ${internalVendorId} (admin ${caller.id}); avendor added to allowedPlatformsForUser`,
+            ),
+          );
+        }
+      }
 
       const updated = await this.prisma.user.update({
         where: { id: targetUserId },
@@ -351,6 +409,7 @@ export class AvendorUserManagementService {
           usertype: true,
           allowedPlatformsForAdmin: true,
           allowedPlatformsForUser: true,
+          avendorVendorId: true,
           createdAt: true,
           updatedAt: true,
         },
@@ -383,6 +442,7 @@ export class AvendorUserManagementService {
     usertype: string | null;
     allowedPlatformsForAdmin: AllowedPlatformTypeForAdmin[];
     allowedPlatformsForUser: AllowedPlatformTypeForAdmin[];
+    avendorVendorId?: string | null;
     createdAt: Date;
     updatedAt: Date;
   }) {
@@ -404,6 +464,7 @@ export class AvendorUserManagementService {
       allowed_platforms_for_user: mapPrismaPlatformsToApi(
         u.allowedPlatformsForUser ?? [],
       ),
+      avendor_vendor_id: u.avendorVendorId ?? null,
       createdAt: u.createdAt,
       updatedAt: u.updatedAt,
     };

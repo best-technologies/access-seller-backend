@@ -4,7 +4,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  url = env("DATABASE_URL")
 }
 
 model Store {
@@ -101,6 +101,14 @@ model User {
   shippingInformation         ShippingInformation[]
   consignmentsReceived        Consignment[]
   auditLogs                   AuditLog[]
+  /**
+   * Supplier directory row this login is tied to (vendor portal access).
+   * Set by admin when inviting a supplier user. Unique so a given AvendorVendor
+   * maps to at most one portal login; nulled on vendor delete (SetNull) to avoid
+   * orphaning the login.
+   */
+  avendorVendorId             String?                       @unique
+  avendorVendor               AvendorVendor?                @relation("AvendorVendorPortalUser", fields: [avendorVendorId], references: [id], onDelete: SetNull)
 }
 
 // ============ A-VENDOR (AVENDOR) — platform-scoped admin module access ============
@@ -183,9 +191,13 @@ enum AvendorDocumentStatus {
 
 model AvendorVendor {
   id                 String                  @id @default(cuid())
+  /// Public supplier code, e.g. `av-2026-195`. Distinct from `id` (internal cuid).
+  vendorCode         String?                 @unique
   name               String
   email              String
   phone              String?
+  industry           String?
+  address            String?
   city               String?
   country            String?                 @default("Nigeria")
   status             AvendorVendorStatus     @default(active)
@@ -197,10 +209,14 @@ model AvendorVendor {
   createdAt          DateTime                @default(now())
   updatedAt          DateTime                @updatedAt
 
-  bankDetail AvendorVendorBank?
-  documents  AvendorVendorDocument[]
-  notes      AvendorVendorNote[]
-  rfqVendors AvendorRfqVendor[]
+  bankDetail       AvendorVendorBank?
+  documents        AvendorVendorDocument[]
+  notes            AvendorVendorNote[]
+  rfqVendors       AvendorRfqVendor[]
+  portalUsers      User[]                         @relation("AvendorVendorPortalUser")
+  inventoryItems   AvendorVendorInventoryItem[]
+  approvedPayments AvendorVendorApprovedPayment[]
+  awardedRfqs      AvendorRfq[]                   @relation("AvendorRfqAwardedVendor")
 
   @@index([status])
   @@index([complianceStatus])
@@ -227,6 +243,8 @@ model AvendorVendorDocument {
   imageUrl      String?
   imagePublicId String?
   status        AvendorDocumentStatus @default(pending)
+  /// Compliance expiry date captured at upload; nullable for docs without expiry.
+  expiresAt     DateTime?
   createdAt     DateTime              @default(now())
   updatedAt     DateTime              @updatedAt
 
@@ -260,26 +278,33 @@ enum AvendorRfqStatus {
 }
 
 model AvendorRfq {
-  id            String           @id @default(cuid())
-  rfqNumber     String           @unique
-  title         String
-  description   String?
-  dueDate       DateTime
-  status        AvendorRfqStatus @default(draft)
-  totalBudget   Float            @default(0)
-  sentAt        DateTime?
-  createdById   String
-  createdByName String?
-  createdAt     DateTime         @default(now())
-  updatedAt     DateTime         @updatedAt
+  id                 String           @id @default(cuid())
+  rfqNumber          String           @unique
+  title              String
+  description        String?
+  dueDate            DateTime
+  /// Supplier-facing submission deadline (often before expected delivery); falls
+  /// back to dueDate in vendor UI when null.
+  submissionDeadline DateTime?
+  /// Vendor awarded for this RFQ (nullable until awarded).
+  awardedVendorId    String?
+  status             AvendorRfqStatus @default(draft)
+  totalBudget        Float            @default(0)
+  sentAt             DateTime?
+  createdById        String
+  createdByName      String?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
 
-  items       AvendorRfqItem[]
-  vendors     AvendorRfqVendor[]
-  attachments AvendorRfqAttachment[]
+  items         AvendorRfqItem[]
+  vendors       AvendorRfqVendor[]
+  attachments   AvendorRfqAttachment[]
+  awardedVendor AvendorVendor?         @relation("AvendorRfqAwardedVendor", fields: [awardedVendorId], references: [id], onDelete: SetNull)
 
   @@index([status])
   @@index([rfqNumber])
   @@index([createdById])
+  @@index([awardedVendorId])
 }
 
 model AvendorRfqItem {
@@ -341,6 +366,44 @@ model AvendorRfqVendor {
   @@unique([rfqId, vendorId])
   @@index([rfqId])
   @@index([vendorId])
+}
+
+// ============ A-VENDOR SUPPLIER PORTAL (vendor-facing) ============
+
+model AvendorVendorInventoryItem {
+  id        String   @id @default(cuid())
+  vendorId  String
+  name      String
+  unit      String   @default("pieces")
+  quantity  Int      @default(0)
+  sku       String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  vendor AvendorVendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@index([vendorId])
+}
+
+enum AvendorPaymentApprovalStatus {
+  pending
+  approved
+}
+
+model AvendorVendorApprovedPayment {
+  id         String                       @id @default(cuid())
+  vendorId   String
+  amount     Float
+  currency   String                       @default("NGN")
+  status     AvendorPaymentApprovalStatus @default(pending)
+  approvedAt DateTime?
+  reference  String?
+  createdAt  DateTime                     @default(now())
+  updatedAt  DateTime                     @updatedAt
+
+  vendor AvendorVendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@index([vendorId, status])
 }
 
 model Product {

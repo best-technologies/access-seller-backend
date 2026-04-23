@@ -1,11 +1,19 @@
 /**
- * Swagger response schemas for A-Vendor Vendors endpoints.
+ * OpenAPI response / body schemas for A-Vendor Vendors endpoints.
+ * Keep all Swagger shape definitions here; the controller composes them via
+ * the decorators in `./endpoint-decorators.ts`.
  */
 
 const VendorSchema = {
   type: 'object' as const,
   properties: {
-    id: { type: 'string', example: 'clxyz1234567890' },
+    id: { type: 'string', example: 'clh3q9x0m0000abcdexample', description: 'Internal PK (cuid)' },
+    vendorCode: {
+      type: 'string',
+      nullable: true,
+      example: 'av-2026-195',
+      description: 'Public supplier code. Legacy rows may match `id` when `id` was created as `av-…` before this split.',
+    },
     name: { type: 'string', example: 'Global Supplies Ltd' },
     email: { type: 'string', example: 'contact@globalsupplies.com' },
     phone: { type: 'string', nullable: true, example: '+2348161252897' },
@@ -57,6 +65,82 @@ const VendorSchema = {
           createdAt: { type: 'string', format: 'date-time' },
         },
       },
+    },
+  },
+};
+
+const PortalUserSummarySchema = {
+  type: 'object' as const,
+  properties: {
+    id: { type: 'string' },
+    email: { type: 'string' },
+    first_name: { type: 'string' },
+    last_name: { type: 'string' },
+    username: { type: 'string', nullable: true },
+  },
+};
+
+const VendorCreatedDataSchema = {
+  type: 'object' as const,
+  properties: {
+    ...VendorSchema.properties,
+    portalUser: PortalUserSummarySchema,
+    linkedExistingUser: {
+      type: 'boolean',
+      example: false,
+      description:
+        'True when the email matched an existing User who was linked to the new supplier (no new account).',
+    },
+    defaultPassword: {
+      type: 'string',
+      nullable: true,
+      example: 'avendor123',
+      description: 'Present only when a new User row was created; omitted when linkedExistingUser is true.',
+    },
+    message: {
+      type: 'string',
+      description: 'Explains default password vs existing-password sign-in.',
+    },
+  },
+};
+
+/** OpenAPI request examples for POST /avendor/vendors (see CreateVendorDto). */
+export const CreateVendorRequestExamples = {
+  newContact: {
+    summary: 'New email — creates User',
+    description:
+      'Response includes defaultPassword and linkedExistingUser: false.',
+    value: {
+      name: 'Global Supplies Ltd',
+      email: 'contact@globalsupplies.com',
+      user: {
+        first_name: 'Chioma',
+        last_name: 'Adeyemi',
+        username: 'chioma_ade',
+      },
+      phone: '+2348161252897',
+      industry: 'Industrial Equipment',
+      address: '12 Adeola Odeku Street',
+      city: 'Lagos',
+      country: 'Nigeria',
+      status: 'active',
+    },
+  },
+  existingUserEmail: {
+    summary: 'Existing email — link user to supplier',
+    description:
+      'Same body shape. If this email already exists in User and is not linked to a supplier, that account is linked; response has linkedExistingUser: true and no defaultPassword.',
+    value: {
+      name: 'Global Supplies Ltd',
+      email: 'existing.user@example.com',
+      user: {
+        first_name: 'Chioma',
+        last_name: 'Adeyemi',
+      },
+      phone: '+2348161252897',
+      city: 'Lagos',
+      country: 'Nigeria',
+      status: 'active',
     },
   },
 };
@@ -139,6 +223,7 @@ const DeletedRefSchema = {
   type: 'object' as const,
   properties: {
     id: { type: 'string' },
+    vendorCode: { type: 'string', nullable: true, example: 'av-2026-195' },
     name: { type: 'string' },
   },
 };
@@ -154,7 +239,7 @@ export const ErrorResponse = {
 
 // ─── Vendor responses ───────────────────────────────────────
 
-export const VendorCreatedResponse = wrapSuccess(VendorSchema);
+export const VendorCreatedResponse = wrapSuccess(VendorCreatedDataSchema);
 export const VendorListResponse = wrapSuccess({
   type: 'object',
   properties: {

@@ -106,4 +106,19 @@ export class UpdateAvendorUserByAdminDto {
   @IsArray()
   @IsIn(ALLOWED_PLATFORM_API_VALUES, { each: true })
   allowed_platforms_for_user?: AllowedPlatformApiValue[];
+
+  @ApiPropertyOptional({
+    description:
+      'Link this login to a supplier directory row (AvendorVendor.id). ' +
+      'Also flips is_a_vendor to true. Pass an empty string to unlink.',
+  })
+  @Transform(({ value }) =>
+    value === undefined || value === null
+      ? undefined
+      : String(value).trim(),
+  )
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  avendor_vendor_id?: string;
 }

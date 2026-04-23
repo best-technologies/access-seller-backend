@@ -41,6 +41,11 @@ export class VendorService {
     private readonly storage: StorageService,
   ) {}
 
+  /**
+   * A-Vendor **backoffice** admin (staff), not a supplier portal user.
+   * Does not set `is_a_vendor` / `avendorVendorId`. For supplier onboarding + dashboard
+   * access use `POST /avendor/vendors` (or link a user in A-Vendor user management).
+   */
   async onboardVendorAdmin(
     dto: OnboardVendorAdminDto,
     displayPicture?: Express.Multer.File,

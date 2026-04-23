@@ -21,6 +21,7 @@ import { ListRfqsQueryDto } from './dto/list-rfqs-query.dto';
 import { CreateRfqItemDto } from './dto/create-rfq.dto';
 import { UpdateRfqItemDto } from './dto/update-rfq-item.dto';
 import { AssignRfqVendorsDto } from './dto/assign-rfq-vendors.dto';
+import { resolveAvendorVendorDbId } from '../../shared/utils/avendor-vendor-id.util';
 import * as colors from 'colors';
 
 export type AvendorRfqCaller = {
@@ -111,7 +112,7 @@ export class AvendorRfqsService {
       });
       vendorIds = activeVendors.map((v) => v.id);
     } else if (dto.vendorIds?.length) {
-      vendorIds = dto.vendorIds;
+      vendorIds = await this.resolveAvendorVendorDbIds(dto.vendorIds);
     }
 
     const rfq = await this.prisma.avendorRfq.create({
@@ -679,7 +680,7 @@ export class AvendorRfqsService {
       });
       vendorIds = activeVendors.map((v) => v.id);
     } else {
-      vendorIds = dto.vendorIds;
+      vendorIds = await this.resolveAvendorVendorDbIds(dto.vendorIds ?? []);
     }
 
     if (!vendorIds.length) {
@@ -881,6 +882,19 @@ export class AvendorRfqsService {
   }
 
   // ─── HELPERS ──────────────────────────────────────────────
+
+  /** Maps each cuid or public `av-…` code to `AvendorVendor.id`. */
+  private async resolveAvendorVendorDbIds(lookups: string[]): Promise<string[]> {
+    const out: string[] = [];
+    for (const l of lookups) {
+      const id = await resolveAvendorVendorDbId(this.prisma, l);
+      if (!id) {
+        throw new NotFoundException(`Vendor not found: ${l}`);
+      }
+      out.push(id);
+    }
+    return out;
+  }
 
   private async assertRfqExists(id: string): Promise<void> {
     const rfq = await this.prisma.avendorRfq.findUnique({
