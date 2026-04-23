@@ -22,7 +22,6 @@ import { PublicModule } from './public/public.module';
 import { DistributionModule } from './distribution/distribution.module';
 import { AuditModule } from './shared/audit/audit.module';
 import { AvendorsModule } from './avendors/avendors.module';
-import { VendorPortalModule } from './vendor-portal/vendor-portal.module';
 
 @Module({
   imports: [
@@ -49,7 +48,6 @@ import { VendorPortalModule } from './vendor-portal/vendor-portal.module';
     PublicModule,
     DistributionModule,
     AvendorsModule,
-    VendorPortalModule,
   ],
   controllers: [AppController],
   providers: [AppService],

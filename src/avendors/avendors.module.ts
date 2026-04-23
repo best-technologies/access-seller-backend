@@ -5,6 +5,7 @@ import { AvendorRfqsModule } from './admin/rfqs/avendor-rfqs.module';
 import { AvendorUserManagementModule } from './admin/user-management/avendor-user-management.module';
 import { AvendorUserModule } from './admin/user/avendor-user.module';
 import { AvendorVendorsModule } from './admin/vendors/avendor-vendors.module';
+import { VendorPortalModule } from './vendor-portal/vendor-portal.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { AvendorVendorsModule } from './admin/vendors/avendor-vendors.module';
     AvendorInventoryModule,
     AvendorVendorsModule,
     AvendorRfqsModule,
+    VendorPortalModule,
   ],
   exports: [
     AvendorPermissionsModule,
@@ -22,6 +24,7 @@ import { AvendorVendorsModule } from './admin/vendors/avendor-vendors.module';
     AvendorInventoryModule,
     AvendorVendorsModule,
     AvendorRfqsModule,
+    VendorPortalModule,
   ],
 })
 export class AvendorsModule {}

@@ -3,9 +3,8 @@ import { VendorDashboardModule } from './dashboard/vendor-dashboard.module';
 import { VendorProfileModule } from './profile/vendor-profile.module';
 
 /**
- * Root module for the supplier-facing vendor portal. Sibling to the admin
- * `AvendorsModule`; shares Prisma models but has its own guard so admin and
- * supplier access checks stay cleanly separated.
+ * Root module for the supplier-facing vendor portal (lives under `avendors/`).
+ * Shares Prisma models; uses {@link VendorPortalGuard} for supplier access.
  */
 @Module({
   imports: [VendorDashboardModule, VendorProfileModule],
