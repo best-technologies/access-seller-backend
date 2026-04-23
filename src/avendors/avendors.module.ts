@@ -1,10 +1,10 @@
 import { Module } from '@nestjs/common';
-import { AvendorInventoryModule } from './inventory/avendor-inventory.module';
-import { AvendorPermissionsModule } from './permissions/avendor-permissions.module';
-import { AvendorRfqsModule } from './rfqs/avendor-rfqs.module';
-import { AvendorUserManagementModule } from './user-management/avendor-user-management.module';
-import { AvendorUserModule } from './user/avendor-user.module';
-import { AvendorVendorsModule } from './vendors/avendor-vendors.module';
+import { AvendorInventoryModule } from './admin/inventory/avendor-inventory.module';
+import { AvendorPermissionsModule } from './admin/permissions/avendor-permissions.module';
+import { AvendorRfqsModule } from './admin/rfqs/avendor-rfqs.module';
+import { AvendorUserManagementModule } from './admin/user-management/avendor-user-management.module';
+import { AvendorUserModule } from './admin/user/avendor-user.module';
+import { AvendorVendorsModule } from './admin/vendors/avendor-vendors.module';
 
 @Module({
   imports: [

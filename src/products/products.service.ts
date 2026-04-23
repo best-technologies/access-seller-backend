@@ -62,7 +62,7 @@ export class ProductsService {
       where: { isFeatured: true },
       include: { categories: { select: { id: true, name: true } } },
       orderBy: { createdAt: 'desc' },
-      take: 30,
+      take: 50,
     });
     const shuffledFeatured = this.shuffleArray([...featured]);
 
@@ -103,36 +103,48 @@ export class ProductsService {
       },
     });
 
-    const formated_response = {
-      featured: shuffledFeatured.map(this.formatProduct),
-      available_categories: Array.from(availableCategories.values()),
-      newArrivals: shuffledNewArrivals.map(this.formatProduct),
-      popularCategories: popularCategories.map(cat => {
-        let displayImageUrl: string | null = null;
-        if (cat.products[0]?.displayImages) {
-          let images = cat.products[0].displayImages;
-          if (typeof images === 'string') {
-            try {
-              images = JSON.parse(images);
-            } catch {
-              images = [];
-            }
-          }
-          if (Array.isArray(images) && images.length > 0) {
-            const firstImage = images[0];
-            if (firstImage && typeof firstImage === 'object' && 'secure_url' in firstImage && typeof firstImage.secure_url === 'string') {
-              displayImageUrl = firstImage.secure_url;
-            }
+    const featuredList = shuffledFeatured.map(this.formatProduct);
+    const availableCategoriesList = Array.from(availableCategories.values());
+    const newArrivalsList = shuffledNewArrivals.map(this.formatProduct);
+    const popularCategoriesList = popularCategories.map(cat => {
+      let displayImageUrl: string | null = null;
+      if (cat.products[0]?.displayImages) {
+        let images = cat.products[0].displayImages;
+        if (typeof images === 'string') {
+          try {
+            images = JSON.parse(images);
+          } catch {
+            images = [];
           }
         }
-        return {
-          id: cat.id,
-          name: cat.name,
-          description: cat.description ?? '',
-          total_books: cat._count.products,
-          display_image: displayImageUrl,
-        };
-      }),
+        if (Array.isArray(images) && images.length > 0) {
+          const firstImage = images[0];
+          if (firstImage && typeof firstImage === 'object' && 'secure_url' in firstImage && typeof firstImage.secure_url === 'string') {
+            displayImageUrl = firstImage.secure_url;
+          }
+        }
+      }
+      return {
+        id: cat.id,
+        name: cat.name,
+        description: cat.description ?? '',
+        total_books: cat._count.products,
+        display_image: displayImageUrl,
+      };
+    });
+
+    const formated_response = {
+      // JSON cannot attach metadata to arrays; keep real payloads unchanged and use this for debugging only.
+      _debug: {
+        featuredTotal: featuredList.length,
+        availableCategoriesTotal: availableCategoriesList.length,
+        newArrivalsTotal: newArrivalsList.length,
+        popularCategoriesTotal: popularCategoriesList.length,
+      },
+      featured: featuredList,
+      available_categories: availableCategoriesList,
+      newArrivals: newArrivalsList,
+      popularCategories: popularCategoriesList,
     };
 
     this.logger.log("All products fetched successfully")

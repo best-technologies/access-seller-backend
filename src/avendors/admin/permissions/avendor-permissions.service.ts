@@ -6,14 +6,14 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { ensureBootstrapAvendorPermissionRow } from '../utils/avendor-bootstrap.util';
+import { ensureBootstrapAvendorPermissionRow } from '../../shared/utils/avendor-bootstrap.util';
 import {
   AllowedPlatformTypeForAdmin,
   AvendorModuleAccessLevel,
 } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { ResponseHelper } from 'src/shared/helper-functions/response.helpers';
-import { AVENDOR_PERMISSION_MODULE_META } from '../constants/avendor-permission-modules.constants';
+import { AVENDOR_PERMISSION_MODULE_META } from '../../shared/constants/avendor-permission-modules.constants';
 import { CreateAvendorPermissionDto } from './dto/create-avendor-permission.dto';
 import { ListAvendorPermissionsQueryDto } from './dto/list-avendor-permissions-query.dto';
 import { UpdateAvendorPermissionDto } from './dto/update-avendor-permission.dto';

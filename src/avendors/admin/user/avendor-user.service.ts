@@ -7,8 +7,8 @@ import {
 import { PrismaService } from 'src/prisma/prisma.service';
 import { mapPrismaPlatformsToApi } from 'src/shared/constants/admin-platform-access.constants';
 import { ResponseHelper } from 'src/shared/helper-functions/response.helpers';
-import { AVENDOR_PERMISSION_MODULE_META } from '../constants/avendor-permission-modules.constants';
-import { ensureBootstrapAvendorPermissionRow } from '../utils/avendor-bootstrap.util';
+import { AVENDOR_PERMISSION_MODULE_META } from '../../shared/constants/avendor-permission-modules.constants';
+import { ensureBootstrapAvendorPermissionRow } from '../../shared/utils/avendor-bootstrap.util';
 import * as colors from 'colors';
 
 @Injectable()

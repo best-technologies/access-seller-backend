@@ -19,7 +19,7 @@ import {
 } from '@nestjs/swagger';
 import { JwtGuard } from 'src/auth/guard';
 import { GetUser } from 'src/auth/decorator';
-import { AvendorPlatformGuard } from '../guards/avendor-platform.guard';
+import { AvendorPlatformGuard } from '../../shared/guards/avendor-platform.guard';
 import { AvendorPermissionsService } from './avendor-permissions.service';
 import { CreateAvendorPermissionDto } from './dto/create-avendor-permission.dto';
 import { ListAvendorPermissionsQueryDto } from './dto/list-avendor-permissions-query.dto';

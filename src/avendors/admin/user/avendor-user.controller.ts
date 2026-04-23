@@ -7,7 +7,7 @@ import {
 } from '@nestjs/swagger';
 import { GetUser } from 'src/auth/decorator';
 import { JwtGuard } from 'src/auth/guard';
-import { AvendorPlatformGuard } from '../guards/avendor-platform.guard';
+import { AvendorPlatformGuard } from '../../shared/guards/avendor-platform.guard';
 import { AvendorUserService } from './avendor-user.service';
 import { ErrorResponse, ProfileResponse } from './avendor-user.swagger';
 
