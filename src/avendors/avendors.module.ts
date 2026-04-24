@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AvendorInventoryModule } from './admin/inventory/avendor-inventory.module';
+import { AvendorPaymentPlansModule } from './admin/payment-plans/avendor-payment-plans.module';
 import { AvendorPermissionsModule } from './admin/permissions/avendor-permissions.module';
 import { AvendorRfqsModule } from './admin/rfqs/avendor-rfqs.module';
 import { AvendorUserManagementModule } from './admin/user-management/avendor-user-management.module';
@@ -15,6 +16,7 @@ import { VendorPortalModule } from './vendor-portal/vendor-portal.module';
     AvendorInventoryModule,
     AvendorVendorsModule,
     AvendorRfqsModule,
+    AvendorPaymentPlansModule,
     VendorPortalModule,
   ],
   exports: [
@@ -24,6 +26,7 @@ import { VendorPortalModule } from './vendor-portal/vendor-portal.module';
     AvendorInventoryModule,
     AvendorVendorsModule,
     AvendorRfqsModule,
+    AvendorPaymentPlansModule,
     VendorPortalModule,
   ],
 })

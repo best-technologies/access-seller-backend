@@ -217,6 +217,7 @@ model AvendorVendor {
   inventoryItems        AvendorVendorInventoryItem[]
   inventoryCategories   AvendorVendorInventoryCategory[]
   inventoryMaterials    AvendorVendorInventoryMaterial[]
+  quotes                AvendorVendorQuote[]
   approvedPayments      AvendorVendorApprovedPayment[]
   awardedRfqs           AvendorRfq[]                         @relation("AvendorRfqAwardedVendor")
 
@@ -301,6 +302,7 @@ model AvendorRfq {
   items         AvendorRfqItem[]
   vendors       AvendorRfqVendor[]
   attachments   AvendorRfqAttachment[]
+  vendorQuotes  AvendorVendorQuote[]
   awardedVendor AvendorVendor?         @relation("AvendorRfqAwardedVendor", fields: [awardedVendorId], references: [id], onDelete: SetNull)
 
   @@index([status])
@@ -324,6 +326,7 @@ model AvendorRfqItem {
   rfq         AvendorRfq                 @relation(fields: [rfqId], references: [id], onDelete: Cascade)
   material    AvendorMaterial?           @relation(fields: [materialId], references: [id], onDelete: SetNull)
   attachments AvendorRfqItemAttachment[]
+  quoteLines  AvendorVendorQuoteLine[]
 
   @@index([rfqId])
   @@index([materialId])
@@ -406,6 +409,104 @@ model AvendorVendorInventoryCategory {
 
   @@unique([vendorId, name])
   @@index([vendorId])
+}
+
+/// Lifecycle of a supplier's response ("quote") to an RFQ.
+enum AvendorVendorQuoteStatus {
+  draft
+  submitted
+  withdrawn
+  accepted
+  rejected
+}
+
+/// Who last set the preferred payment plan on a vendor quote.
+enum AvendorPaymentPlanSetBy {
+  vendor
+  admin
+}
+
+/// Admin-configurable payment terms (e.g. NET-30, milestone). Vendors and
+/// backoffice users both reference these when attaching a plan to a quote.
+model AvendorPaymentPlan {
+  id          String   @id @default(cuid())
+  name        String
+  /// Optional short code, unique when set (e.g. "NET30", "UPFRONT").
+  code        String?  @unique
+  description String?
+  /// `null` = not calendar NET-based (e.g. upfront, custom milestone text in `description`).
+  netDays     Int?
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  quotes AvendorVendorQuote[]
+
+  @@index([isActive])
+  @@index([sortOrder])
+}
+
+/// A supplier's response to an RFQ. One quote per (rfqId, vendorId).
+/// Holds the headline fields; each price option lives in `AvendorVendorQuoteLine`.
+model AvendorVendorQuote {
+  id          String                   @id @default(cuid())
+  rfqId       String
+  vendorId    String
+  /// Human-friendly public number shown to both sides (e.g. `QT-2026-0001`).
+  quoteNumber String                   @unique
+  status      AvendorVendorQuoteStatus @default(submitted)
+  currency    String                   @default("NGN")
+  /// Sum of all line `totalPrice` values at the time of last save.
+  totalAmount Float                    @default(0)
+  /// Optional free-text note attached at the quote level.
+  note        String?
+  /// Preferred payment plan — set by the supplier, by A-Vendor staff, or both (last write wins; see `paymentPlanSetBy`).
+  paymentPlanId   String?
+  paymentPlanSetBy AvendorPaymentPlanSetBy?
+  paymentPlanSetAt DateTime?
+  submittedAt DateTime?
+  withdrawnAt DateTime?
+  createdAt   DateTime                 @default(now())
+  updatedAt   DateTime                 @updatedAt
+
+  rfq    AvendorRfq               @relation(fields: [rfqId], references: [id], onDelete: Cascade)
+  vendor AvendorVendor            @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  paymentPlan AvendorPaymentPlan?  @relation(fields: [paymentPlanId], references: [id], onDelete: SetNull)
+  lines  AvendorVendorQuoteLine[]
+
+  @@unique([rfqId, vendorId])
+  @@index([rfqId])
+  @@index([vendorId])
+  @@index([status])
+  @@index([paymentPlanId])
+}
+
+/// One price option a vendor offers for a specific RFQ item. A vendor can
+/// submit multiple lines for the same `rfqItemId` (e.g. quality tiers at
+/// different prices).
+model AvendorVendorQuoteLine {
+  id                 String    @id @default(cuid())
+  quoteId            String
+  rfqItemId          String
+  /// 0-indexed ordering within the RFQ item's price options.
+  position           Int       @default(0)
+  /// Free-form quality descriptor (e.g. "100%", "Grade A", "80 GSM uncoated").
+  quality            String?
+  possibleDeliveryAt DateTime?
+  pricePerUnit       Float
+  /// Stored explicitly so the vendor can override the auto-computed total if
+  /// they negotiate differently (e.g. tier discount).
+  totalPrice         Float
+  note               String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  quote   AvendorVendorQuote @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  rfqItem AvendorRfqItem     @relation(fields: [rfqItemId], references: [id], onDelete: Cascade)
+
+  @@index([quoteId])
+  @@index([rfqItemId])
 }
 
 /// Vendor-scoped material (stock keeping unit) managed by the supplier on
