@@ -3,6 +3,7 @@ import { VendorDashboardModule } from './dashboard/vendor-dashboard.module';
 import { VendorInventoryModule } from './inventory/vendor-inventory.module';
 import { VendorProfileModule } from './profile/vendor-profile.module';
 import { VendorQuoteRequestsModule } from './quote-requests/vendor-quote-requests.module';
+import { VendorQuotesHistoryModule } from './quotes-history/vendor-quotes-history.module';
 
 /**
  * Root module for the supplier-facing vendor portal (lives under `avendors/`).
@@ -14,6 +15,7 @@ import { VendorQuoteRequestsModule } from './quote-requests/vendor-quote-request
     VendorInventoryModule,
     VendorProfileModule,
     VendorQuoteRequestsModule,
+    VendorQuotesHistoryModule,
   ],
 })
 export class VendorPortalModule {}

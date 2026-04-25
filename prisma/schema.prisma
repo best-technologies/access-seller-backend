@@ -4,7 +4,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url = env("DATABASE_URL")
+  url      = env("DATABASE_URL")
 }
 
 model Store {
@@ -209,17 +209,18 @@ model AvendorVendor {
   createdAt          DateTime                @default(now())
   updatedAt          DateTime                @updatedAt
 
-  bankDetail            AvendorVendorBank?
-  documents             AvendorVendorDocument[]
-  notes                 AvendorVendorNote[]
-  rfqVendors            AvendorRfqVendor[]
-  portalUsers           User[]                               @relation("AvendorVendorPortalUser")
-  inventoryItems        AvendorVendorInventoryItem[]
-  inventoryCategories   AvendorVendorInventoryCategory[]
-  inventoryMaterials    AvendorVendorInventoryMaterial[]
-  quotes                AvendorVendorQuote[]
-  approvedPayments      AvendorVendorApprovedPayment[]
-  awardedRfqs           AvendorRfq[]                         @relation("AvendorRfqAwardedVendor")
+  bankDetail          AvendorVendorBank?
+  documents           AvendorVendorDocument[]
+  notes               AvendorVendorNote[]
+  rfqVendors          AvendorRfqVendor[]
+  portalUsers         User[]                           @relation("AvendorVendorPortalUser")
+  inventoryItems      AvendorVendorInventoryItem[]
+  inventoryCategories AvendorVendorInventoryCategory[]
+  inventoryMaterials  AvendorVendorInventoryMaterial[]
+  quotes              AvendorVendorQuote[]
+  approvedPayments    AvendorVendorApprovedPayment[]
+  orders              AvendorVendorOrder[]
+  awardedRfqs         AvendorRfq[]                     @relation("AvendorRfqAwardedVendor")
 
   @@index([status])
   @@index([complianceStatus])
@@ -450,30 +451,32 @@ model AvendorPaymentPlan {
 /// A supplier's response to an RFQ. One quote per (rfqId, vendorId).
 /// Holds the headline fields; each price option lives in `AvendorVendorQuoteLine`.
 model AvendorVendorQuote {
-  id          String                   @id @default(cuid())
-  rfqId       String
-  vendorId    String
+  id               String                   @id @default(cuid())
+  rfqId            String
+  vendorId         String
   /// Human-friendly public number shown to both sides (e.g. `QT-2026-0001`).
-  quoteNumber String                   @unique
-  status      AvendorVendorQuoteStatus @default(submitted)
-  currency    String                   @default("NGN")
+  quoteNumber      String                   @unique
+  status           AvendorVendorQuoteStatus @default(submitted)
+  currency         String                   @default("NGN")
   /// Sum of all line `totalPrice` values at the time of last save.
-  totalAmount Float                    @default(0)
+  totalAmount      Float                    @default(0)
   /// Optional free-text note attached at the quote level.
-  note        String?
+  note             String?
   /// Preferred payment plan — set by the supplier, by A-Vendor staff, or both (last write wins; see `paymentPlanSetBy`).
-  paymentPlanId   String?
+  paymentPlanId    String?
   paymentPlanSetBy AvendorPaymentPlanSetBy?
   paymentPlanSetAt DateTime?
-  submittedAt DateTime?
-  withdrawnAt DateTime?
-  createdAt   DateTime                 @default(now())
-  updatedAt   DateTime                 @updatedAt
+  submittedAt      DateTime?
+  withdrawnAt      DateTime?
+  createdAt        DateTime                 @default(now())
+  updatedAt        DateTime                 @updatedAt
 
-  rfq    AvendorRfq               @relation(fields: [rfqId], references: [id], onDelete: Cascade)
-  vendor AvendorVendor            @relation(fields: [vendorId], references: [id], onDelete: Cascade)
-  paymentPlan AvendorPaymentPlan?  @relation(fields: [paymentPlanId], references: [id], onDelete: SetNull)
-  lines  AvendorVendorQuoteLine[]
+  rfq              AvendorRfq                     @relation(fields: [rfqId], references: [id], onDelete: Cascade)
+  vendor           AvendorVendor                  @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  paymentPlan      AvendorPaymentPlan?            @relation(fields: [paymentPlanId], references: [id], onDelete: SetNull)
+  lines            AvendorVendorQuoteLine[]
+  order            AvendorVendorOrder?
+  paymentApprovals AvendorVendorApprovedPayment[]
 
   @@unique([rfqId, vendorId])
   @@index([rfqId])
@@ -486,11 +489,11 @@ model AvendorVendorQuote {
 /// submit multiple lines for the same `rfqItemId` (e.g. quality tiers at
 /// different prices).
 model AvendorVendorQuoteLine {
-  id                 String    @id @default(cuid())
+  id                 String                         @id @default(cuid())
   quoteId            String
   rfqItemId          String
   /// 0-indexed ordering within the RFQ item's price options.
-  position           Int       @default(0)
+  position           Int                            @default(0)
   /// Free-form quality descriptor (e.g. "100%", "Grade A", "80 GSM uncoated").
   quality            String?
   possibleDeliveryAt DateTime?
@@ -499,14 +502,29 @@ model AvendorVendorQuoteLine {
   /// they negotiate differently (e.g. tier discount).
   totalPrice         Float
   note               String?
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
+  /// Per-line decision made by the A-Vendor admin when awarding. Each RFQ item
+  /// can have multiple price options; the admin accepts/rejects them individually.
+  decision           AvendorVendorQuoteLineDecision @default(pending)
+  decisionNote       String?
+  decisionAt         DateTime?
+  createdAt          DateTime                       @default(now())
+  updatedAt          DateTime                       @updatedAt
 
   quote   AvendorVendorQuote @relation(fields: [quoteId], references: [id], onDelete: Cascade)
   rfqItem AvendorRfqItem     @relation(fields: [rfqItemId], references: [id], onDelete: Cascade)
 
   @@index([quoteId])
   @@index([rfqItemId])
+  @@index([decision])
+}
+
+/// Admin's accept/reject decision on a specific price line of a vendor quote.
+/// Independent per price option so the vendor can see exactly which tier was
+/// awarded on the Quotes History detail screen.
+enum AvendorVendorQuoteLineDecision {
+  pending
+  accepted
+  rejected
 }
 
 /// Vendor-scoped material (stock keeping unit) managed by the supplier on
@@ -543,19 +561,71 @@ enum AvendorPaymentApprovalStatus {
 }
 
 model AvendorVendorApprovedPayment {
-  id         String                       @id @default(cuid())
-  vendorId   String
-  amount     Float
-  currency   String                       @default("NGN")
-  status     AvendorPaymentApprovalStatus @default(pending)
-  approvedAt DateTime?
-  reference  String?
-  createdAt  DateTime                     @default(now())
-  updatedAt  DateTime                     @updatedAt
+  id                    String                       @id @default(cuid())
+  vendorId              String
+  /// Optional link to the quote/order this payment was made against.
+  /// Nullable for backward-compatibility with historical ad-hoc payments.
+  quoteId               String?
+  amount                Float
+  currency              String                       @default("NGN")
+  status                AvendorPaymentApprovalStatus @default(pending)
+  /// Human-facing label for the timeline, e.g. "50% Upfront", "Balance Payment".
+  label                 String?
+  /// Percentage of the quote total this payment represents, when applicable.
+  percentage            Int?
+  /// URL + Cloudinary publicId + original filename for the uploaded receipt.
+  proofUrl              String?
+  proofPublicId         String?
+  proofOriginalFilename String?
+  approvedAt            DateTime?
+  reference             String?
+  createdAt             DateTime                     @default(now())
+  updatedAt             DateTime                     @updatedAt
 
-  vendor AvendorVendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  vendor AvendorVendor       @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  quote  AvendorVendorQuote? @relation(fields: [quoteId], references: [id], onDelete: SetNull)
 
   @@index([vendorId, status])
+  @@index([quoteId])
+}
+
+/// Progress stages for an awarded-quote order. The vendor moves the order
+/// forward from `created` → `in_production` → `in_transit` → `delivered`.
+/// `cancelled` is a terminal state that only the admin can set.
+enum AvendorVendorOrderStage {
+  created
+  in_production
+  in_transit
+  delivered
+  cancelled
+}
+
+/// One order materialises per awarded vendor quote. Tracks the fulfillment
+/// timeline shown on the vendor Quotes History detail screen. Stage timestamps
+/// double as the audit trail for the timeline component.
+model AvendorVendorOrder {
+  id                  String                  @id @default(cuid())
+  quoteId             String                  @unique
+  vendorId            String
+  stage               AvendorVendorOrderStage @default(created)
+  /// Vendor's commitment on when the order will ship / be delivered; falls
+  /// back to the RFQ `dueDate` when unset.
+  expectedDeliveryAt  DateTime?
+  /// Free-form note shown on cancellation / pause.
+  note                String?
+  /// Stage transition timestamps (null until the stage has been entered).
+  productionStartedAt DateTime?
+  shippedAt           DateTime?
+  deliveredAt         DateTime?
+  cancelledAt         DateTime?
+  createdAt           DateTime                @default(now())
+  updatedAt           DateTime                @updatedAt
+
+  quote  AvendorVendorQuote @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  vendor AvendorVendor      @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@index([vendorId])
+  @@index([stage])
 }
 
 model Product {
