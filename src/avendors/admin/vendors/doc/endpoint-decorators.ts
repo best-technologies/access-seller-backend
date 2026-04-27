@@ -6,6 +6,11 @@
 import { applyDecorators } from '@nestjs/common';
 import { ApiBody, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { CreateVendorDto } from '../dto/create-vendor.dto';
+import { CreateVendorNoteDto } from '../dto/create-vendor-note.dto';
+import { UpdateComplianceDto } from '../dto/update-compliance.dto';
+import { UpdateDocumentStatusDto } from '../dto/update-document-status.dto';
+import { UpdateVendorDto } from '../dto/update-vendor.dto';
+import { UpsertVendorBankDto } from '../dto/upsert-vendor-bank.dto';
 import {
   BankRemovedResponse,
   BankSavedResponse,
@@ -34,7 +39,9 @@ export const ApiDocCreateVendor = () =>
       summary: 'Create a vendor (onboard supplier)',
       description:
         'Creates an AvendorVendor row and a portal User, or links an existing User by email. ' +
-        'Requires super_admin or full_access on A-Vendor vendors_management. ' +
+        'Requires super_admin or full_access on A-Vendor vendors_management.\n\n' +
+        '**Contact names (required):** either nested `user: { first_name, last_name }` **or** top-level `first_name` and `last_name` (flat JSON). If both are sent, nested `user` wins for name fields.\n\n' +
+        '**Username:** optional on `user.username` or top-level `username`. If omitted, the server assigns a unique handle (`avd-YYYY-NNN`, e.g. `avd-2026-013`).\n\n' +
         '**New email:** new User with default password (response `defaultPassword`, `linkedExistingUser: false`). ' +
         '**Existing email** (user not yet linked to a supplier): link that user (`linkedExistingUser: true`, no `defaultPassword`). ' +
         '**409** if the user is already linked to a supplier.',
@@ -76,8 +83,11 @@ export const ApiDocUpdateVendor = () =>
   applyDecorators(
     ApiOperation({
       summary: 'Update a vendor',
-      description: 'Update contact info, status, or performance fields. Requires full_access.',
+      description:
+        'Partial update of the supplier (AvendorVendor) record: name, email, phone, address, status, rating, orders, spend, etc. Requires full_access. ' +
+        '**Note:** `user` / portal-contact fields may appear on the generated request model but are **not applied** by this route; use A-Vendor user-management APIs to update the linked portal user.',
     }),
+    ApiBody({ type: UpdateVendorDto }),
     ApiResponse({ status: 200, description: 'Vendor updated', schema: VendorUpdatedResponse }),
     ApiResponse({ status: 400, description: 'Validation error', schema: ErrorResponse }),
     ApiResponse({ status: 403, description: 'Forbidden', schema: ErrorResponse }),
@@ -104,6 +114,7 @@ export const ApiDocUpsertBank = () =>
       summary: 'Create or update vendor bank details',
       description: 'Upsert (creates if none, updates if exists). Requires full_access.',
     }),
+    ApiBody({ type: UpsertVendorBankDto }),
     ApiResponse({ status: 200, description: 'Bank details saved', schema: BankSavedResponse }),
     ApiResponse({ status: 400, description: 'Validation error', schema: ErrorResponse }),
     ApiResponse({ status: 403, description: 'Forbidden', schema: ErrorResponse }),
@@ -129,6 +140,7 @@ export const ApiDocAddNote = () =>
       summary: 'Add a note to a vendor',
       description: 'Captures caller as author. Requires full_access.',
     }),
+    ApiBody({ type: CreateVendorNoteDto }),
     ApiResponse({ status: 201, description: 'Note added', schema: NoteCreatedResponse }),
     ApiResponse({ status: 400, description: 'Validation error', schema: ErrorResponse }),
     ApiResponse({ status: 403, description: 'Forbidden', schema: ErrorResponse }),
@@ -180,6 +192,7 @@ export const ApiDocUpdateDocumentStatus = () =>
       description:
         'Set to valid, expired, or pending. Auto-recomputes vendor compliance. Requires full_access.',
     }),
+    ApiBody({ type: UpdateDocumentStatusDto }),
     ApiResponse({ status: 200, description: 'Document status updated', schema: DocumentStatusUpdatedResponse }),
     ApiResponse({ status: 403, description: 'Forbidden', schema: ErrorResponse }),
     ApiResponse({ status: 404, description: 'Document not found', schema: ErrorResponse }),
@@ -206,6 +219,7 @@ export const ApiDocUpdateCompliance = () =>
       description:
         'Sets complianceOverride=true so auto-recompute is skipped. Requires full_access.',
     }),
+    ApiBody({ type: UpdateComplianceDto }),
     ApiResponse({ status: 200, description: 'Compliance status updated', schema: ComplianceUpdatedResponse }),
     ApiResponse({ status: 403, description: 'Forbidden', schema: ErrorResponse }),
     ApiResponse({ status: 404, description: 'Vendor not found', schema: ErrorResponse }),

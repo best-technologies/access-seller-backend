@@ -54,13 +54,51 @@ export class CreateVendorDto {
   @MaxLength(200)
   name: string;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     type: CreateVendorPortalUserDto,
-    description: 'Contact / portal user name fields (same as User `first_name` / `last_name`).',
+    description:
+      'Contact / portal user (same as `User` first/last). Preferred. Alternatively send top-level `first_name` and `last_name` (some clients use flat JSON).',
   })
+  @IsOptional()
   @ValidateNested()
   @Type(() => CreateVendorPortalUserDto)
-  user: CreateVendorPortalUserDto;
+  user?: CreateVendorPortalUserDto;
+
+  @ApiPropertyOptional({
+    example: 'Chioma',
+    description:
+      'Portal contact first name. Required if `user` is omitted; ignored for names when `user` is present.',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  first_name?: string;
+
+  @ApiPropertyOptional({
+    example: 'Adeyemi',
+    description:
+      'Portal contact last name. Required if `user` is omitted; ignored for names when `user` is present.',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  last_name?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Optional login handle; same as `user.username` when using nested `user`.',
+  })
+  @Transform(({ value }) =>
+    value === '' || value === undefined || value === null
+      ? undefined
+      : String(value).trim().toLowerCase(),
+  )
+  @IsOptional()
+  @IsString()
+  @Matches(USERNAME_REGEX, {
+    message: USERNAME_VALIDATION_MESSAGE,
+  })
+  username?: string;
 
   @ApiProperty({ example: 'contact@globalsupplies.com' })
   @IsNotEmpty()

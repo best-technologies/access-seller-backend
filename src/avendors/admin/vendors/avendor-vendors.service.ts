@@ -66,6 +66,14 @@ export class AvendorVendorsService {
     this.logger.log(colors.blue(`Creating vendor name="${dto.name}"`));
     await this.assertCanEditVendors(caller);
 
+    const firstName = (dto.user?.first_name ?? dto.first_name)?.trim() ?? '';
+    const lastName = (dto.user?.last_name ?? dto.last_name)?.trim() ?? '';
+    if (!firstName || !lastName) {
+      throw new BadRequestException(
+        'Provide the portal contact with `user: { first_name, last_name }` or top-level `first_name` and `last_name`.',
+      );
+    }
+
     const email = dto.email.trim().toLowerCase();
     const existingBefore = await this.prisma.user.findUnique({ where: { email } });
     const username = await this.resolveVendorPortalUsername(dto, existingBefore);
@@ -111,8 +119,8 @@ export class AvendorVendorsService {
           const updated = await tx.user.update({
             where: { id: existing.id },
             data: {
-              first_name: dto.user.first_name.trim(),
-              last_name: dto.user.last_name.trim(),
+              first_name: firstName,
+              last_name: lastName,
               is_a_vendor: true,
               avendorVendorId: createdVendor.id,
               allowedPlatformsForUser: Array.from(merged),
@@ -139,8 +147,8 @@ export class AvendorVendorsService {
 
         const createdUser = await tx.user.create({
           data: {
-            first_name: dto.user.first_name.trim(),
-            last_name: dto.user.last_name.trim(),
+            first_name: firstName,
+            last_name: lastName,
             email,
             password: hashedPassword,
             phone_number: dto.phone?.trim() || null,
@@ -193,9 +201,9 @@ export class AvendorVendorsService {
   }
 
   private parseCreateVendorUsername(
-    user: CreateVendorDto['user'] | undefined,
+    rawUsername: string | undefined,
   ): string | undefined {
-    const u = normalizeUsernameInput(user?.username);
+    const u = normalizeUsernameInput(rawUsername);
     if (u === undefined) return undefined;
     if (!USERNAME_REGEX.test(u)) {
       throw new BadRequestException(USERNAME_VALIDATION_MESSAGE);
@@ -211,7 +219,9 @@ export class AvendorVendorsService {
     dto: CreateVendorDto,
     existingUser: { id: string; username: string | null } | null,
   ): Promise<string> {
-    const explicit = this.parseCreateVendorUsername(dto.user);
+    const explicit = this.parseCreateVendorUsername(
+      dto.user?.username ?? dto.username,
+    );
     if (explicit) {
       await ensureUsernameAvailable(this.prisma, explicit, existingUser?.id);
       return explicit;

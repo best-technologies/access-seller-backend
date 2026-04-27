@@ -76,7 +76,12 @@ const PortalUserSummarySchema = {
     email: { type: 'string' },
     first_name: { type: 'string' },
     last_name: { type: 'string' },
-    username: { type: 'string', nullable: true },
+    username: {
+      type: 'string',
+      nullable: true,
+      example: 'avd-2026-013',
+      description: 'Login handle; may be client-set or server-assigned (avd-YYYY-NNN).',
+    },
   },
 };
 
@@ -107,9 +112,9 @@ const VendorCreatedDataSchema = {
 /** OpenAPI request examples for POST /avendor/vendors (see CreateVendorDto). */
 export const CreateVendorRequestExamples = {
   newContact: {
-    summary: 'New email — creates User',
+    summary: 'New email — creates User (nested contact)',
     description:
-      'Response includes defaultPassword and linkedExistingUser: false.',
+      'Response includes defaultPassword and linkedExistingUser: false. Omit user.username to receive an auto-assigned avd-YYYY-NNN handle.',
     value: {
       name: 'Global Supplies Ltd',
       email: 'contact@globalsupplies.com',
@@ -138,6 +143,36 @@ export const CreateVendorRequestExamples = {
       },
       phone: '+2348161252897',
       city: 'Lagos',
+      country: 'Nigeria',
+      status: 'active',
+    },
+  },
+  flatContactNames: {
+    summary: 'Flat contact fields (no nested `user`)',
+    description:
+      'Same outcome as `newContact` when the client only sends first_name and last_name at the root. Optional root `username` is allowed.',
+    value: {
+      name: 'Global Supplies Ltd',
+      email: 'contact@globalsupplies.com',
+      first_name: 'Chioma',
+      last_name: 'Adeyemi',
+      phone: '+2348161252897',
+      country: 'Nigeria',
+      status: 'active',
+    },
+  },
+  nestedWithExplicitUsername: {
+    summary: 'Nested user with explicit username',
+    description:
+      'When you set user.username, it must match validation rules; otherwise omit for server assignment.',
+    value: {
+      name: 'Global Supplies Ltd',
+      email: 'contact@globalsupplies.com',
+      user: {
+        first_name: 'Chioma',
+        last_name: 'Adeyemi',
+        username: 'avd-2026-014',
+      },
       country: 'Nigeria',
       status: 'active',
     },
