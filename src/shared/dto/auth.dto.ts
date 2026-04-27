@@ -1,6 +1,6 @@
 import { IsNotEmpty, IsString, IsArray, IsEmail, IsOptional, Matches } from "class-validator";
 import { Transform } from "class-transformer";
-import { USERNAME_REGEX } from "src/shared/utils/username.util";
+import { USERNAME_REGEX, USERNAME_VALIDATION_MESSAGE } from "src/shared/utils/username.util";
 import { string } from "joi";
 
 export class OnboardSchoolDto {
@@ -69,7 +69,7 @@ export class RegisterDto {
     @IsOptional()
     @IsString()
     @Matches(USERNAME_REGEX, {
-        message: 'Username must be 3–30 characters: lowercase letters, numbers, underscore only',
+        message: USERNAME_VALIDATION_MESSAGE,
     })
     username?: string
 

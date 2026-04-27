@@ -59,7 +59,7 @@ export class VendorController {
         },
         username: {
           type: 'string',
-          description: 'Optional unique handle (3–30 chars: a-z, 0-9, _)',
+          description: 'Optional unique handle (3–30 chars: a-z, 0-9, _, -)',
         },
         allowed_platforms: {
           type: 'string',

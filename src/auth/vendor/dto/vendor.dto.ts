@@ -14,7 +14,10 @@ import {
   ALLOWED_PLATFORM_API_VALUES,
   type AllowedPlatformApiValue,
 } from 'src/shared/constants/admin-platform-access.constants';
-import { USERNAME_REGEX } from 'src/shared/utils/username.util';
+import {
+  USERNAME_REGEX,
+  USERNAME_VALIDATION_MESSAGE,
+} from 'src/shared/utils/username.util';
 
 export class OnboardVendorAdminDto {
   @ApiProperty()
@@ -33,7 +36,7 @@ export class OnboardVendorAdminDto {
   email: string;
 
   @ApiPropertyOptional({
-    description: 'Unique handle (lowercase, 3–30 chars: letters, numbers, underscore).',
+    description: 'Unique handle (lowercase, 3–30 chars: letters, numbers, underscore, hyphen).',
   })
   @Transform(({ value }) =>
     value === '' || value === undefined || value === null
@@ -43,8 +46,7 @@ export class OnboardVendorAdminDto {
   @IsOptional()
   @IsString()
   @Matches(USERNAME_REGEX, {
-    message:
-      'Username must be 3–30 characters: lowercase letters, numbers, underscore only',
+    message: USERNAME_VALIDATION_MESSAGE,
   })
   username?: string;
 

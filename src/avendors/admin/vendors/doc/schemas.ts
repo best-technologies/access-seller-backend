@@ -116,7 +116,6 @@ export const CreateVendorRequestExamples = {
       user: {
         first_name: 'Chioma',
         last_name: 'Adeyemi',
-        username: 'chioma_ade',
       },
       phone: '+2348161252897',
       industry: 'Industrial Equipment',

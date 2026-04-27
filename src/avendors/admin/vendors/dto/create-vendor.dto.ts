@@ -11,7 +11,10 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { AvendorVendorStatus } from '@prisma/client';
-import { USERNAME_REGEX } from 'src/shared/utils/username.util';
+import {
+  USERNAME_REGEX,
+  USERNAME_VALIDATION_MESSAGE,
+} from 'src/shared/utils/username.util';
 
 /** Portal login user — same name fields as `User`. */
 export class CreateVendorPortalUserDto {
@@ -29,7 +32,7 @@ export class CreateVendorPortalUserDto {
 
   @ApiPropertyOptional({
     description:
-      'Optional unique login handle (3–30 chars: lowercase letters, numbers, underscore).',
+      'Optional unique login handle (3–30 chars: lowercase letters, numbers, underscore, hyphen). If omitted, the server assigns a unique handle in the form avd-YYYY-NNN (e.g. avd-2026-013).',
   })
   @Transform(({ value }) =>
     value === '' || value === undefined || value === null
@@ -39,8 +42,7 @@ export class CreateVendorPortalUserDto {
   @IsOptional()
   @IsString()
   @Matches(USERNAME_REGEX, {
-    message:
-      'Username must be 3–30 characters: lowercase letters, numbers, underscore only',
+    message: USERNAME_VALIDATION_MESSAGE,
   })
   username?: string;
 }

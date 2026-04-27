@@ -24,6 +24,7 @@ import {
   ensureUsernameAvailable,
   normalizeUsernameInput,
   USERNAME_REGEX,
+  USERNAME_VALIDATION_MESSAGE,
 } from 'src/shared/utils/username.util';
 import * as colors from 'colors';
 
@@ -201,9 +202,7 @@ export class VendorService {
     const u = normalizeUsernameInput(dto.username);
     if (u !== undefined && !USERNAME_REGEX.test(u)) {
       this.logger.warn(colors.yellow(`Invalid username: ${u}`));
-      throw new BadRequestException(
-        'Username must be 3–30 characters: lowercase letters, numbers, underscore only',
-      );
+      throw new BadRequestException(USERNAME_VALIDATION_MESSAGE);
     }
     return u;
   }

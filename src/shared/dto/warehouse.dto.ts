@@ -7,7 +7,10 @@ import {
   Matches,
   MinLength,
 } from 'class-validator';
-import { USERNAME_REGEX } from 'src/shared/utils/username.util';
+import {
+  USERNAME_REGEX,
+  USERNAME_VALIDATION_MESSAGE,
+} from 'src/shared/utils/username.util';
 
 export class OnboardWarehouseAdminDTO {
   @IsNotEmpty()
@@ -30,8 +33,7 @@ export class OnboardWarehouseAdminDTO {
   @IsOptional()
   @IsString()
   @Matches(USERNAME_REGEX, {
-    message:
-      'Username must be 3–30 characters: lowercase letters, numbers, underscore only',
+    message: USERNAME_VALIDATION_MESSAGE,
   })
   username?: string;
 

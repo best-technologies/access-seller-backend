@@ -19,6 +19,7 @@ import {
     ensureUsernameAvailable,
     normalizeUsernameInput,
     USERNAME_REGEX,
+    USERNAME_VALIDATION_MESSAGE,
 } from 'src/shared/utils/username.util';
 
 
@@ -373,9 +374,7 @@ export class AuthService {
 
             const username = normalizeUsernameInput(payload.username);
             if (username !== undefined && !USERNAME_REGEX.test(username)) {
-                throw new BadRequestException(
-                    'Username must be 3–30 characters: lowercase letters, numbers, underscore only',
-                );
+                throw new BadRequestException(USERNAME_VALIDATION_MESSAGE);
             }
             await ensureUsernameAvailable(this.prisma, username);
 

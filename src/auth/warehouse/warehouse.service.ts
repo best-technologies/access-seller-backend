@@ -12,6 +12,7 @@ import {
   ensureUsernameAvailable,
   normalizeUsernameInput,
   USERNAME_REGEX,
+  USERNAME_VALIDATION_MESSAGE,
 } from 'src/shared/utils/username.util';
 
 @Injectable()
@@ -122,9 +123,7 @@ export class WarehouseService {
   private parseWarehouseUsername(dto: OnboardWarehouseAdminDTO): string | undefined {
     const u = normalizeUsernameInput(dto.username);
     if (u !== undefined && !USERNAME_REGEX.test(u)) {
-      throw new BadRequestException(
-        'Username must be 3–30 characters: lowercase letters, numbers, underscore only',
-      );
+      throw new BadRequestException(USERNAME_VALIDATION_MESSAGE);
     }
     return u;
   }

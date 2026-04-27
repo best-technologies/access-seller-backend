@@ -32,9 +32,11 @@ import {
   resolveAvendorVendorDbId,
 } from '../../shared/utils/avendor-vendor-id.util';
 import {
+  allocateUniqueUsernameFromEmail,
   ensureUsernameAvailable,
   normalizeUsernameInput,
   USERNAME_REGEX,
+  USERNAME_VALIDATION_MESSAGE,
 } from 'src/shared/utils/username.util';
 import * as colors from 'colors';
 
@@ -65,10 +67,8 @@ export class AvendorVendorsService {
     await this.assertCanEditVendors(caller);
 
     const email = dto.email.trim().toLowerCase();
-    const username = this.parseCreateVendorUsername(dto.user);
-
     const existingBefore = await this.prisma.user.findUnique({ where: { email } });
-    await ensureUsernameAvailable(this.prisma, username, existingBefore?.id);
+    const username = await this.resolveVendorPortalUsername(dto, existingBefore);
 
     const vendorCode = await generateUniqueAvendorVendorCode(this.prisma);
     const hashedPassword = await argon.hash(DEFAULT_AVENDOR_ADMIN_PASSWORD);
@@ -120,7 +120,7 @@ export class AvendorVendorsService {
                 dto.phone !== undefined
                   ? dto.phone?.trim() || null
                   : existing.phone_number,
-              ...(username !== undefined ? { username } : {}),
+              username,
             },
             select: {
               id: true,
@@ -149,7 +149,7 @@ export class AvendorVendorsService {
             is_a_vendor: true,
             avendorVendorId: createdVendor.id,
             allowedPlatformsForUser: [AllowedPlatformTypeForAdmin.avendor],
-            ...(username !== undefined ? { username } : {}),
+            username,
           },
           select: {
             id: true,
@@ -193,16 +193,37 @@ export class AvendorVendorsService {
   }
 
   private parseCreateVendorUsername(
-    user: CreateVendorDto['user'],
+    user: CreateVendorDto['user'] | undefined,
   ): string | undefined {
-    const u = normalizeUsernameInput(user.username);
+    const u = normalizeUsernameInput(user?.username);
     if (u === undefined) return undefined;
     if (!USERNAME_REGEX.test(u)) {
-      throw new BadRequestException(
-        'Username must be 3–30 characters: lowercase letters, numbers, underscore only',
-      );
+      throw new BadRequestException(USERNAME_VALIDATION_MESSAGE);
     }
     return u;
+  }
+
+  /**
+   * Uses an explicit `user.username` when provided; otherwise reuses the existing
+   * user’s handle or allocates a unique one from the contact email (no frontend value required).
+   */
+  private async resolveVendorPortalUsername(
+    dto: CreateVendorDto,
+    existingUser: { id: string; username: string | null } | null,
+  ): Promise<string> {
+    const explicit = this.parseCreateVendorUsername(dto.user);
+    if (explicit) {
+      await ensureUsernameAvailable(this.prisma, explicit, existingUser?.id);
+      return explicit;
+    }
+    if (existingUser?.username) {
+      return existingUser.username;
+    }
+    return allocateUniqueUsernameFromEmail(
+      this.prisma,
+      dto.email.trim().toLowerCase(),
+      existingUser?.id,
+    );
   }
 
   async listVendors(query: ListVendorsQueryDto, caller: AvendorVendorCaller) {
