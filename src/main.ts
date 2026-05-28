@@ -139,69 +139,69 @@ async function bootstrap() {
    */
   // Cron job setup
   if (process.env.CRON_ENV === 'production' || process.env.NODE_ENV === "production") {
-    cron.schedule('*/9 * * * *', async () => { // Run every 9 minutes
-      // Wrap entire cron execution in try-catch to catch ANY errors
-      try {
-        logger.log('Running health check cron job...'); 
-        const url = 'https://access-seller-prod.onrender.com/api/v1/hello';
-        const timestamp = new Date().toLocaleString('en-NG', {
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit',
-          second: '2-digit'
-        });
+    // cron.schedule('*/9 * * * *', async () => { // Run every 9 minutes
+    //   // Wrap entire cron execution in try-catch to catch ANY errors
+    //   try {
+    //     logger.log('Running health check cron job...'); 
+    //     const url = 'https://access-seller-prod.onrender.com/api/v1/hello';
+    //     const timestamp = new Date().toLocaleString('en-NG', {
+    //       year: 'numeric',
+    //       month: 'long',
+    //       day: 'numeric',
+    //       hour: '2-digit',
+    //       minute: '2-digit',
+    //       second: '2-digit'
+    //     });
 
-        try {
-          const response = await axios.get(url, {
-            timeout: 10000, // 10 second timeout
-          });
-          logger.log(`✅ Health check successful: ${JSON.stringify(response.data)}`);
-        } catch (err: any) {
-          // Health check ping failed
-          const errorMessage = err.message || 'Unknown error occurred';
-          const errorDetails = err.response 
-            ? `Status: ${err.response.status}, Data: ${JSON.stringify(err.response.data)}`
-            : err.stack || 'No additional details available';
+    //     try {
+    //       const response = await axios.get(url, {
+    //         timeout: 10000, // 10 second timeout
+    //       });
+    //       logger.log(`✅ Health check successful: ${JSON.stringify(response.data)}`);
+    //     } catch (err: any) {
+    //       // Health check ping failed
+    //       const errorMessage = err.message || 'Unknown error occurred';
+    //       const errorDetails = err.response 
+    //         ? `Status: ${err.response.status}, Data: ${JSON.stringify(err.response.data)}`
+    //         : err.stack || 'No additional details available';
 
-          logger.error(`❌ Health check failed: ${errorMessage}`);
+    //       logger.error(`❌ Health check failed: ${errorMessage}`);
           
-          // Send email to all admins
-          await sendCronErrorNotification(
-            prismaService,
-            errorMessage,
-            errorDetails,
-            url,
-            timestamp
-          );
-        }
-      } catch (cronError: any) {
-        // Cron job itself failed (before or during execution)
-        const errorMessage = `Cron service execution error: ${cronError.message || 'Unknown error'}`;
-        const errorDetails = cronError.stack || 'Cron job failed to execute properly';
-        const timestamp = new Date().toLocaleString('en-NG', {
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit',
-          second: '2-digit'
-        });
-        const url = 'https://access-seller-prod.onrender.com/api/v1/hello';
+    //       // Send email to all admins
+    //       await sendCronErrorNotification(
+    //         prismaService,
+    //         errorMessage,
+    //         errorDetails,
+    //         url,
+    //         timestamp
+    //       );
+    //     }
+    //   } catch (cronError: any) {
+    //     // Cron job itself failed (before or during execution)
+    //     const errorMessage = `Cron service execution error: ${cronError.message || 'Unknown error'}`;
+    //     const errorDetails = cronError.stack || 'Cron job failed to execute properly';
+    //     const timestamp = new Date().toLocaleString('en-NG', {
+    //       year: 'numeric',
+    //       month: 'long',
+    //       day: 'numeric',
+    //       hour: '2-digit',
+    //       minute: '2-digit',
+    //       second: '2-digit'
+    //     });
+    //     const url = 'https://access-seller-prod.onrender.com/api/v1/hello';
 
-        logger.error(`💥 CRITICAL: Cron job execution failed: ${errorMessage}`);
+    //     logger.error(`💥 CRITICAL: Cron job execution failed: ${errorMessage}`);
         
-        // Try to send error notification even if cron itself failed
-        await sendCronErrorNotification(
-          prismaService,
-          errorMessage,
-          errorDetails,
-          url,
-          timestamp
-        );
-      }
-    });
+    //     // Try to send error notification even if cron itself failed
+    //     await sendCronErrorNotification(
+    //       prismaService,
+    //       errorMessage,
+    //       errorDetails,
+    //       url,
+    //       timestamp
+    //     );
+    //   }
+    // });
   }
 }
 bootstrap();
