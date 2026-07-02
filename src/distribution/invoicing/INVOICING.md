@@ -70,6 +70,7 @@ POST /distribution/invoicing
   "customerCompany": "Acme Corporation",
   "issueDate": "2025-02-15",
   "dueDate": "2025-03-15",
+  "taxRate": 7.5,
   "taxAmount": 0,
   "paymentTerms": "Net 30",
   "notes": "Optional notes",
@@ -102,7 +103,8 @@ POST /distribution/invoicing
 | issueDate | string | yes | ISO date |
 | dueDate | string | no | ISO date |
 | status | string | no | draft \| issued \| partial \| paid \| overdue \| cancelled (default: **issued**) |
-| taxAmount | number | no | Tax amount |
+| taxRate | number | no | Tax rate percentage (0–100). Defaults to **7.5** when omitted. |
+| taxAmount | number | no | Tax amount (must match computed value when `taxRate` is sent) |
 | paymentTerms | string | no | Payment terms |
 | notes | string | no | Notes |
 | companyAddress | string | no | Default: `121/123, Obafemi Awolowo Way, Oke-Ado, Ibadan` |
@@ -367,7 +369,8 @@ GET /distribution/invoicing/:id
     "dueDate": "string | null",
     "status": "string",
     "subtotal": 0,
-    "taxAmount": 0,
+    "taxRate": 7.5,
+  "taxAmount": 0,
     "totalAmount": 0,
     "amountPaid": 0,
     "balanceDue": 0,

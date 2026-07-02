@@ -213,7 +213,9 @@ export class InvoicePdfService {
     y += 18;
 
     if (invoice.taxAmount != null && invoice.taxAmount > 0) {
-      doc.text('Tax', totLeft, y, { width: totLabelWidth });
+      const taxLabel =
+        invoice.taxRate != null ? `Tax (${invoice.taxRate}%)` : 'Tax';
+      doc.text(taxLabel, totLeft, y, { width: totLabelWidth });
       doc.text(this.formatMoney(invoice.taxAmount), totValueLeft, y, totValueOpts);
       y += 18;
     }

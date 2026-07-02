@@ -14,6 +14,10 @@ import { RecordPaymentDto } from './dto/record-payment.dto';
 import { UpdateInvoiceDto } from './dto/update-invoice.dto';
 import { CreateDeliveryNoteDto } from './dto/create-delivery-note.dto';
 import { UpdateDeliveryNoteDto } from './dto/update-delivery-note.dto';
+import {
+  resolveInvoiceTax,
+  roundMoney,
+} from './utils/invoice-tax';
 import * as colors from 'colors';
 
 const DEFAULT_COMPANY_ADDRESS = '121/123, Obafemi Awolowo Way, Oke-Ado, Ibadan';
@@ -175,12 +179,28 @@ export class InvoicingService {
       }
     }
 
-    const subtotal = dto.items.reduce(
-      (sum, i) => sum + (i.totalAmount ?? i.quantity * i.unitPrice),
-      0,
+    const subtotal = roundMoney(
+      dto.items.reduce(
+        (sum, i) => sum + (i.totalAmount ?? i.quantity * i.unitPrice),
+        0,
+      ),
     );
-    const taxAmount = dto.taxAmount ?? 0;
-    const totalAmount = subtotal + taxAmount;
+
+    let taxRate: number | null;
+    let taxAmount: number;
+    try {
+      ({ taxRate, taxAmount } = resolveInvoiceTax(
+        subtotal,
+        dto.taxRate,
+        dto.taxAmount,
+      ));
+    } catch (error) {
+      throw new BadRequestException(
+        error instanceof Error ? error.message : 'Invalid tax values',
+      );
+    }
+
+    const totalAmount = roundMoney(subtotal + taxAmount);
     // New invoices start as payment pending – no payment received, no stock reduction
     const amountPaid = 0;
     const balanceDue = totalAmount;
@@ -214,6 +234,7 @@ export class InvoicingService {
         dueDate: dto.dueDate ? new Date(dto.dueDate) : null,
         status: (dto.status as InvoiceStatus) ?? InvoiceStatus.issued,
         subtotal,
+        taxRate,
         taxAmount,
         totalAmount,
         amountPaid,

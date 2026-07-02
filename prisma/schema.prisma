@@ -1637,6 +1637,7 @@ model Invoice {
   dueDate          DateTime?
   status           InvoiceStatus @default(draft)
   subtotal         Float         @default(0)
+  taxRate          Float? // Percentage applied at creation, e.g. 7.5 or 0
   taxAmount        Float?        @default(0)
   totalAmount      Float         @default(0)
   amountPaid       Float         @default(0)
